@@ -38,12 +38,17 @@
  * (regardless of its useAgdai setting — useful for one-off regeneration).
  */
 
-import { readFile, writeFile, readdir, mkdir } from 'node:fs/promises'
+import { readFile, writeFile, readdir, mkdir, rm } from 'node:fs/promises'
+import { readFileSync } from 'node:fs'
 import { dirname, join, relative, sep } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { spawn } from 'node:child_process'
 import { cpus } from 'node:os'
-import { getLocalLibraries } from './resolve-deploy-config.mjs'
+import { randomBytes } from 'node:crypto'
+import { getLocalLibraries, REPO_ROOT } from './resolve-deploy-config.mjs'
 import { parseAgdaLibInclude } from './agda-lib-utils.mjs'
+
+const DEPLOY_ASSETS = dirname(fileURLToPath(import.meta.url))
 
 // Every extension agda's own lexer recognizes (`.agda` plus every literate
 // variant) — confirmed empirically that `import` resolution searches all of
@@ -55,10 +60,11 @@ const AGDA_FILE_EXTENSIONS = [
 ]
 
 function parseArgs(argv) {
-  const args = { library: null, agdaBin: 'agda' }
+  const args = { library: null, agdaBin: 'agda', wasm: null }
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--library') args.library = argv[++i]
     else if (argv[i] === '--agda-bin') args.agdaBin = argv[++i]
+    else if (argv[i] === '--wasm') args.wasm = argv[++i]
     else throw new Error(`unknown argument: ${argv[i]}`)
   }
   return args
@@ -101,6 +107,187 @@ async function runPool(tasks, limit) {
   await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, worker))
   return results
 }
+
+// ── WASM pool for Cmd_tokenHighlighting ──────────────────────────────────────
+
+async function makeWasmWorkerScript(srcDir, agdaDataDir, wasmPath) {
+  const path = join(DEPLOY_ASSETS, '.wasm-worker-' + randomBytes(4).toString('hex') + '.mjs')
+  await writeFile(path, `
+import { readFile } from 'node:fs/promises'
+import { WASI } from 'node:wasi'
+const [,,srcDir, agdaDataDir, wasmPath] = process.argv
+const wasi = new WASI({
+  version: 'preview1', args: ['als', '--raw'],
+  env: { HOME: '/home/root', Agda_datadir: '/agda-data' },
+  preopens: { '/src': srcDir, '/agda-data': agdaDataDir },
+})
+const buf = await readFile(wasmPath)
+const mod = await WebAssembly.compile(buf)
+const inst = await WebAssembly.instantiate(mod, wasi.getImportObject())
+try { wasi.start(inst) } catch(e) { if (!String(e).includes('exit')) throw e }
+`)
+  return path
+}
+
+function createHighlightingClient(workerScript, srcDir, agdaDataDir, wasmPath) {
+  const child = spawn(process.execPath, [workerScript, srcDir, agdaDataDir, wasmPath], {
+    stdio: ['pipe', 'pipe', 'pipe'],
+  })
+  child.stderr.on('data', d => {
+    const s = d.toString()
+    if (!s.includes('ExperimentalWarning') && !s.includes('[Info]') && !s.includes('[Debug]') && !s.includes('[Warning]'))
+      process.stderr.write(s)
+  })
+
+  let nextId = 1
+  const send = obj => {
+    const body = JSON.stringify({ jsonrpc: '2.0', ...obj })
+    child.stdin.write(`Content-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}`)
+  }
+
+  let inBuf = ''
+  let initResolve = null
+  let pendingPayload = null
+  let pendingEndResolve = null
+  const initId = nextId++
+  const initDone = new Promise(r => { initResolve = r })
+
+  child.stdout.on('data', d => {
+    inBuf += d.toString()
+    for (;;) {
+      const m = inBuf.match(/Content-Length: (\d+)\r\n\r\n/)
+      if (!m) break
+      const len = parseInt(m[1])
+      const start = m.index + m[0].length
+      if (inBuf.length < start + len) break
+      const body = inBuf.slice(start, start + len)
+      inBuf = inBuf.slice(start + len)
+      try {
+        const msg = JSON.parse(body)
+        if (msg.id === initId && msg.result != null && initResolve) {
+          initResolve(); initResolve = null
+        }
+        if (msg.method === 'agda' && msg.id != null) {
+          const { tag, contents } = msg.params ?? {}
+          if (tag === 'ResponseJSONRaw' &&
+              contents?.kind === 'HighlightingInfo' &&
+              contents?.info?.payload) {
+            pendingPayload = contents.info.payload
+          }
+          send({ id: msg.id, result: null })
+          if (tag === 'ResponseEnd' && pendingEndResolve) {
+            const resolve = pendingEndResolve
+            const payload = pendingPayload ?? []
+            pendingPayload = null
+            pendingEndResolve = null
+            resolve(payload)
+          }
+        }
+      } catch {}
+    }
+  })
+
+  send({ id: initId, method: 'initialize', params: { processId: null, rootUri: null, capabilities: {} } })
+
+  const ready = initDone.then(() => {
+    send({ method: 'initialized', params: {} })
+  })
+
+  const highlight = vfsPath => new Promise((resolve, reject) => {
+    pendingEndResolve = resolve
+    send({ id: nextId++, method: 'agda', params: {
+      tag: 'CmdReq',
+      contents: `IOTCM ${JSON.stringify(vfsPath)} NonInteractive Direct (Cmd_tokenHighlighting ${JSON.stringify(vfsPath)} Keep)`,
+    }})
+    setTimeout(() => reject(new Error(`timeout: ${vfsPath}`)), 60_000)
+  })
+
+  return { ready, highlight, kill: () => child.kill() }
+}
+
+async function createWasmPool(alsName, srcDir) {
+  const alsDir = join(REPO_ROOT, 'deploy-assets', '.als', alsName)
+  let info
+  try {
+    info = JSON.parse(readFileSync(join(alsDir, 'als-info.json'), 'utf8'))
+  } catch {
+    throw new Error(`ALS "${alsName}" not found or missing als-info.json — run \`npm run install-als\` first`)
+  }
+  const wasmPath = join(alsDir, info.wasmFilename)
+  const agdaDataDir = join(alsDir, 'agda-data')
+  const workerScript = await makeWasmWorkerScript(srcDir, agdaDataDir, wasmPath)
+  const size = cpus().length
+  const clients = Array.from({ length: size }, () =>
+    createHighlightingClient(workerScript, srcDir, agdaDataDir, wasmPath)
+  )
+  await Promise.all(clients.map(c => c.ready))
+  return {
+    clients,
+    destroy: async () => {
+      clients.forEach(c => c.kill())
+      await rm(workerScript, { force: true })
+    },
+  }
+}
+
+// ── WASM highlighting helpers ─────────────────────────────────────────────────
+
+async function extractImportsWasm(absPath, vfsPath, client) {
+  const src = await readFile(absPath, 'utf8')
+  const chars = [...src]
+  const payload = await client.highlight(vfsPath)
+  for (const { atoms, range } of payload) {
+    if (atoms.includes('keyword')) continue
+    const [start, end] = range
+    for (let i = start - 1; i < end - 1; i++) chars[i] = ' '
+  }
+  const cleaned = chars.join('')
+  const found = new Set()
+  for (const m of cleaned.matchAll(IMPORT_RE)) found.add(m[1])
+  return [...found]
+}
+
+export async function buildGraphWasm(lib, alsName) {
+  const agdaLibSrc = await readFile(lib.agdaLibPath, 'utf8')
+  const include = parseAgdaLibInclude(agdaLibSrc)
+  const libRoot = dirname(lib.agdaLibPath)
+  const includeDir = include ? join(libRoot, include) : libRoot
+
+  const agdaFiles = (await findAgdaFiles(includeDir)).sort()
+  const poolSize = cpus().length
+  console.log(`[${lib.name}] extracting imports from ${agdaFiles.length} files (ALS WASM ${alsName}, ${poolSize}-way parallel)...`)
+
+  const pool = await createWasmPool(alsName, includeDir)
+  const graph = {}
+  try {
+    let next = 0
+    await Promise.all(pool.clients.map(async client => {
+      while (next < agdaFiles.length) {
+        const i = next++
+        const absPath = agdaFiles[i]
+        const ext = matchAgdaExtension(absPath)
+        const mod = pathToModuleName(absPath, includeDir, ext)
+        const vfsPath = '/src/' + relative(includeDir, absPath).split(sep).join('/')
+        const imports = await extractImportsWasm(absPath, vfsPath, client)
+        graph[mod] = imports.filter(d => !isExcluded(d))
+      }
+    }))
+  } finally {
+    await pool.destroy()
+  }
+  return graph
+}
+
+export async function processLibraryWasm(lib, alsName) {
+  const graph = await buildGraphWasm(lib, alsName)
+  await mkdir(lib.cacheDir, { recursive: true })
+  const json = JSON.stringify({ graph })
+  const manifestPath = join(lib.cacheDir, 'agdai-manifest.json')
+  await writeFile(manifestPath, json)
+  console.log(`[${lib.name}] wrote ${Object.keys(graph).length} modules, ${(json.length / 1024).toFixed(0)} KB to .cache/${lib.cacheId}/agdai-manifest.json`)
+}
+
+// ── Native agda highlighting ──────────────────────────────────────────────────
 
 /** @returns {Promise<{ atoms: string[], range: [number, number] }[]>} */
 function getHighlightingPayload(absPath, agdaBin) {
@@ -205,7 +392,11 @@ async function main() {
   }
 
   for (const lib of libs) {
-    await processLibrary(lib, args.agdaBin)
+    if (args.wasm) {
+      await processLibraryWasm(lib, args.wasm)
+    } else {
+      await processLibrary(lib, args.agdaBin)
+    }
   }
   console.log('Run `npm run setup` to copy manifests into static/.')
 }

@@ -18,19 +18,26 @@
  */
 
 import { readFile, writeFile, access, mkdir, cp, rm } from 'node:fs/promises'
+import { readFileSync } from 'node:fs'
 import { dirname, join, sep } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { spawn, spawnSync } from 'node:child_process'
+import { randomBytes } from 'node:crypto'
 import { getLocalLibraries } from './resolve-deploy-config.mjs'
 import { parseAgdaLibInclude } from './agda-lib-utils.mjs'
-import { buildGraph, processLibrary as generateManifest } from './generate-manifest.mjs'
+import { buildGraph, processLibrary as generateManifest, buildGraphWasm, processLibraryWasm } from './generate-manifest.mjs'
+
+const DEPLOY_ASSETS = dirname(fileURLToPath(import.meta.url))
 
 function parseArgs(argv) {
-  const args = { library: null, agdaBin: 'agda' }
+  const args = { library: null, agdaBin: 'agda', wasm: null }
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--library') {
       args.library = argv[++i]
     } else if (argv[i] === '--agda-bin') {
       args.agdaBin = argv[++i]
+    } else if (argv[i] === '--wasm') {
+      args.wasm = argv[++i]
     } else {
       console.error(`unknown argument: ${argv[i]}`)
       process.exit(1)
@@ -129,6 +136,148 @@ async function buildWithCmdLoad(lib, agdaBin, graph, includeDir, libraryFile) {
   console.log(`[${lib.name}] Cmd_load done: ${sourceVertices.length} vertices, ${((performance.now() - t0) / 1000).toFixed(1)}s`)
 }
 
+async function buildWithCmdLoadWasm(lib, alsName, graph) {
+  const alsDir = join(DEPLOY_ASSETS, '.als', alsName)
+  let info
+  try {
+    info = JSON.parse(readFileSync(join(alsDir, 'als-info.json'), 'utf8'))
+  } catch {
+    throw new Error(`ALS "${alsName}" not found or missing als-info.json — run \`npm run install-als\` first`)
+  }
+  const wasmPath = join(alsDir, info.wasmFilename)
+  const agdaDataDir = join(alsDir, 'agda-data')
+
+  const agdaLibSrc = await readFile(lib.agdaLibPath, 'utf8')
+  const include = parseAgdaLibInclude(agdaLibSrc)
+  const libSrcRoot = dirname(lib.agdaLibPath)
+
+  // Build VFS preopen map: main lib at /lib/, dependencies at /dep0/, /dep1/, ...
+  const preopens = { '/lib': libSrcRoot, '/agda-data': agdaDataDir }
+  const vfsIncludeDirs = [include ? `/lib/${include}` : '/lib']
+  let depIdx = 0
+  for (const depLib of getLocalLibraries()) {
+    if (depLib.agdaLibPath === lib.agdaLibPath) continue
+    const depSrc = await readFile(depLib.agdaLibPath, 'utf8')
+    const depInclude = parseAgdaLibInclude(depSrc)
+    const depRoot = dirname(depLib.agdaLibPath)
+    const vfsDepRoot = `/dep${depIdx++}`
+    preopens[vfsDepRoot] = depRoot
+    vfsIncludeDirs.push(depInclude ? `${vfsDepRoot}/${depInclude}` : vfsDepRoot)
+  }
+
+  const workerScript = join(DEPLOY_ASSETS, `.wasm-cmdload-${randomBytes(4).toString('hex')}.mjs`)
+  await writeFile(workerScript, `
+import { readFile } from 'node:fs/promises'
+import { WASI } from 'node:wasi'
+const cfg = JSON.parse(process.argv[2])
+const wasi = new WASI({
+  version: 'preview1', args: ['als', '--raw'],
+  env: { HOME: '/home/root', Agda_datadir: '/agda-data' },
+  preopens: cfg.preopens,
+})
+const buf = await readFile(cfg.wasmPath)
+const mod = await WebAssembly.compile(buf)
+const inst = await WebAssembly.instantiate(mod, wasi.getImportObject())
+try { wasi.start(inst) } catch(e) { if (!String(e).includes('exit')) throw e }
+`)
+
+  const child = spawn(process.execPath, [
+    workerScript, JSON.stringify({ preopens, wasmPath }),
+  ], { stdio: ['pipe', 'pipe', 'pipe'] })
+
+  child.stderr.on('data', d => {
+    const s = d.toString()
+    if (!s.includes('ExperimentalWarning') && !s.includes('[Info]') && !s.includes('[Debug]') && !s.includes('[Warning]'))
+      process.stderr.write(s)
+  })
+
+  let nextId = 1
+  const send = obj => {
+    const body = JSON.stringify({ jsonrpc: '2.0', ...obj })
+    child.stdin.write(`Content-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}`)
+  }
+
+  let inBuf = ''
+  let initResolve = null
+  let pendingEndResolve = null
+  let pendingHasError = false
+  const initId = nextId++
+  const initDone = new Promise(r => { initResolve = r })
+
+  child.stdout.on('data', d => {
+    inBuf += d.toString()
+    for (;;) {
+      const m = inBuf.match(/Content-Length: (\d+)\r\n\r\n/)
+      if (!m) break
+      const len = parseInt(m[1])
+      const start = m.index + m[0].length
+      if (inBuf.length < start + len) break
+      const body = inBuf.slice(start, start + len)
+      inBuf = inBuf.slice(start + len)
+      try {
+        const msg = JSON.parse(body)
+        if (msg.id === initId && msg.result != null && initResolve) {
+          initResolve(); initResolve = null
+        }
+        if (msg.method === 'agda' && msg.id != null) {
+          const { tag, contents } = msg.params ?? {}
+          if (tag === 'ResponseJSONRaw' && contents?.kind === 'Error') pendingHasError = true
+          send({ id: msg.id, result: null })
+          if (tag === 'ResponseEnd' && pendingEndResolve) {
+            const resolve = pendingEndResolve
+            const hasError = pendingHasError
+            pendingEndResolve = null
+            pendingHasError = false
+            resolve(hasError)
+          }
+        }
+      } catch {}
+    }
+  })
+
+  send({ id: initId, method: 'initialize', params: { processId: null, rootUri: null, capabilities: {} } })
+  await initDone
+  send({ method: 'initialized', params: {} })
+
+  const sourceVertices = findSourceVertices(graph)
+  console.log(`[${lib.name}] ${sourceVertices.length} source vertices to Cmd_load via WASM (covers all ${Object.keys(graph).length} modules)`)
+
+  const includeDirsArg = '[' + vfsIncludeDirs.map(d => JSON.stringify(d)).join(', ') + ']'
+  const vfsLibInclude = include ? `/lib/${include}/` : '/lib/'
+
+  const t0 = performance.now()
+  let count = 0
+  for (const mod of sourceVertices) {
+    const relPath = mod.split('.').join('/') + '.agda'
+    const vfsPath = vfsLibInclude + relPath
+    const hasError = await new Promise((resolve, reject) => {
+      pendingEndResolve = resolve
+      send({ id: nextId++, method: 'agda', params: {
+        tag: 'CmdReq',
+        contents: `IOTCM ${JSON.stringify(vfsPath)} NonInteractive Direct (Cmd_load ${JSON.stringify(vfsPath)} ${includeDirsArg})`,
+      }})
+      setTimeout(() => reject(new Error(`timeout: Cmd_load ${mod}`)), 300_000)
+    })
+    if (hasError) throw new Error(`Cmd_load reported an error for ${mod}`)
+    if (++count % 10 === 0) console.log(`  ${count}/${sourceVertices.length}...`)
+  }
+
+  child.kill()
+  await rm(workerScript, { force: true })
+  console.log(`[${lib.name}] Cmd_load done: ${sourceVertices.length} vertices, ${((performance.now() - t0) / 1000).toFixed(1)}s`)
+}
+
+async function buildAgdaiWasm(lib, alsName) {
+  const graph = await buildGraphWasm(lib, alsName)
+  await buildWithCmdLoadWasm(lib, alsName, graph)
+  const libSrcRoot = dirname(lib.agdaLibPath)
+  const srcBuild = join(libSrcRoot, '_build')
+  const destBuild = join(lib.cacheDir, '_build')
+  await rm(destBuild, { recursive: true, force: true })
+  await cp(srcBuild, destBuild, { recursive: true })
+  console.log(`[${lib.name}] .agdai written to .cache/${lib.cacheId}/_build/`)
+}
+
 async function buildAgdai(lib, agdaBin) {
   const versionStr = spawnSync(agdaBin, ['--numeric-version'], { encoding: 'utf8' }).stdout
   const agdaVersion = parseAgdaVersion(versionStr)
@@ -184,8 +333,13 @@ async function main() {
   }
 
   for (const lib of libs) {
-    await buildAgdai(lib, args.agdaBin)
-    await generateManifest(lib, args.agdaBin)
+    if (args.wasm) {
+      await buildAgdaiWasm(lib, args.wasm)
+      await processLibraryWasm(lib, args.wasm)
+    } else {
+      await buildAgdai(lib, args.agdaBin)
+      await generateManifest(lib, args.agdaBin)
+    }
   }
   console.log('Run `npm run setup` to copy .agdai files into static/.')
 }
