@@ -34,13 +34,13 @@ const RELEASE = 'https://github.com/jim9292bb/agda-playground/releases/download/
 // Each entry: { name, agdaLibFile, sourceUrl, releaseAssetPrefix }
 const SHIPPED_LIBRARIES = [
   {
-    name: 'standard-library',
+    name: 'standard-library-2.3',
     agdaLibFile: 'standard-library.agda-lib',
     sourceUrl: 'https://github.com/agda/agda-stdlib/archive/refs/tags/v2.3.zip',
     releaseAssetPrefix: 'stdlib',
   },
   {
-    name: 'cubical',
+    name: 'cubical-0.9',
     agdaLibFile: 'cubical.agda-lib',
     sourceUrl: 'https://github.com/agda/cubical/archive/refs/tags/v0.9.zip',
     releaseAssetPrefix: 'cubical',
