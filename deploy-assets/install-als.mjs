@@ -271,4 +271,7 @@ async function main() {
   await installAls(args.wasmPath, { name: args.name, force: args.force })
 }
 
-main().catch(err => { console.error(err.message ?? err); process.exit(1) })
+// Only run CLI when executed directly, not when imported by other scripts.
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch(err => { console.error(err.message ?? err); process.exit(1) })
+}
