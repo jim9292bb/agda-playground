@@ -117,6 +117,7 @@ export type SupportedAgdaVersion = string
 interface AgdaVersionSpec {
   path: string
   dataPath: string
+  wasmBytes?: number
 }
 
 export const agdaVersionMap: Record<SupportedAgdaVersion, AgdaVersionSpec> = Object.create(null)
@@ -129,6 +130,7 @@ for (const profile of deployProfiles) {
   agdaVersionMap[als] = {
     path: asset(`/als/${als}/${alsInfo.wasmFilename}`),
     dataPath: asset(`/als/${als}/${AGDA_DATA_ZIP_NAME}`),
+    wasmBytes: alsInfo.wasmBytes,
   }
 }
 
@@ -138,7 +140,7 @@ export async function fetchWASMAndData(agdaVersion: SupportedAgdaVersion) {
       `version ${agdaVersion} not in list of supported versions: ${JSON.stringify(supportedAgdaVersions)}`)
   }
 
-  const { path, dataPath } = agdaVersionMap[agdaVersion]
+  const { path, dataPath, wasmBytes } = agdaVersionMap[agdaVersion]
   const wasm = await fetch(path)
   if (!wasm.ok || wasm.status >= 400) {
     throw new Error(`failed to fetch ALS WASM: ${wasm.statusText}`)
@@ -149,7 +151,7 @@ export async function fetchWASMAndData(agdaVersion: SupportedAgdaVersion) {
     throw new Error(`failed to fetch data file: ${dataFile.statusText}`)
   }
 
-  return { wasm, dataFile }
+  return { wasm, dataFile, wasmBytes }
 }
 
 // ── Drive handle ─────────────────────────────────────────────────────────────

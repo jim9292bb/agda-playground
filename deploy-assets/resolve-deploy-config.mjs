@@ -77,11 +77,13 @@ export function getSelectedAlsVersions() {
     if (!als || seen.has(als)) continue
     seen.add(als)
     const infoPath = join(REPO_ROOT, 'deploy-assets', '.als', als, 'als-info.json')
-    let wasmFilename
+    let wasmFilename, wasmBytes
     try {
-      wasmFilename = JSON.parse(readFileSync(infoPath, 'utf8')).wasmFilename
+      const info = JSON.parse(readFileSync(infoPath, 'utf8'))
+      wasmFilename = info.wasmFilename
+      wasmBytes = info.wasmBytes
     } catch {}
-    result.push({ version: als, wasmFilename: wasmFilename ?? '' })
+    result.push({ version: als, wasmFilename: wasmFilename ?? '', wasmBytes })
   }
   return result
 }

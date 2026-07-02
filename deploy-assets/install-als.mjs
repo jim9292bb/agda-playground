@@ -14,7 +14,7 @@
  * --force overwrites an existing deploy-assets/.als/<name>/ directory.
  */
 
-import { writeFile, mkdir, cp, rm, mkdtemp, access, readdir } from 'node:fs/promises'
+import { writeFile, mkdir, cp, rm, mkdtemp, access, readdir, stat } from 'node:fs/promises'
 import { dirname, join, basename, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync, spawn } from 'node:child_process'
@@ -251,7 +251,8 @@ export async function installAls(wasmPath, { name, force = false } = {}) {
     await mkdir(join(agdaDataDir, 'lib', 'prim'), { recursive: true })
     await cp(join(tempDir, 'lib', 'prim'), join(agdaDataDir, 'lib', 'prim'), { recursive: true })
     if (resolve(wasmPath) !== resolve(destWasm)) await cp(wasmPath, destWasm)
-    await writeFile(join(alsDir, 'als-info.json'), JSON.stringify({ wasmFilename, agdaVersion }, null, 2) + '\n')
+    const wasmBytes = (await stat(destWasm)).size
+    await writeFile(join(alsDir, 'als-info.json'), JSON.stringify({ wasmFilename, agdaVersion, wasmBytes }, null, 2) + '\n')
     console.log(`  agda-data/, ${wasmFilename}, and als-info.json installed`)
   } finally {
     await rm(tempDir, { recursive: true, force: true })
