@@ -1,7 +1,5 @@
 import adapter from '@sveltejs/adapter-static'
 
-const CI = 'CI' in process.env
-
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
   compilerOptions: {
@@ -18,7 +16,7 @@ const config = {
   kit: {
     adapter: adapter({ precompress: false }),
     paths: {
-      base: CI ? '/agda-playground' : '',
+      base: process.env.GITHUB_ACTIONS ? '/agda-playground' : '',
     }
   }
 }
