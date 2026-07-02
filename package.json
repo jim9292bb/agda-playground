@@ -11,6 +11,7 @@
     "install-agdai": "node deploy-assets/install-agdai-cache.mjs",
     "check-agdai": "node deploy-assets/check-agdai-status.mjs",
     "install-als": "node deploy-assets/install-als.mjs",
+    "list-als": "node deploy-assets/list-als.mjs",
     "build-agda-data": "node deploy-assets/build-agda-data.mjs",
     "predev": "node deploy-assets/ensure-deploy-config.mjs && node deploy-assets/generate-library-info.mjs && node deploy-assets/generate-als-info.mjs",
     "dev": "vite dev",

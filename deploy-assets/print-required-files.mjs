@@ -54,23 +54,25 @@ async function main() {
   }
 
   for (const als of getSelectedAlsVersions()) {
-    const alsRoot = join(DEPLOY_ASSETS, 'als', als.version)
+    const alsRoot = join(DEPLOY_ASSETS, '.als', als.version)
     const wasmPath = join(alsRoot, als.wasmFilename)
     if (!(await exists(wasmPath))) {
-      console.error(`MISSING: deploy-assets/als/${als.version}/${als.wasmFilename}`)
+      console.error(`MISSING: deploy-assets/.als/${als.version}/${als.wasmFilename || '(no als-info.json)'}`)
       missing = true
     }
     if (!(await exists(join(alsRoot, 'agda-data')))) {
-      console.error(`MISSING: deploy-assets/als/${als.version}/agda-data/`)
+      console.error(`MISSING: deploy-assets/.als/${als.version}/agda-data/`)
       missing = true
     }
   }
 
   if (missing) {
+    if (await exists(join(DEPLOY_ASSETS, 'als')))
+      console.error('\nNote: deploy-assets/als/ exists but deploy-assets/.als/ is now the expected location — re-run `npm run auto-configure` or move files manually.')
     console.error('')
     console.error('Some required files are missing. Either:')
     console.error("  - run 'npm run auto-configure' to fetch this project's own shipped defaults, or")
-    console.error('  - set agdaLibPath in deploy.config.json (see deploy.config.example.json) and run npm run install-als')
+    console.error('  - run npm run install-als (see deploy-assets/README.md)')
     process.exit(1)
   }
 }

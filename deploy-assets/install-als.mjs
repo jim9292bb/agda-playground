@@ -4,14 +4,14 @@
  * 1. Detects Agda version via `als --version`
  * 2. Downloads agda-data source (lib/prim/) from Hackage
  * 3. Compiles all builtin .agda files via `als --raw` + LSP Cmd_load
- * 4. Installs agda-data/ and the .wasm file into deploy-assets/als/<version>/
+ * 4. Installs agda-data/, the .wasm file, and als-info.json into deploy-assets/.als/<name>/
  *
  * Usage:
  *   node deploy-assets/install-als.mjs <path-to-als.wasm> [--name <id>] [--force]
  *
- * --name sets the primary key used as the directory name under deploy-assets/als/
- *        and as alsVersion in deploy.config.json. Defaults to the detected Agda version.
- * --force overwrites an existing deploy-assets/als/<name>/ directory.
+ * --name sets the primary key used as the directory name under deploy-assets/.als/
+ *        and as the "als" field in deploy.config.json. Defaults to the detected Agda version.
+ * --force overwrites an existing deploy-assets/.als/<name>/ directory.
  */
 
 import { writeFile, mkdir, cp, rm, mkdtemp, access, readdir } from 'node:fs/promises'
@@ -22,6 +22,7 @@ import { tmpdir } from 'node:os'
 import { REPO_ROOT } from './resolve-deploy-config.mjs'
 
 const DEPLOY_ASSETS = dirname(fileURLToPath(import.meta.url))
+const ALS_DIR = join(DEPLOY_ASSETS, '.als')
 
 function parseArgs(argv) {
   const args = { wasmPath: null, name: null, force: false }
@@ -211,26 +212,24 @@ try { wasi.start(inst) } catch(e) { if (!String(e).includes('exit')) throw e }
   return lspVersion
 }
 
-async function main() {
-  const args = parseArgs(process.argv.slice(2))
-
-  if (!(await exists(args.wasmPath))) {
-    console.error(`file not found: ${args.wasmPath}`)
-    process.exit(1)
-  }
-
-  const wasmFilename = basename(args.wasmPath)
+/**
+ * Core installation logic — importable by other scripts (e.g. auto-configure).
+ * @param {string} wasmPath  Absolute path to the .wasm file to install.
+ * @param {{ name?: string, force?: boolean }} opts
+ */
+export async function installAls(wasmPath, { name, force = false } = {}) {
+  const wasmFilename = basename(wasmPath)
 
   console.log('Detecting Agda version...')
-  const agdaVersion = detectAgdaVersion(args.wasmPath)
-  const alsName = args.name ?? agdaVersion
+  const agdaVersion = detectAgdaVersion(wasmPath)
+  const alsName = name ?? agdaVersion
   console.log(`  Agda ${agdaVersion}${alsName !== agdaVersion ? ` (name: ${alsName})` : ''}`)
 
-  const alsDir = join(DEPLOY_ASSETS, 'als', alsName)
+  const alsDir = join(ALS_DIR, alsName)
   const agdaDataDir = join(alsDir, 'agda-data')
   const destWasm = join(alsDir, wasmFilename)
 
-  if ((await exists(agdaDataDir)) && !args.force) {
+  if ((await exists(agdaDataDir)) && !force) {
     console.error(`\nalready configured: ${relative(REPO_ROOT, agdaDataDir)}`)
     console.error('Use --force to overwrite.')
     process.exit(1)
@@ -243,7 +242,7 @@ async function main() {
     console.log('  done')
 
     console.log('Compiling builtins via ALS WASM...')
-    const lspVersion = await compileBuiltins(args.wasmPath, tempDir)
+    const lspVersion = await compileBuiltins(wasmPath, tempDir)
     if (lspVersion !== agdaVersion)
       throw new Error(`version mismatch: als --version reported "${agdaVersion}" but Cmd_show_version returned "${lspVersion}"`)
 
@@ -251,8 +250,9 @@ async function main() {
     if (await exists(agdaDataDir)) await rm(agdaDataDir, { recursive: true })
     await mkdir(join(agdaDataDir, 'lib', 'prim'), { recursive: true })
     await cp(join(tempDir, 'lib', 'prim'), join(agdaDataDir, 'lib', 'prim'), { recursive: true })
-    if (resolve(args.wasmPath) !== resolve(destWasm)) await cp(args.wasmPath, destWasm)
-    console.log(`  agda-data/ and ${wasmFilename} installed`)
+    if (resolve(wasmPath) !== resolve(destWasm)) await cp(wasmPath, destWasm)
+    await writeFile(join(alsDir, 'als-info.json'), JSON.stringify({ wasmFilename, agdaVersion }, null, 2) + '\n')
+    console.log(`  agda-data/, ${wasmFilename}, and als-info.json installed`)
   } finally {
     await rm(tempDir, { recursive: true, force: true })
   }
@@ -260,6 +260,15 @@ async function main() {
   console.log('\nDone.')
   console.log(`\nAdd to each profile in deploy.config.json:`)
   console.log(`  "als": ${JSON.stringify(alsName)},`)
+}
+
+async function main() {
+  const args = parseArgs(process.argv.slice(2))
+  if (!(await exists(args.wasmPath))) {
+    console.error(`file not found: ${args.wasmPath}`)
+    process.exit(1)
+  }
+  await installAls(args.wasmPath, { name: args.name, force: args.force })
 }
 
 main().catch(err => { console.error(err.message ?? err); process.exit(1) })

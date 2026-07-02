@@ -21,7 +21,7 @@ vite.config.js.timestamp-*
 # by hand — see deploy-assets/README.md). Zipped/copied into static/ for
 # serving by `npm run setup` — none of this is committed.
 /deploy-assets/library/
-/deploy-assets/als/
+/deploy-assets/.als/
 /static/library/
 /static/als/
 

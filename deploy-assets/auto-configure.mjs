@@ -24,6 +24,7 @@ import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { extractZip } from './zip-utils.mjs'
 import { getLocalLibraries } from './resolve-deploy-config.mjs'
+import { installAls } from './install-als.mjs'
 
 const DEPLOY_ASSETS = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(DEPLOY_ASSETS, '..')
@@ -175,16 +176,16 @@ async function main() {
       }
     }
 
-    // 5. ALS wasm and data
-    await fetchFile(
-      'https://github.com/agda-web/agda-language-server/releases/download/nightly-20260407/als-2.8.0.wasm',
-      join(DEPLOY_ASSETS, 'als', 'als-2.8ext', 'als-2.8ext.wasm'),
-    )
-    await fetchFlatZip(
-      `${RELEASE}/agda-data.zip`,
-      join(DEPLOY_ASSETS, 'als', 'als-2.8ext', 'agda-data'),
-      workDir,
-    )
+    // 5. ALS: download wasm to temp dir, then run install-als to compile builtins
+    const alsInfoPath = join(DEPLOY_ASSETS, '.als', 'als-2.8ext', 'als-info.json')
+    if (await exists(alsInfoPath)) {
+      console.log('  already present: .als/als-2.8ext/')
+    } else {
+      const wasmUrl = 'https://github.com/agda-web/agda-language-server/releases/download/nightly-20260407/als-2.8.0.wasm'
+      const wasmPath = join(workDir, 'als-2.8.0.wasm')
+      await download(wasmUrl, wasmPath)
+      await installAls(wasmPath, { name: 'als-2.8ext', force: false })
+    }
 
     console.log('Done. Run `npm run setup` next to prepare static/ for serving.')
   } finally {

@@ -15,7 +15,7 @@
  *                     runs even if deploy.config.json is recreated.
  */
 
-import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { randomBytes } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
@@ -65,7 +65,7 @@ function ensureCacheId(agdaLibPath, index) {
 
 /**
  * Deduplicated ALS names referenced by any configured profile.
- * wasmFilename is discovered by scanning deploy-assets/als/<als>/ for a .wasm file.
+ * wasmFilename is read from deploy-assets/.als/<als>/als-info.json.
  * Returns { version: alsName, wasmFilename } pairs.
  */
 export function getSelectedAlsVersions() {
@@ -76,10 +76,10 @@ export function getSelectedAlsVersions() {
     const { als } = profile
     if (!als || seen.has(als)) continue
     seen.add(als)
-    const alsDir = join(REPO_ROOT, 'deploy-assets', 'als', als)
+    const infoPath = join(REPO_ROOT, 'deploy-assets', '.als', als, 'als-info.json')
     let wasmFilename
     try {
-      wasmFilename = readdirSync(alsDir).find(f => f.endsWith('.wasm'))
+      wasmFilename = JSON.parse(readFileSync(infoPath, 'utf8')).wasmFilename
     } catch {}
     result.push({ version: als, wasmFilename: wasmFilename ?? '' })
   }

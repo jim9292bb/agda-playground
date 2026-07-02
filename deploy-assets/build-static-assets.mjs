@@ -79,7 +79,7 @@ async function main() {
   }
 
   for (const als of getSelectedAlsVersions()) {
-    const alsSrcRoot = join(DEPLOY_ASSETS, 'als', als.version)
+    const alsSrcRoot = join(DEPLOY_ASSETS, '.als', als.version)
     const alsOutRoot = join(STATIC, 'als', als.version)
     await mkdir(alsOutRoot, { recursive: true })
 

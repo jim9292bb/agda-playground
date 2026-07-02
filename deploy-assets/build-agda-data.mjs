@@ -141,7 +141,7 @@ async function main() {
 
   let totalFailures = 0
   for (const { version } of targets) {
-    const agdaDataDir = join(DEPLOY_ASSETS, 'als', version, 'agda-data')
+    const agdaDataDir = join(DEPLOY_ASSETS, '.als', version, 'agda-data')
     console.log(`\nALS ${version}: ${relative(REPO_ROOT, agdaDataDir)}`)
     totalFailures += await buildAgdaData(agdaDataDir, args.agdaBin)
   }
