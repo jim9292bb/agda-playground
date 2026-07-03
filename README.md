@@ -61,8 +61,8 @@ npm run setup
 
 `npm run auto-configure` fetches this project's own shipped defaults
 (stdlib, Cubical, agda-categories, ALS 2.8.0) into the raw layout under
-`deploy-assets/library/`/`deploy-assets/als/`; `npm run setup` zips/copies
-them into `static/` for serving. See
+`deploy-assets/library/`/`deploy-assets/.als/` (~300 MB); `npm run setup` zips/copies
+them into `static/` for serving (~600 MB on disk after extraction). See
 [deploy-assets/README.md](deploy-assets/README.md) for what each step
 does and how to supply your own files instead.
 
@@ -74,6 +74,8 @@ npm run build
 npm run dev
 npm run test
 ```
+
+`dev` starts the dev server at `http://localhost:8099`. `check` runs the TypeScript/Svelte type-checker. `test` runs unit tests with Vitest.
 
 ### Browser regression tests
 

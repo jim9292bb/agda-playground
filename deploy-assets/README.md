@@ -75,7 +75,7 @@ npm run install-agdai -- --library <name>
 npm run install-agdai -- --agda-bin <path>
 ```
 
-Generates the dependency-graph manifest afterwards.
+Without `--library`, processes all libraries with `useAgdai: true`. `--agda-bin` defaults to `agda` on `PATH`. Generates the dependency-graph manifest afterwards.
 
 Check what's ready at any time:
 
@@ -193,7 +193,7 @@ npm run generate-manifest
 npm run generate-manifest -- --library <name>
 ```
 
-No `Everything.agda` to hand-write, no native `--dependency-graph` run.
+Without `--library`, processes all libraries with `useAgdai: true`. No `Everything.agda` to hand-write, no native `--dependency-graph` run.
 For every file under the library's own `.agda-lib` `include:`, this spawns
 `agda --interaction-json` and asks for `Cmd_tokenHighlighting`: a real Agda
 interaction command that returns purely lexical token highlighting for that one
