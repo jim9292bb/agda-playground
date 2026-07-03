@@ -12,7 +12,11 @@
     "scripts/generate-library-info.mjs",
     "scripts/run-als-version.mjs",
     "scripts/install-als.mjs",
-    "scripts/build-agda-data.mjs"
+    "scripts/remove-als.mjs",
+    "scripts/remove-agdai.mjs",
+    "scripts/build-agda-data.mjs",
+    "scripts/remove-als.mjs",
+    "scripts/remove-agdai.mjs"
   ],
   "ignore": [
     "experiments/**"

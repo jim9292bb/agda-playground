@@ -34,7 +34,7 @@ npm install
 **2. Install ALS:**
 
 ```sh
-npm run install-als -- --wasm /path/to/als.wasm --name als-2.8ext
+npm run install-als -- /path/to/als.wasm --name als-2.8ext
 ```
 
 Downloads agda-data from Hackage, compiles builtins, and installs everything
@@ -136,8 +136,9 @@ Each entry in `libraries`:
 |---|---|
 | `auto-configure` | Downloads this project's shipped defaults (libraries + ALS), creates `deploy.config.json`, fetches prebuilt `.agdai` and manifests |
 | `setup` | Packages everything in `.deploy-assets/.als/` and `.cache/` into `static/` for serving |
-| `install-als` | Installs an ALS WASM build from a `.wasm` file — no native agda required. Supports `--name <als-name>`, `--force` |
-| `install-agdai` | Builds `.agdai` cache with native agda and generates the dependency-graph manifest. Supports `--lib-file <path>`, `--agda-bin <path>`, `--wasm <als-name>` |
-| `agdai-status` | Shows manifest and cache status for each configured library |
+| `install-als` | Installs an ALS WASM build: `npm run install-als -- <path-to-als.wasm> --name <als-name> [--force]`. `--force` overwrites an existing install with the same name |
+| `remove-als` | Removes an installed ALS build: `npm run remove-als -- <als-name>` |
 | `list-als` | Lists installed ALS builds. Pass `--hash` to also print the SHA-256 of the `.wasm` file |
-| `build-agda-data` | Compiles all Agda builtin files to fill in any missing `.agdai` in `agda-data/`. Supports `--als-version <version>`, `--agda-bin <path>` |
+| `install-agdai` | Builds `.agdai` cache with native agda and generates the dependency-graph manifest. Supports `--lib-file <path>`, `--agda-bin <path>`, `--wasm <als-name>` |
+| `remove-agdai` | Removes the `.agdai` cache and manifest for a library: `npm run remove-agdai -- <path/to/lib.agda-lib>` |
+| `agdai-status` | Shows manifest and cache status for each configured library |

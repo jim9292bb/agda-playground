@@ -32,8 +32,10 @@ function parseArgs(argv) {
     else if (!args.wasmPath) args.wasmPath = resolve(argv[i])
     else { console.error(`unknown argument: ${argv[i]}`); process.exit(1) }
   }
-  if (!args.wasmPath) {
-    console.error('usage: node scripts/install-als.mjs <path-to-als.wasm> [--name <id>] [--force]')
+  if (!args.wasmPath || !args.name) {
+    if (!args.wasmPath) console.error('Error: <path-to-als.wasm> is required.')
+    if (!args.name) console.error('Error: --name <id> is required.')
+    console.error('Usage: npm run install-als -- <path-to-als.wasm> --name <als-name> [--force]')
     process.exit(1)
   }
   return args
