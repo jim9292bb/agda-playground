@@ -50,8 +50,7 @@ npm run install-als -- --wasm /path/to/als.wasm --name als-2.8ext
 ```
 
 This installs the wasm binary and compiles all builtins into
-`deploy-assets/als/als-2.8ext/`. See ["What to place"](#what-to-place) for the
-expected directory layout if you prefer to place files manually.
+`deploy-assets/.als/als-2.8ext/` (gitignored).
 
 **3. Create `deploy.config.json`** from the example, and fill in the `als` name
 from step 2 and OS-absolute paths to each library's `.agda-lib` file:
@@ -90,63 +89,6 @@ npm run check
 npm run build
 ```
 
-### What to place
-
-Library source trees can live anywhere on your OS — their location is
-recorded in the gitignored `deploy.config.json` (`agdaLibPath`), not in a
-fixed project subdirectory. The only thing you need to place inside the
-project is the ALS wasm and data:
-
-```
-deploy-assets/
-  .als/
-    <als-name>/                        # matches the "als" field in deploy.config.json
-      <als-name>.wasm                  # a single .wasm binary
-      als-info.json                    # written by install-als; records wasmFilename, agdaVersion, wasmBytes
-      agda-data/                       # required — see notes below
-        Agda/Builtin/*.agda
-        agda-builtins.agda-lib
-        _build/<numeric agda version>/agda/Agda/Builtin/*.agdai
-```
-
-`deploy-assets/als/` is gitignored; nothing in it is committed.
-`deploy-assets/.cache/` is gitignored and auto-managed by the npm scripts —
-do not edit it by hand.
-
-(`npm run auto-configure` also downloads library sources into
-`deploy-assets/library/<name>/` and points `deploy.config.json` at them —
-that directory is gitignored too, and using it is entirely optional.)
-
-**`deploy-assets/.als/<als-name>/agda-data/`** — raw extracted Agda builtin
-data, required for every ALS build. Two halves: `Agda/Builtin/*.agda` is
-primitive source that ships with the Agda compiler itself; `_build/<numeric
-agda version>/agda/...` is a precompiled interface cache for those same
-primitives. To get it: find it with:
-
-```sh
-agda --print-agda-dir
-# → <path>
-# then: cp -r <path>/lib/prim/ deploy-assets/.als/<als-name>/agda-data/
-```
-
-The `_build/` cache inside is generated automatically the first time native
-`agda` type-checks anything that uses Agda's builtins. If you've already run
-native `agda` once (e.g. to produce a library's `.agdai` cache), it's already
-there — just copy the whole `lib/prim/` directory over. The resulting `_build/`
-may not cover every builtin (only those your library transitively imports); run
-`npm run build-agda-data` after copying to fill in the rest.
-
-**`deploy-assets/.cache/<id>/_build/`** — prebuilt `.agdai` files. Populate
-with:
-
-```sh
-npm run install-agdai
-```
-
-The `--agda-bin` flag defaults to `agda` on `PATH`; pass a full path if you have
-multiple versions installed. For agda < 2.8.0 (no `--build-library`), `install-agdai`
-computes the dependency graph internally via `Cmd_tokenHighlighting` before running
-`Cmd_load` per source vertex — no need to run `generate-manifest` separately.
 
 ### `deploy.config.json` schema
 
