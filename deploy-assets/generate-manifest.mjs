@@ -31,10 +31,10 @@
  * accurate.
  *
  * Usage:
- *   node deploy-assets/generate-manifest.mjs [--library <name>]
+ *   node deploy-assets/generate-manifest.mjs [--lib-file <path>]
  *
- * Without --library, processes all libraries in deploy.local.json that
- * have useAgdai: true. With --library <name>, processes only that one
+ * Without --lib-file, processes all libraries in deploy.config.json that
+ * have useAgdai: true. With --lib-file <path>, processes only that one
  * (regardless of its useAgdai setting — useful for one-off regeneration).
  */
 
@@ -60,9 +60,9 @@ const AGDA_FILE_EXTENSIONS = [
 ]
 
 function parseArgs(argv) {
-  const args = { library: null, agdaBin: 'agda', wasm: null }
+  const args = { libFile: null, agdaBin: 'agda', wasm: null }
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === '--library') args.library = argv[++i]
+    if (argv[i] === '--lib-file') args.libFile = argv[++i]
     else if (argv[i] === '--agda-bin') args.agdaBin = argv[++i]
     else if (argv[i] === '--wasm') args.wasm = argv[++i]
     else throw new Error(`unknown argument: ${argv[i]}`)
@@ -374,11 +374,11 @@ async function main() {
   const args = parseArgs(process.argv.slice(2))
   let libs = getLocalLibraries()
 
-  if (args.library) {
-    const target = libs.find(l => l.agdaLibPath === args.library)
+  if (args.libFile) {
+    const target = libs.find(l => l.agdaLibPath === args.libFile)
     if (!target) {
       const paths = libs.map(l => l.agdaLibPath).join(', ') || '(none configured)'
-      throw new Error(`"${args.library}" not found in deploy.config.json. Available: ${paths}`)
+      throw new Error(`"${args.libFile}" not found in deploy.config.json. Available: ${paths}`)
     }
     libs = [target]
   } else {
@@ -386,7 +386,7 @@ async function main() {
     if (libs.length === 0) {
       console.log('No libraries have useAgdai: true in deploy.config.json — nothing to do.')
       console.log('Set useAgdai: true for the libraries you want to generate manifests for,')
-      console.log('or use --library <path/to/lib.agda-lib> to generate for a specific library regardless.')
+      console.log('or use --lib-file <path/to/lib.agda-lib> to generate for a specific library regardless.')
       return
     }
   }
