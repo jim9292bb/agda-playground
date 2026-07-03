@@ -194,12 +194,12 @@ function createHighlightingClient(workerScript, srcDir, agdaDataDir, wasmPath) {
   })
 
   const highlight = vfsPath => new Promise((resolve, reject) => {
-    pendingEndResolve = resolve
+    const timer = setTimeout(() => reject(new Error(`timeout: ${vfsPath}`)), 60_000)
+    pendingEndResolve = value => { clearTimeout(timer); resolve(value) }
     send({ id: nextId++, method: 'agda', params: {
       tag: 'CmdReq',
       contents: `IOTCM ${JSON.stringify(vfsPath)} NonInteractive Direct (Cmd_tokenHighlighting ${JSON.stringify(vfsPath)} Keep)`,
     }})
-    setTimeout(() => reject(new Error(`timeout: ${vfsPath}`)), 60_000)
   })
 
   return { ready, highlight, kill: () => child.kill() }

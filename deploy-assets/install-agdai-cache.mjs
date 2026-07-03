@@ -251,12 +251,12 @@ try { wasi.start(inst) } catch(e) { if (!String(e).includes('exit')) throw e }
     const relPath = mod.split('.').join('/') + '.agda'
     const vfsPath = vfsLibInclude + relPath
     const hasError = await new Promise((resolve, reject) => {
-      pendingEndResolve = resolve
+      const timer = setTimeout(() => reject(new Error(`timeout: Cmd_load ${mod}`)), 300_000)
+      pendingEndResolve = value => { clearTimeout(timer); resolve(value) }
       send({ id: nextId++, method: 'agda', params: {
         tag: 'CmdReq',
         contents: `IOTCM ${JSON.stringify(vfsPath)} NonInteractive Direct (Cmd_load ${JSON.stringify(vfsPath)} ${includeDirsArg})`,
       }})
-      setTimeout(() => reject(new Error(`timeout: Cmd_load ${mod}`)), 300_000)
     })
     if (hasError) throw new Error(`Cmd_load reported an error for ${mod}`)
     if (++count % 10 === 0) console.log(`  ${count}/${sourceVertices.length}...`)

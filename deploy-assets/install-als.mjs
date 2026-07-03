@@ -183,9 +183,9 @@ try { wasi.start(inst) } catch(e) { if (!String(e).includes('exit')) throw e }
   })
 
   const sendCmd = contents => new Promise((resolve, reject) => {
-    pendingResolve = resolve
+    const timer = setTimeout(() => reject(new Error(`timeout: ${contents.slice(0, 60)}`)), 120_000)
+    pendingResolve = value => { clearTimeout(timer); resolve(value) }
     send({ id: nextId++, method: 'agda', params: { tag: 'CmdReq', contents } })
-    setTimeout(() => reject(new Error(`timeout: ${contents.slice(0, 60)}`)), 120_000)
   })
 
   send({ id: initId, method: 'initialize', params: { processId: null, rootUri: null, capabilities: {} } })
