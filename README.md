@@ -38,8 +38,7 @@ See [PROJECT_GOAL.md](PROJECT_GOAL.md) for the reasoning behind these boundaries
 
 Self-deployers (forking this repo to host their own version) configure
 which Agda/ALS version and library combinations to bundle in
-**[`deploy.config.mjs`](deploy.config.mjs)** (repo root) — see that file's
-comments for the schema. The default reproduces this project's own
+**[`deploy.config.json`](deploy.config.example.json)** (repo root, gitignored; created from `deploy.config.example.json`) — see [`deploy-assets/README.md`](deploy-assets/README.md) for the schema. The default reproduces this project's own
 deployment unchanged.
 
 See [deploy-assets/README.md](deploy-assets/README.md) for the full
