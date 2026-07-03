@@ -23,14 +23,20 @@ async function main() {
     return
   }
 
-  for (const lib of libs) {
-    const hasManifest = await exists(join(lib.cacheDir, 'agdai-manifest.json'))
-    const hasBuild = await exists(join(lib.cacheDir, '_build'))
-    const useAgdai = lib.useAgdai ? '' : ' (useAgdai: false)'
+  const rows = await Promise.all(libs.map(async lib => ({
+    name: lib.name,
+    hasManifest: await exists(join(lib.cacheDir, 'agdai-manifest.json')),
+    hasCache: await exists(join(lib.cacheDir, '_build')),
+    agdaiDisabled: !lib.useAgdai,
+  })))
 
-    const manifest = hasManifest ? '✓ manifest' : '✗ manifest'
-    const build = hasBuild ? '✓ _build' : '✗ _build'
-    console.log(`${lib.name}${useAgdai}: ${manifest}  ${build}`)
+  const nameWidth = Math.max(...rows.map(r => r.name.length))
+  for (const r of rows) {
+    const name = r.name.padEnd(nameWidth)
+    const manifest = r.hasManifest ? '✓ manifest' : '✗ manifest'
+    const cache = r.hasCache ? '✓ cache' : '✗ cache'
+    const disabled = r.agdaiDisabled ? '  (agdai disabled)' : ''
+    console.log(`${name}  ${manifest}  ${cache}${disabled}`)
   }
 }
 
