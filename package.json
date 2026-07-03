@@ -9,7 +9,7 @@
     "setup": "scripts/setup-assets.sh",
     "auto-configure": "node deploy-assets/auto-configure.mjs",
     "install-agdai": "node deploy-assets/install-agdai-cache.mjs",
-    "check-agdai": "node deploy-assets/check-agdai-status.mjs",
+    "agdai-status": "node deploy-assets/check-agdai-status.mjs",
     "install-als": "node deploy-assets/install-als.mjs",
     "list-als": "node deploy-assets/list-als.mjs",
     "build-agda-data": "node deploy-assets/build-agda-data.mjs",

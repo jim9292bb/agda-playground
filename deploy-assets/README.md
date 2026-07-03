@@ -79,7 +79,7 @@ Generates the dependency-graph manifest afterwards.
 Check what's ready at any time:
 
 ```sh
-npm run check-agdai
+npm run agdai-status
 ```
 
 **5. Build and verify:**
@@ -303,7 +303,7 @@ entry point.
 | `install-als` | Sets up an ALS WASM build from a single `.wasm` file — no native agda required. Downloads agda-data source from Hackage, compiles all builtins via ALS WASM LSP, installs into `deploy-assets/.als/<name>/` with an `als-info.json` record. Required: positional `<path-to-als.wasm>`. Supports `--name <als-name>` (defaults to the Agda version string), `--force` |
 | `list-als` | Lists all ALS builds installed under `deploy-assets/.als/`, showing each name and Agda version. Pass `--hash` to also print the SHA-256 of the `.wasm` file |
 | `build-agda-data` | Compiles all `.agda` files in agda's own prim directory and copies the resulting `_build/` into `agda-data/`. Ensures every builtin has a precompiled `.agdai`, not just those your library happens to import. Supports `--als-version <version>` and `--agda-bin <path>` |
-| `check-agdai` | Prints per-library manifest and `_build` status in `deploy-assets/.cache/` |
+| `agdai-status` | Prints per-library manifest and `_build` status in `deploy-assets/.cache/` |
 
 ## How the manifest is used at runtime
 
