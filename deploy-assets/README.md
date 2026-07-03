@@ -70,12 +70,10 @@ compiled (e.g. a previous run), agda skips unchanged files and completes in
 milliseconds. First-time builds take ~8 min for stdlib.
 
 ```sh
-npm run install-agdai
-npm run install-agdai -- --lib-file <path/to/lib.agda-lib>
-npm run install-agdai -- --agda-bin <path>
+npm run install-agdai -- --lib-file <path/to/lib.agda-lib> --agda-bin <path>
 ```
 
-Without `--lib-file`, processes all libraries with `useAgdai: true`. `--agda-bin` defaults to `agda` on `PATH`. Generates the dependency-graph manifest afterwards.
+`--lib-file`: process only this library (default: all libraries with `useAgdai: true`). `--agda-bin`: path to the `agda` binary (default: `agda` on `PATH`). Generates the dependency-graph manifest afterwards.
 
 Check what's ready at any time:
 
@@ -189,11 +187,10 @@ from-source recompile instead of a cache hit, never an error.
 ### Regenerating the dependency graph
 
 ```sh
-npm run generate-manifest
 npm run generate-manifest -- --lib-file <path/to/lib.agda-lib>
 ```
 
-Without `--lib-file`, processes all libraries with `useAgdai: true`. No `Everything.agda` to hand-write, no native `--dependency-graph` run.
+`--lib-file`: process only this library (default: all libraries with `useAgdai: true`). No `Everything.agda` to hand-write, no native `--dependency-graph` run.
 For every file under the library's own `.agda-lib` `include:`, this spawns
 `agda --interaction-json` and asks for `Cmd_tokenHighlighting`: a real Agda
 interaction command that returns purely lexical token highlighting for that one
