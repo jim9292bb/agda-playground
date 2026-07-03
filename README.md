@@ -54,9 +54,9 @@ Node.js 18–24 (the `engines` field in `package.json` specifies `>=18.0.0 <25.0
 ### First-time setup
 
 ```sh
-npm install              # install dependencies
-npm run auto-configure   # fetch this project's own shipped default assets (~300 MB)
-npm run setup            # prepare static/ for serving (~600 MB on disk after extraction)
+npm install
+npm run auto-configure
+npm run setup
 ```
 
 `npm run auto-configure` fetches this project's own shipped defaults
@@ -69,10 +69,10 @@ does and how to supply your own files instead.
 ### Common commands
 
 ```sh
-npm run check       # type-check
-npm run build       # production build
-npm run dev         # dev server (http://localhost:8099)
-npm run test        # unit tests (Vitest)
+npm run check
+npm run build
+npm run dev
+npm run test
 ```
 
 ### Browser regression tests
