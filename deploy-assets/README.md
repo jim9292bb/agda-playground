@@ -70,7 +70,9 @@ compiled (e.g. a previous run), agda skips unchanged files and completes in
 milliseconds. First-time builds take ~8 min for stdlib.
 
 ```sh
-npm run install-agdai
+npm run install-agdai                          # all libraries with useAgdai: true
+npm run install-agdai -- --library <name>      # one specific library
+npm run install-agdai -- --agda-bin <path>     # custom agda binary (default: agda on PATH)
 ```
 
 Generates the dependency-graph manifest afterwards.
