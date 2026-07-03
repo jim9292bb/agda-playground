@@ -73,7 +73,7 @@ milliseconds. First-time builds take ~8 min for stdlib.
 npm run install-agdai -- --lib-file <path/to/lib.agda-lib> --agda-bin <path>
 ```
 
-`--lib-file`: process only this library (default: all libraries with `useAgdai: true`).
+`--lib-file`: process only this library (default: all libraries with `useAgdai: true`).  
 `--agda-bin`: path to the `agda` binary (default: `agda` on `PATH`).
 
 Generates the dependency-graph manifest afterwards.
