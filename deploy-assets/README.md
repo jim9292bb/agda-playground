@@ -127,6 +127,33 @@ Each entry in `libraries`:
 | `version` | no | Version string shown in the UI (e.g. `"2.3"`). Cosmetic only |
 | `useAgdai` | no (default `false`) | Whether to generate/serve the `.agdai` cache for this library. Set to `true` after running `npm run install-agdai` |
 
+Example:
+
+```json
+{
+  "profiles": [
+    {
+      "label": "stdlib + cubical (ALS 2.8.0)",
+      "als": "als-2.8ext",
+      "libraries": [
+        {
+          "agdaLibPath": "/path/to/agda-stdlib/standard-library.agda-lib",
+          "label": "stdlib",
+          "version": "2.3",
+          "useAgdai": true
+        },
+        {
+          "agdaLibPath": "/path/to/cubical/cubical.agda-lib",
+          "label": "cubical",
+          "version": "0.9",
+          "useAgdai": true
+        }
+      ]
+    }
+  ]
+}
+```
+
 `npm run auto-configure` creates `deploy.config.json` automatically (with
 `useAgdai: true` for downloaded libraries) when it doesn't already exist.
 
