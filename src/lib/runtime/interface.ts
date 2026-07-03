@@ -3,10 +3,10 @@ import type { SPSCWriter } from 'spsc/writer'
 import type { WASMLoadingProgress, PerformanceEntry, DriveProxyStats } from '$lib/worker/types'
 import { asset } from '$app/paths'
 import DEPLOY_CONFIG from '../../../deploy.config.json'
-import { GENERATED_LIBRARY_INFO } from '../../../deploy-assets/generated-libraries.mjs'
-import { GENERATED_ALS_INFO } from '../../../deploy-assets/generated-als-info.mjs'
+import { GENERATED_LIBRARY_INFO } from '../../../scripts/generated-libraries.mjs'
+import { GENERATED_ALS_INFO } from '../../../scripts/generated-als-info.mjs'
 
-// Also referenced (independently, must match) by deploy-assets/build-static-assets.mjs.
+// Also referenced (independently, must match) by scripts/build-static-assets.mjs.
 const AGDA_DATA_ZIP_NAME = 'agda-data.zip'
 
 // ── Deployment profiles ───────────────────────────────────────────────────────
@@ -15,9 +15,8 @@ const AGDA_DATA_ZIP_NAME = 'agda-data.zip'
 // deploy.config.json, not hardcoded here. Each profile is a complete,
 // ready-to-use combination (one ALS version + a compatible library set);
 // there's no separate "ALS version" + "library set" pair of independent
-// choices to keep in sync. See deploy-assets/README.md "Adding a library
-// or ALS version" for the field docs (deploy.config.json is plain JSON,
-// no comment syntax to carry them inline).
+// choices to keep in sync. See DEPLOYMENT.md for the field docs
+// (deploy.config.json is plain JSON, no comment syntax to carry them inline).
 
 export { DEPLOY_CONFIG }
 export const deployProfiles = DEPLOY_CONFIG.profiles
@@ -26,8 +25,8 @@ export type DeployProfile = (typeof deployProfiles)[number]
 /**
  * A library reference resolved with its asset URLs and the
  * includeSubpath/libraryName generated from its real `.agda-lib` content
- * (deploy-assets/generated-libraries.mjs — see
- * deploy-assets/generate-library-info.mjs).
+ * (scripts/generated-libraries.mjs — see
+ * scripts/generate-library-info.mjs).
  */
 export interface ResolvedLibrary {
   /** The .agda-lib `name:` value — this library's identity for every
@@ -48,7 +47,7 @@ export interface ResolvedLibrary {
   libraryName: string
 }
 
-/** Resolves a profile's `libraries` references against deploy-assets/generated-libraries.mjs. */
+/** Resolves a profile's `libraries` references against scripts/generated-libraries.mjs. */
 export function resolveProfileLibraries(profile: DeployProfile): ResolvedLibrary[] {
   const seenRaw = new Map<string, DeployProfile['libraries'][number]>()
   const resolved: ResolvedLibrary[] = []
@@ -62,7 +61,7 @@ export function resolveProfileLibraries(profile: DeployProfile): ResolvedLibrary
 
     const info = GENERATED_LIBRARY_INFO[lib.agdaLibPath as keyof typeof GENERATED_LIBRARY_INFO]
     if (!info) {
-      throw new Error(`deploy.config.json profile "${profile.label}" references agdaLibPath "${lib.agdaLibPath}" with no matching entry in deploy-assets/generated-libraries.mjs — run \`npm run setup\` after configuring deploy.config.json.`)
+      throw new Error(`deploy.config.json profile "${profile.label}" references agdaLibPath "${lib.agdaLibPath}" with no matching entry in scripts/generated-libraries.mjs — run \`npm run setup\` after configuring deploy.config.json.`)
     }
     resolved.push({
       name: info.name,
@@ -126,7 +125,7 @@ for (const profile of deployProfiles) {
   if (als in agdaVersionMap) continue
   const alsInfo = GENERATED_ALS_INFO[als as keyof typeof GENERATED_ALS_INFO]
   if (!alsInfo)
-    throw new Error(`deploy.config.json profile "${profile.label}" references als "${als}" with no entry in deploy-assets/generated-als-info.mjs — run \`npm run setup\`.`)
+    throw new Error(`deploy.config.json profile "${profile.label}" references als "${als}" with no entry in scripts/generated-als-info.mjs — run \`npm run setup\`.`)
   agdaVersionMap[als] = {
     path: asset(`/als/${als}/${alsInfo.wasmFilename}`),
     dataPath: asset(`/als/${als}/${AGDA_DATA_ZIP_NAME}`),

@@ -7,11 +7,11 @@
  *   agda < 2.8.0 — agda --interaction-json + Cmd_load per source vertex;
  *                  dependency graph is computed in memory, not written to file
  *
- * After building, copies the library's _build/ into deploy-assets/.cache/
+ * After building, copies the library's _build/ into .deploy-assets/.cache/
  * and regenerates the dependency-graph manifest.
  *
  * Usage:
- *   node deploy-assets/install-agdai-cache.mjs [--lib-file <path>] [--agda-bin <path>]
+ *   node scripts/install-agdai-cache.mjs [--lib-file <path>] [--agda-bin <path>]
  *
  * Without --lib-file, processes all libraries in deploy.config.json with useAgdai: true.
  * --agda-bin defaults to "agda" on PATH.
@@ -27,7 +27,8 @@ import { getLocalLibraries } from './resolve-deploy-config.mjs'
 import { parseAgdaLibInclude } from './agda-lib-utils.mjs'
 import { buildGraph, processLibrary as generateManifest, buildGraphWasm, processLibraryWasm } from './generate-manifest.mjs'
 
-const DEPLOY_ASSETS = dirname(fileURLToPath(import.meta.url))
+const SCRIPTS_DIR = dirname(fileURLToPath(import.meta.url))
+const DEPLOY_ASSETS = join(SCRIPTS_DIR, '../.deploy-assets')
 
 function parseArgs(argv) {
   const args = { libFile: null, agdaBin: 'agda', wasm: null }
@@ -165,7 +166,7 @@ async function buildWithCmdLoadWasm(lib, alsName, graph) {
     vfsIncludeDirs.push(depInclude ? `${vfsDepRoot}/${depInclude}` : vfsDepRoot)
   }
 
-  const workerScript = join(DEPLOY_ASSETS, `.wasm-cmdload-${randomBytes(4).toString('hex')}.mjs`)
+  const workerScript = join(SCRIPTS_DIR, `.wasm-cmdload-${randomBytes(4).toString('hex')}.mjs`)
   await writeFile(workerScript, `
 import { readFile } from 'node:fs/promises'
 import { WASI } from 'node:wasi'

@@ -1,6 +1,6 @@
 /**
  * Compiles all Agda builtin source files to produce a complete _build/ interface
- * cache in deploy-assets/als/<version>/agda-data/.
+ * cache in .deploy-assets/.als/<version>/agda-data/.
  *
  * Running native `agda` on a library only compiles the builtins that library
  * imports, leaving others without a precompiled .agdai. This script ensures
@@ -9,7 +9,7 @@
  * into our agda-data copy.
  *
  * Usage:
- *   node deploy-assets/build-agda-data.mjs [--als-version <version>] [--agda-bin <path>]
+ *   node scripts/build-agda-data.mjs [--als-version <version>] [--agda-bin <path>]
  *
  * Without --als-version, processes agda-data/ for every ALS version in deploy.config.json.
  * --agda-bin defaults to "agda" on PATH.
@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import { getSelectedAlsVersions, REPO_ROOT } from './resolve-deploy-config.mjs'
 
-const DEPLOY_ASSETS = dirname(fileURLToPath(import.meta.url))
+const DEPLOY_ASSETS = join(dirname(fileURLToPath(import.meta.url)), '../.deploy-assets')
 
 function parseArgs(argv) {
   const args = { alsVersion: null, agdaBin: 'agda' }

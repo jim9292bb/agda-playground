@@ -1,10 +1,10 @@
 /**
  * Shows which libraries in deploy.config.json have prebuilt .agdai cache
- * and/or a manifest in deploy-assets/.cache/.
+ * and/or a manifest in .deploy-assets/.cache/.
  *
  * Useful before running `npm run setup` to know what is ready.
  *
- * Usage: node deploy-assets/check-agdai-status.mjs
+ * Usage: node scripts/check-agdai-status.mjs
  */
 
 import { access } from 'node:fs/promises'

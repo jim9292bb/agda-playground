@@ -1,21 +1,21 @@
 /**
  * Fetches this project's own shipped default library/ALS files, places
- * library sources into deploy-assets/library/<name>/, creates or updates
+ * library sources into .deploy-assets/library/<name>/, creates or updates
  * deploy.config.json to point at them, and populates
- * deploy-assets/.cache/<id>/ with prebuilt .agdai and dependency-graph
+ * .deploy-assets/.cache/<id>/ with prebuilt .agdai and dependency-graph
  * manifests from the release.
  *
  * This is NOT a generic, deploy.config.json-driven downloader — it doesn't
  * read the catalogs or deploy.config.json at all. It's hardcoded for this
  * project's own shipped defaults (stdlib 2.3, cubical 0.9, agda-categories
  * 0.3.0, ALS 2.8.0). If you add a library/ALS version of your own, place
- * files by hand instead; see deploy-assets/README.md.
+ * files by hand instead; see DEPLOYMENT.md.
  *
  * Safe to run repeatedly: each step is skipped if its output already exists.
  *
  * After this script finishes, run `npm run setup` to build static/.
  *
- * Usage: node deploy-assets/auto-configure.mjs
+ * Usage: node scripts/auto-configure.mjs
  */
 
 import { mkdir, mkdtemp, rm, readdir, cp, access, writeFile, readFile } from 'node:fs/promises'
@@ -26,8 +26,8 @@ import { extractZip } from './zip-utils.mjs'
 import { getLocalLibraries } from './resolve-deploy-config.mjs'
 import { installAls } from './install-als.mjs'
 
-const DEPLOY_ASSETS = dirname(fileURLToPath(import.meta.url))
-const REPO_ROOT = resolve(DEPLOY_ASSETS, '..')
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const DEPLOY_ASSETS = resolve(REPO_ROOT, '.deploy-assets')
 const RELEASE = 'https://github.com/jim9292bb/agda-playground/releases/download/cache-2.8.0'
 
 // Hardcoded metadata for this project's shipped defaults.

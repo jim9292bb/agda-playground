@@ -18,25 +18,25 @@ vite.config.js.timestamp-*
 /deploy.config.json
 
 # Library/ALS staging areas (populated by `npm run auto-configure` or placed
-# by hand — see deploy-assets/README.md). Zipped/copied into static/ for
+# by hand — see DEPLOYMENT.md). Zipped/copied into static/ for
 # serving by `npm run setup` — none of this is committed.
-/deploy-assets/library/
-/deploy-assets/.als/
+/.deploy-assets/library/
+/.deploy-assets/.als/
 /static/library/
 /static/als/
 
 # Generated .agdai cache and dependency graphs (produced by
 # `npm run generate-manifest` / `npm run build-agdai`). Keyed by a random
 # ID mapped in .cache/index.json. Do not edit by hand — use npm scripts.
-/deploy-assets/.cache/
+/.deploy-assets/.cache/
 
 # Generated from the real .agda-lib files (see
-# deploy-assets/generate-library-info.mjs) — not committed.
-/deploy-assets/generated-libraries.mjs
-/deploy-assets/generated-als-info.mjs
+# scripts/generate-library-info.mjs) — not committed.
+/scripts/generated-libraries.mjs
+/scripts/generated-als-info.mjs
 
 /experiments/build-library/results/*.zip
 
 # Extracted .agdai files for on-demand serving (copied by npm run setup from
-# a placed/fetched _build/ tree — see deploy-assets/README.md)
+# a placed/fetched _build/ tree — see DEPLOYMENT.md)
 /static/agdai/

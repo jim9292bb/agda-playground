@@ -10,14 +10,14 @@
  *
  * Exits non-zero if any required file is missing.
  *
- * Usage: node deploy-assets/print-required-files.mjs
+ * Usage: node scripts/print-required-files.mjs
  */
 
 import { access } from 'node:fs/promises'
 import { join } from 'node:path'
 import { REPO_ROOT, getLocalLibraries, getSelectedAlsVersions } from './resolve-deploy-config.mjs'
 
-const DEPLOY_ASSETS = join(REPO_ROOT, 'deploy-assets')
+const DEPLOY_ASSETS = join(REPO_ROOT, '.deploy-assets')
 
 async function exists(path) {
   try {
@@ -57,22 +57,22 @@ async function main() {
     const alsRoot = join(DEPLOY_ASSETS, '.als', als.version)
     const wasmPath = join(alsRoot, als.wasmFilename)
     if (!(await exists(wasmPath))) {
-      console.error(`MISSING: deploy-assets/.als/${als.version}/${als.wasmFilename || '(no als-info.json)'}`)
+      console.error(`MISSING: .deploy-assets/.als/${als.version}/${als.wasmFilename || '(no als-info.json)'}`)
       missing = true
     }
     if (!(await exists(join(alsRoot, 'agda-data')))) {
-      console.error(`MISSING: deploy-assets/.als/${als.version}/agda-data/`)
+      console.error(`MISSING: .deploy-assets/.als/${als.version}/agda-data/`)
       missing = true
     }
   }
 
   if (missing) {
     if (await exists(join(DEPLOY_ASSETS, 'als')))
-      console.error('\nNote: deploy-assets/als/ exists but deploy-assets/.als/ is now the expected location — re-run `npm run auto-configure` or move files manually.')
+      console.error('\nNote: .deploy-assets/als/ exists but .deploy-assets/.als/ is now the expected location — re-run `npm run auto-configure` or move files manually.')
     console.error('')
     console.error('Some required files are missing. Either:')
     console.error("  - run 'npm run auto-configure' to fetch this project's own shipped defaults, or")
-    console.error('  - run npm run install-als (see deploy-assets/README.md)')
+    console.error('  - run npm run install-als (see DEPLOYMENT.md)')
     process.exit(1)
   }
 }

@@ -3,16 +3,16 @@
   "entry": [
     "src/app.d.ts",
     "static/coi-serviceworker.js",
-    "deploy-assets/ensure-deploy-config.mjs",
-    "deploy-assets/build-static-assets.mjs",
-    "deploy-assets/install-agdai-cache.mjs",
-    "deploy-assets/check-agdai-status.mjs",
-    "deploy-assets/auto-configure.mjs",
-    "deploy-assets/print-required-files.mjs",
-    "deploy-assets/generate-library-info.mjs",
-    "deploy-assets/run-als-version.mjs",
-    "deploy-assets/install-als.mjs",
-    "deploy-assets/build-agda-data.mjs"
+    "scripts/ensure-deploy-config.mjs",
+    "scripts/build-static-assets.mjs",
+    "scripts/install-agdai-cache.mjs",
+    "scripts/check-agdai-status.mjs",
+    "scripts/auto-configure.mjs",
+    "scripts/print-required-files.mjs",
+    "scripts/generate-library-info.mjs",
+    "scripts/run-als-version.mjs",
+    "scripts/install-als.mjs",
+    "scripts/build-agda-data.mjs"
   ],
   "ignore": [
     "experiments/**"

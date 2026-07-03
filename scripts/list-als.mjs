@@ -1,8 +1,8 @@
 /**
- * Lists all ALS builds installed under deploy-assets/.als/.
+ * Lists all ALS builds installed under .deploy-assets/.als/.
  *
  * Usage:
- *   node deploy-assets/list-als.mjs [--hash]
+ *   node scripts/list-als.mjs [--hash]
  *
  * --hash  Also prints the SHA-256 hash of the .wasm file (computed live from disk).
  */
@@ -12,7 +12,7 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createHash } from 'node:crypto'
 
-const ALS_DIR = join(dirname(fileURLToPath(import.meta.url)), '.als')
+const ALS_DIR = join(dirname(fileURLToPath(import.meta.url)), '../.deploy-assets/.als')
 
 function sha256File(filePath) {
   return new Promise((resolve, reject) => {
@@ -34,7 +34,7 @@ async function main() {
       .map(e => e.name)
       .sort()
   } catch {
-    console.log('No ALS builds installed (deploy-assets/.als/ not found).')
+    console.log('No ALS builds installed (.deploy-assets/.als/ not found).')
     return
   }
 

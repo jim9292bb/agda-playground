@@ -1,5 +1,5 @@
 /**
- * Generates `deploy-assets/.cache/<id>/agdai-manifest.json` — the
+ * Generates `.deploy-assets/.cache/<id>/agdai-manifest.json` — the
  * dependency graph `src/lib/agda/prefetch.js` uses to prefetch `.agdai`
  * files — directly from each library's own source tree at the OS path
  * recorded in `deploy.local.json`, no hand-written `Everything.agda` and
@@ -31,7 +31,7 @@
  * accurate.
  *
  * Usage:
- *   node deploy-assets/generate-manifest.mjs [--lib-file <path>]
+ *   node scripts/generate-manifest.mjs [--lib-file <path>]
  *
  * Without --lib-file, processes all libraries in deploy.config.json that
  * have useAgdai: true. With --lib-file <path>, processes only that one
@@ -206,7 +206,7 @@ function createHighlightingClient(workerScript, srcDir, agdaDataDir, wasmPath) {
 }
 
 async function createWasmPool(alsName, srcDir) {
-  const alsDir = join(REPO_ROOT, 'deploy-assets', '.als', alsName)
+  const alsDir = join(REPO_ROOT, '.deploy-assets', '.als', alsName)
   let info
   try {
     info = JSON.parse(readFileSync(join(alsDir, 'als-info.json'), 'utf8'))

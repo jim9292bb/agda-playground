@@ -1,7 +1,7 @@
 /**
- * Builds static/{library,als,agdai}/ from deploy-assets/.cache/ (for
+ * Builds static/{library,als,agdai}/ from .deploy-assets/.cache/ (for
  * .agdai and manifests), from each library's OS-path source tree (for
- * source zips), and from deploy-assets/als/ (for ALS wasm/data) — the one
+ * source zips), and from .deploy-assets/.als/ (for ALS wasm/data) — the one
  * place that turns "files a deployer placed or generated" into "what the
  * browser runtime actually fetches".
  *
@@ -10,21 +10,21 @@
  *     into static/library/<name>.zip, wrapped under a folder named <name>
  *     — reproducing the shape of a GitHub tag-archive zip so the browser's
  *     existing client-side unzip (which strips that wrapper) needs no change.
- *   - if deploy-assets/.cache/<id>/_build/ exists AND useAgdai is true,
+ *   - if .deploy-assets/.cache/<id>/_build/ exists AND useAgdai is true,
  *     copies it into static/agdai/<name>/_build/.
- *   - if deploy-assets/.cache/<id>/agdai-manifest.json exists AND useAgdai
+ *   - if .deploy-assets/.cache/<id>/agdai-manifest.json exists AND useAgdai
  *     is true, copies it to static/agdai/<name>/agdai-manifest.json.
  *     If absent, prefetching for that library is simply disabled at runtime
  *     (src/lib/agda/prefetch.js degrades gracefully per library).
  *
  * Per selected ALS version:
- *   - copies deploy-assets/als/<version>/<wasmFilename> into
+ *   - copies .deploy-assets/.als/<version>/<wasmFilename> into
  *     static/als/<version>/ unchanged.
- *   - zips deploy-assets/als/<version>/agda-data/ into
+ *   - zips .deploy-assets/.als/<version>/agda-data/ into
  *     static/als/<version>/<AGDA_DATA_ZIP_NAME> (no wrapper).
  *
  * Run via `npm run setup` (scripts/setup-assets.sh), after
- * deploy-assets/print-required-files.mjs has confirmed everything needed
+ * scripts/print-required-files.mjs has confirmed everything needed
  * is present.
  */
 
@@ -33,7 +33,7 @@ import { dirname, join } from 'node:path'
 import { zipDirectory } from './zip-utils.mjs'
 import { REPO_ROOT, getLocalLibraries, getSelectedAlsVersions } from './resolve-deploy-config.mjs'
 
-const DEPLOY_ASSETS = join(REPO_ROOT, 'deploy-assets')
+const DEPLOY_ASSETS = join(REPO_ROOT, '.deploy-assets')
 const STATIC = join(REPO_ROOT, 'static')
 const AGDA_DATA_ZIP_NAME = 'agda-data.zip'
 

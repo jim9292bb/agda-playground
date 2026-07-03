@@ -38,12 +38,10 @@ See [PROJECT_GOAL.md](PROJECT_GOAL.md) for the reasoning behind these boundaries
 
 Self-deployers (forking this repo to host their own version) configure
 which Agda/ALS version and library combinations to bundle in
-**[`deploy.config.json`](deploy.config.example.json)** (repo root, gitignored; created from `deploy.config.example.json`) — see [`deploy-assets/README.md`](deploy-assets/README.md) for the schema. The default reproduces this project's own
-deployment unchanged.
+**[`deploy.config.json`](deploy.config.example.json)** (repo root, gitignored; created from `deploy.config.example.json`). The default reproduces this project's own deployment unchanged.
 
-See [deploy-assets/README.md](deploy-assets/README.md) for the full
-deployment flow: placing raw library/ALS files, adding a library or ALS
-version, and regenerating the dependency graph.
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the full deployment flow: quick
+start, custom deployment, `deploy.config.json` schema, and script reference.
 
 ## Developing this project
 
@@ -61,10 +59,10 @@ npm run setup
 
 `npm run auto-configure` fetches this project's own shipped defaults
 (stdlib, Cubical, agda-categories, ALS 2.8.0) into the raw layout under
-`deploy-assets/library/`/`deploy-assets/.als/` (~300 MB); `npm run setup` zips/copies
+`.deploy-assets/library/`/`.deploy-assets/.als/` (~300 MB); `npm run setup` zips/copies
 them into `static/` for serving (~600 MB on disk after extraction). See
-[deploy-assets/README.md](deploy-assets/README.md) for what each step
-does and how to supply your own files instead.
+[DEPLOYMENT.md](DEPLOYMENT.md) for what each step does and how to supply
+your own files instead.
 
 ### Common commands
 

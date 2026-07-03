@@ -4,14 +4,14 @@
  * 1. Detects Agda version via `als --version`
  * 2. Downloads agda-data source (lib/prim/) from Hackage
  * 3. Compiles all builtin .agda files via `als --raw` + LSP Cmd_load
- * 4. Installs agda-data/, the .wasm file, and als-info.json into deploy-assets/.als/<name>/
+ * 4. Installs agda-data/, the .wasm file, and als-info.json into .deploy-assets/.als/<name>/
  *
  * Usage:
- *   node deploy-assets/install-als.mjs <path-to-als.wasm> [--name <id>] [--force]
+ *   node scripts/install-als.mjs <path-to-als.wasm> [--name <id>] [--force]
  *
- * --name sets the primary key used as the directory name under deploy-assets/.als/
+ * --name sets the primary key used as the directory name under .deploy-assets/.als/
  *        and as the "als" field in deploy.config.json. Defaults to the detected Agda version.
- * --force overwrites an existing deploy-assets/.als/<name>/ directory.
+ * --force overwrites an existing .deploy-assets/.als/<name>/ directory.
  */
 
 import { writeFile, mkdir, cp, rm, mkdtemp, access, readdir, stat } from 'node:fs/promises'
@@ -21,7 +21,7 @@ import { spawnSync, spawn } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { REPO_ROOT } from './resolve-deploy-config.mjs'
 
-const DEPLOY_ASSETS = dirname(fileURLToPath(import.meta.url))
+const DEPLOY_ASSETS = join(dirname(fileURLToPath(import.meta.url)), '../.deploy-assets')
 const ALS_DIR = join(DEPLOY_ASSETS, '.als')
 
 function parseArgs(argv) {
@@ -33,7 +33,7 @@ function parseArgs(argv) {
     else { console.error(`unknown argument: ${argv[i]}`); process.exit(1) }
   }
   if (!args.wasmPath) {
-    console.error('usage: node deploy-assets/install-als.mjs <path-to-als.wasm> [--name <id>] [--force]')
+    console.error('usage: node scripts/install-als.mjs <path-to-als.wasm> [--name <id>] [--force]')
     process.exit(1)
   }
   return args

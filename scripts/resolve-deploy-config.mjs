@@ -6,10 +6,10 @@
  *                     — profiles, ALS version info, and per-library
  *                     { agdaLibPath, useAgdai }. Also imported by the
  *                     TypeScript bundle (interface.ts) at build time.
- *                     deploy-assets/ensure-deploy-config.mjs copies the
+ *                     scripts/ensure-deploy-config.mjs copies the
  *                     example into place automatically on a fresh clone.
  *
- * deploy-assets/.cache/index.json  (gitignored, auto-managed here) —
+ * .deploy-assets/.cache/index.json  (gitignored, auto-managed here) —
  *                     maps each agdaLibPath to a stable random cache-dir
  *                     ID so generated .agdai and manifests persist across
  *                     runs even if deploy.config.json is recreated.
@@ -23,7 +23,7 @@ import { parseAgdaLibName } from './agda-lib-utils.mjs'
 
 export const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
-const CACHE_DIR = join(REPO_ROOT, 'deploy-assets', '.cache')
+const CACHE_DIR = join(REPO_ROOT, '.deploy-assets', '.cache')
 const INDEX_PATH = join(CACHE_DIR, 'index.json')
 
 // ── deploy.config.json ────────────────────────────────────────────────────────
@@ -65,7 +65,7 @@ function ensureCacheId(agdaLibPath, index) {
 
 /**
  * Deduplicated ALS names referenced by any configured profile.
- * wasmFilename is read from deploy-assets/.als/<als>/als-info.json.
+ * wasmFilename is read from .deploy-assets/.als/<als>/als-info.json.
  * Returns { version: alsName, wasmFilename } pairs.
  */
 export function getSelectedAlsVersions() {
@@ -76,7 +76,7 @@ export function getSelectedAlsVersions() {
     const { als } = profile
     if (!als || seen.has(als)) continue
     seen.add(als)
-    const infoPath = join(REPO_ROOT, 'deploy-assets', '.als', als, 'als-info.json')
+    const infoPath = join(REPO_ROOT, '.deploy-assets', '.als', als, 'als-info.json')
     let wasmFilename, wasmBytes
     try {
       const info = JSON.parse(readFileSync(infoPath, 'utf8'))
@@ -94,7 +94,7 @@ export function getSelectedAlsVersions() {
  *   name        — the .agda-lib `name:` value (identifier + static-asset key)
  *   agdaLibPath — absolute OS path to the .agda-lib file (primary key in profiles)
  *   useAgdai    — true if any profile's library entry has useAgdai: true
- *   cacheId     — stable random ID for deploy-assets/.cache/<cacheId>/
+ *   cacheId     — stable random ID for .deploy-assets/.cache/<cacheId>/
  *   cacheDir    — absolute path to that cache directory
  *
  * `name` is read directly from the .agda-lib file at agdaLibPath.
