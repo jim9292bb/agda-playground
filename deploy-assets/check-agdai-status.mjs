@@ -27,7 +27,6 @@ async function main() {
     name: lib.name,
     hasManifest: await exists(join(lib.cacheDir, 'agdai-manifest.json')),
     hasCache: await exists(join(lib.cacheDir, '_build')),
-    agdaiDisabled: !lib.useAgdai,
   })))
 
   const nameWidth = Math.max(...rows.map(r => r.name.length))
@@ -35,8 +34,7 @@ async function main() {
     const name = r.name.padEnd(nameWidth)
     const manifest = r.hasManifest ? '✓ manifest' : '✗ manifest'
     const cache = r.hasCache ? '✓ cache' : '✗ cache'
-    const disabled = r.agdaiDisabled ? '  (agdai disabled)' : ''
-    console.log(`${name}  ${manifest}  ${cache}${disabled}`)
+    console.log(`${name}  ${manifest}  ${cache}`)
   }
 }
 
