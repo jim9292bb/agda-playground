@@ -29,7 +29,7 @@ async function main() {
     const useAgdai = lib.useAgdai ? '' : ' (useAgdai: false)'
 
     const manifest = hasManifest ? '✓ manifest' : '✗ manifest'
-    const build = hasBuild ? '✓ _build' : '✗ _build (run `npm run install-agdai`)'
+    const build = hasBuild ? '✓ _build' : '✗ _build'
     console.log(`${lib.name}${useAgdai}: ${manifest}  ${build}`)
     if (lib.useAgdai && (hasManifest || hasBuild)) {
       console.log(`  cache id: ${lib.cacheId}`)
