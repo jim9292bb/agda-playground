@@ -316,10 +316,10 @@ async function main() {
   let libs = getLocalLibraries()
 
   if (args.library) {
-    const target = libs.find(l => l.name === args.library)
+    const target = libs.find(l => l.agdaLibPath === args.library)
     if (!target) {
-      const names = libs.map(l => l.name).join(', ') || '(none configured)'
-      throw new Error(`"${args.library}" not found in deploy.config.json. Available: ${names}`)
+      const paths = libs.map(l => l.agdaLibPath).join(', ') || '(none configured)'
+      throw new Error(`"${args.library}" not found in deploy.config.json. Available: ${paths}`)
     }
     libs = [target]
   } else {
@@ -327,7 +327,7 @@ async function main() {
     if (libs.length === 0) {
       console.log('No libraries have useAgdai: true in deploy.config.json — nothing to do.')
       console.log('Set useAgdai: true for the libraries you want to install .agdai for,')
-      console.log('or use --library <name> to install for a specific library regardless.')
+      console.log('or use --library <path/to/lib.agda-lib> to install for a specific library regardless.')
       return
     }
   }

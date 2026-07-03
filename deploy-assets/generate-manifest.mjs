@@ -375,18 +375,18 @@ async function main() {
   let libs = getLocalLibraries()
 
   if (args.library) {
-    const target = libs.find(l => l.name === args.library)
+    const target = libs.find(l => l.agdaLibPath === args.library)
     if (!target) {
-      const names = libs.map(l => l.name).join(', ') || '(none configured)'
-      throw new Error(`"${args.library}" not found in deploy.local.json. Available: ${names}`)
+      const paths = libs.map(l => l.agdaLibPath).join(', ') || '(none configured)'
+      throw new Error(`"${args.library}" not found in deploy.config.json. Available: ${paths}`)
     }
     libs = [target]
   } else {
     libs = libs.filter(l => l.useAgdai)
     if (libs.length === 0) {
-      console.log('No libraries have useAgdai: true in deploy.local.json — nothing to do.')
+      console.log('No libraries have useAgdai: true in deploy.config.json — nothing to do.')
       console.log('Set useAgdai: true for the libraries you want to generate manifests for,')
-      console.log('or use --library <name> to generate for a specific library regardless.')
+      console.log('or use --library <path/to/lib.agda-lib> to generate for a specific library regardless.')
       return
     }
   }
