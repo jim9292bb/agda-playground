@@ -73,7 +73,10 @@ milliseconds. First-time builds take ~8 min for stdlib.
 npm run install-agdai -- --lib-file <path/to/lib.agda-lib> --agda-bin <path>
 ```
 
-`--lib-file`: process only this library (default: all libraries with `useAgdai: true`). `--agda-bin`: path to the `agda` binary (default: `agda` on `PATH`). Generates the dependency-graph manifest afterwards.
+`--lib-file`: process only this library (default: all libraries with `useAgdai: true`).
+`--agda-bin`: path to the `agda` binary (default: `agda` on `PATH`).
+
+Generates the dependency-graph manifest afterwards.
 
 Check what's ready at any time:
 
@@ -190,7 +193,9 @@ from-source recompile instead of a cache hit, never an error.
 npm run generate-manifest -- --lib-file <path/to/lib.agda-lib>
 ```
 
-`--lib-file`: process only this library (default: all libraries with `useAgdai: true`). No `Everything.agda` to hand-write, no native `--dependency-graph` run.
+`--lib-file`: process only this library (default: all libraries with `useAgdai: true`).
+
+No `Everything.agda` to hand-write, no native `--dependency-graph` run.
 For every file under the library's own `.agda-lib` `include:`, this spawns
 `agda --interaction-json` and asks for `Cmd_tokenHighlighting`: a real Agda
 interaction command that returns purely lexical token highlighting for that one
