@@ -6,8 +6,10 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "presetup": "node scripts/generate-manifest.mjs",
     "setup": "scripts/setup-assets.sh",
     "auto-configure": "node scripts/auto-configure.mjs",
+    "generate-manifest": "node scripts/generate-manifest.mjs",
     "install-agdai": "node scripts/install-agdai-cache.mjs",
     "agdai-status": "node scripts/check-agdai-status.mjs",
     "install-als": "node scripts/install-als.mjs",

@@ -45,7 +45,7 @@ import { fileURLToPath } from 'node:url'
 import { spawn } from 'node:child_process'
 import { cpus } from 'node:os'
 import { randomBytes } from 'node:crypto'
-import { getLocalLibraries, REPO_ROOT } from './resolve-deploy-config.mjs'
+import { getLocalLibraries, getSelectedAlsVersions, REPO_ROOT } from './resolve-deploy-config.mjs'
 import { parseAgdaLibInclude } from './agda-lib-utils.mjs'
 
 const DEPLOY_ASSETS = dirname(fileURLToPath(import.meta.url))
@@ -60,7 +60,7 @@ const AGDA_FILE_EXTENSIONS = [
 ]
 
 function parseArgs(argv) {
-  const args = { libFile: null, agdaBin: 'agda', wasm: null }
+  const args = { libFile: null, agdaBin: null, wasm: null }
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--lib-file') args.libFile = argv[++i]
     else if (argv[i] === '--agda-bin') args.agdaBin = argv[++i]
@@ -391,14 +391,25 @@ async function main() {
     }
   }
 
-  for (const lib of libs) {
-    if (args.wasm) {
-      await processLibraryWasm(lib, args.wasm)
+  let wasm = args.wasm
+  let agdaBin = args.agdaBin
+  if (!wasm && !agdaBin) {
+    const versions = getSelectedAlsVersions()
+    if (versions.length > 0) {
+      wasm = versions[0].version
+      console.log(`Using ALS "${wasm}" (auto-detected from deploy.config.json).`)
     } else {
-      await processLibrary(lib, args.agdaBin)
+      agdaBin = 'agda'
     }
   }
-  console.log('Run `npm run setup` to copy manifests into static/.')
+
+  for (const lib of libs) {
+    if (wasm) {
+      await processLibraryWasm(lib, wasm)
+    } else {
+      await processLibrary(lib, agdaBin)
+    }
+  }
 }
 
 main().catch(err => { console.error(err); process.exit(1) })

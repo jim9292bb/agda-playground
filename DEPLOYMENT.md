@@ -15,9 +15,9 @@ npm run build
 ```
 
 `auto-configure` downloads all libraries and ALS, creates `deploy.config.json`,
-and fetches prebuilt `.agdai` files and manifests. `setup` packages everything
-into `static/`. To run locally instead of deploying, use `npm run dev` — the
-app will be available at `http://localhost:8099`.
+and fetches prebuilt `.agdai` files. `setup` generates dependency-graph
+manifests and packages everything into `static/`. To run locally instead of
+deploying, use `npm run dev` — the app will be available at `http://localhost:8099`.
 
 ## Custom deployment
 
@@ -134,8 +134,9 @@ Each entry in `libraries`:
 
 | `npm run` | Description |
 |---|---|
-| `auto-configure` | Downloads this project's shipped defaults (libraries + ALS), creates `deploy.config.json`, fetches prebuilt `.agdai` and manifests |
-| `setup` | Packages everything in `.deploy-assets/.als/` and `.cache/` into `static/` for serving |
+| `auto-configure` | Downloads this project's shipped defaults (libraries + ALS), creates `deploy.config.json`, fetches prebuilt `.agdai` files |
+| `generate-manifest` | Generates dependency-graph manifests from library source using ALS WASM. Auto-detects ALS from `deploy.config.json`; supports `--lib-file <path>`, `--wasm <als-name>`, `--agda-bin <path>`. Also runs automatically before `setup` |
+| `setup` | Generates dependency-graph manifests (via `generate-manifest`), then packages everything into `static/` for serving |
 | `install-als` | Installs an ALS WASM build: `npm run install-als -- <path-to-als.wasm> --name <als-name> [--force]`. `--force` overwrites an existing install with the same name |
 | `remove-als` | Removes an installed ALS build: `npm run remove-als -- <als-name>` |
 | `list-als` | Lists installed ALS builds. Pass `--hash` to also print the SHA-256 of the `.wasm` file |

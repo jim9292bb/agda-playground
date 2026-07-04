@@ -8,15 +8,14 @@
     "scripts/install-agdai-cache.mjs",
     "scripts/check-agdai-status.mjs",
     "scripts/auto-configure.mjs",
+    "scripts/generate-manifest.mjs",
     "scripts/print-required-files.mjs",
     "scripts/generate-library-info.mjs",
     "scripts/run-als-version.mjs",
     "scripts/install-als.mjs",
     "scripts/remove-als.mjs",
     "scripts/remove-agdai.mjs",
-    "scripts/build-agda-data.mjs",
-    "scripts/remove-als.mjs",
-    "scripts/remove-agdai.mjs"
+    "scripts/build-agda-data.mjs"
   ],
   "ignore": [
     "experiments/**"

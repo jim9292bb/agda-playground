@@ -2,8 +2,7 @@
  * Fetches this project's own shipped default library/ALS files, places
  * library sources into .deploy-assets/library/<name>/, creates or updates
  * deploy.config.json to point at them, and populates
- * .deploy-assets/.cache/<id>/ with prebuilt .agdai and dependency-graph
- * manifests from the release.
+ * .deploy-assets/.cache/<id>/ with prebuilt .agdai files from the release.
  *
  * This is NOT a generic, deploy.config.json-driven downloader — it doesn't
  * read the catalogs or deploy.config.json at all. It's hardcoded for this
@@ -13,7 +12,8 @@
  *
  * Safe to run repeatedly: each step is skipped if its output already exists.
  *
- * After this script finishes, run `npm run setup` to build static/.
+ * After this script finishes, run `npm run setup` to prepare static/
+ * (setup automatically generates dependency-graph manifests first).
  *
  * Usage: node scripts/auto-configure.mjs
  */
@@ -150,7 +150,7 @@ async function main() {
     const resolvedLibs = getLocalLibraries()
     const libByName = new Map(resolvedLibs.map(l => [l.name, l]))
 
-    // 4. Download prebuilt .agdai and manifests into .cache/<id>/
+    // 4. Download prebuilt .agdai into .cache/<id>/
     for (const lib of libsWithPaths) {
       const resolved = libByName.get(lib.name)
       if (!resolved) {
@@ -165,15 +165,6 @@ async function main() {
         workDir,
         join(resolved.cacheDir, '_build'),
       )
-
-      try {
-        await fetchFile(
-          `${RELEASE}/${lib.releaseAssetPrefix}-manifest.json`,
-          join(resolved.cacheDir, 'agdai-manifest.json'),
-        )
-      } catch (err) {
-        console.warn(`  could not fetch ${lib.releaseAssetPrefix}-manifest.json (prefetching will be disabled for "${lib.name}"): ${err.message}`)
-      }
     }
 
     // 5. ALS: download wasm to temp dir, then run install-als to compile builtins
