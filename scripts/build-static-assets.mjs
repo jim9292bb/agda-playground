@@ -1,19 +1,18 @@
 /**
- * Builds static/{library,als,agdai}/ from .deploy-assets/.cache/ (for
+ * Builds static/{library,als,agdai}/ from each library's agdaiDir (for
  * .agdai and manifests), from each library's OS-path source tree (for
  * source zips), and from .deploy-assets/.als/ (for ALS wasm/data) — the one
  * place that turns "files a deployer placed or generated" into "what the
  * browser runtime actually fetches".
  *
- * Per selected library (from deploy.local.json, matched against profiles):
+ * Per selected library (from deploy.config.json):
  *   - zips the library's source tree (from agdaLibPath's parent directory)
  *     into static/library/<name>.zip, wrapped under a folder named <name>
  *     — reproducing the shape of a GitHub tag-archive zip so the browser's
  *     existing client-side unzip (which strips that wrapper) needs no change.
- *   - if .deploy-assets/.cache/<id>/_build/ exists AND useAgdai is true,
- *     copies it into static/agdai/<name>/_build/.
- *   - if .deploy-assets/.cache/<id>/agdai-manifest.json exists AND useAgdai
- *     is true, copies it to static/agdai/<name>/agdai-manifest.json.
+ *   - if agdaiDir/_build/ exists, copies it into static/agdai/<name>/_build/.
+ *   - if agdaiDir/agdai-manifest.json exists, copies it to
+ *     static/agdai/<name>/agdai-manifest.json.
  *     If absent, prefetching for that library is simply disabled at runtime
  *     (src/lib/agda/prefetch.js degrades gracefully per library).
  *
@@ -60,20 +59,20 @@ async function main() {
       exclude: ['.git', '_build'],
     })
 
-    if (lib.useAgdai) {
-      const buildDir = join(lib.cacheDir, '_build')
+    if (lib.agdaiDir) {
+      const buildDir = join(lib.agdaiDir, '_build')
       if (await exists(buildDir)) {
         console.log(`[${lib.name}] copying prebuilt .agdai cache into static/agdai/${lib.name}/_build/...`)
         await cp(buildDir, join(STATIC, 'agdai', lib.name, '_build'), { recursive: true })
       }
 
-      const manifestSrc = join(lib.cacheDir, 'agdai-manifest.json')
+      const manifestSrc = join(lib.agdaiDir, 'agdai-manifest.json')
       if (await exists(manifestSrc)) {
         console.log(`[${lib.name}] copying agdai-manifest.json...`)
         await mkdir(join(STATIC, 'agdai', lib.name), { recursive: true })
         await cp(manifestSrc, join(STATIC, 'agdai', lib.name, 'agdai-manifest.json'))
       } else {
-        console.log(`[${lib.name}] no agdai-manifest.json in cache — prefetching disabled (run \`npm run generate-manifest\`).`)
+        console.log(`[${lib.name}] no agdai-manifest.json in agdaiDir — prefetching disabled (run \`npm run generate-manifest\`).`)
       }
     }
   }

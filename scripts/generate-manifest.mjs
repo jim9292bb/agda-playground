@@ -34,8 +34,8 @@
  *   node scripts/generate-manifest.mjs [--lib-file <path>]
  *
  * Without --lib-file, processes all libraries in deploy.config.json that
- * have useAgdai: true. With --lib-file <path>, processes only that one
- * (regardless of its useAgdai setting — useful for one-off regeneration).
+ * have agdaiDir configured. With --lib-file <path>, processes only that one
+ * (regardless of whether agdaiDir is set — useful for one-off regeneration).
  */
 
 import { readFile, writeFile, readdir, mkdir, rm } from 'node:fs/promises'
@@ -280,11 +280,11 @@ export async function buildGraphWasm(lib, alsName) {
 
 export async function processLibraryWasm(lib, alsName) {
   const graph = await buildGraphWasm(lib, alsName)
-  await mkdir(lib.cacheDir, { recursive: true })
+  await mkdir(lib.agdaiDir, { recursive: true })
   const json = JSON.stringify({ graph })
-  const manifestPath = join(lib.cacheDir, 'agdai-manifest.json')
+  const manifestPath = join(lib.agdaiDir, 'agdai-manifest.json')
   await writeFile(manifestPath, json)
-  console.log(`[${lib.name}] wrote ${Object.keys(graph).length} modules, ${(json.length / 1024).toFixed(0)} KB to .cache/${lib.cacheId}/agdai-manifest.json`)
+  console.log(`[${lib.name}] wrote ${Object.keys(graph).length} modules, ${(json.length / 1024).toFixed(0)} KB to ${relative(REPO_ROOT, manifestPath)}`)
 }
 
 // ── Native agda highlighting ──────────────────────────────────────────────────
@@ -360,14 +360,14 @@ export async function buildGraph(lib, agdaBin = 'agda') {
   return graph
 }
 
-/** Builds the dependency graph and writes it to .cache/<id>/agdai-manifest.json. */
+/** Builds the dependency graph and writes it to agdaiDir/agdai-manifest.json. */
 export async function processLibrary(lib, agdaBin = 'agda') {
   const graph = await buildGraph(lib, agdaBin)
-  await mkdir(lib.cacheDir, { recursive: true })
+  await mkdir(lib.agdaiDir, { recursive: true })
   const json = JSON.stringify({ graph })
-  const manifestPath = join(lib.cacheDir, 'agdai-manifest.json')
+  const manifestPath = join(lib.agdaiDir, 'agdai-manifest.json')
   await writeFile(manifestPath, json)
-  console.log(`[${lib.name}] wrote ${Object.keys(graph).length} modules, ${(json.length / 1024).toFixed(0)} KB to .cache/${lib.cacheId}/agdai-manifest.json`)
+  console.log(`[${lib.name}] wrote ${Object.keys(graph).length} modules, ${(json.length / 1024).toFixed(0)} KB to ${relative(REPO_ROOT, manifestPath)}`)
 }
 
 async function main() {
@@ -382,10 +382,10 @@ async function main() {
     }
     libs = [target]
   } else {
-    libs = libs.filter(l => l.useAgdai)
+    libs = libs.filter(l => l.agdaiDir)
     if (libs.length === 0) {
-      console.log('No libraries have useAgdai: true in deploy.config.json — nothing to do.')
-      console.log('Set useAgdai: true for the libraries you want to generate manifests for,')
+      console.log('No libraries have agdaiDir configured in deploy.config.json — nothing to do.')
+      console.log('Set agdaiDir for the libraries you want to generate manifests for,')
       console.log('or use --lib-file <path/to/lib.agda-lib> to generate for a specific library regardless.')
       return
     }

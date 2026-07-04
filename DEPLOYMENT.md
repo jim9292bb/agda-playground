@@ -52,10 +52,10 @@ See [`deploy.config.json` schema](#deployconfigjson-schema) below.
 **4. (Optional) Build `.agdai` cache:**
 
 ```sh
-npm run install-agdai -- --lib-file <path/to/lib.agda-lib> --agda-bin <path>
+npm run build-agdai -- --lib-file <path/to/lib.agda-lib> --agda-bin <path>
 ```
 
-`--lib-file`: process only this library (default: all libraries with `useAgdai: true`).  
+`--lib-file`: process only this library (default: all libraries with `agdaiDir` set).  
 `--agda-bin`: path to the `agda` binary (default: `agda` on `PATH`).
 
 First-time builds take ~8 min for stdlib. Check what's ready at any time:
@@ -98,13 +98,13 @@ Example:
           "agdaLibPath": "/path/to/agda-stdlib/standard-library.agda-lib",
           "label": "stdlib",
           "version": "2.3",
-          "useAgdai": true
+          "agdaiDir": ".deploy-assets/auto/agdai/standard-library-2.3"
         },
         {
           "agdaLibPath": "/path/to/cubical/cubical.agda-lib",
           "label": "cubical",
           "version": "0.9",
-          "useAgdai": true
+          "agdaiDir": ".deploy-assets/auto/agdai/cubical-0.9"
         }
       ]
     }
@@ -128,7 +128,7 @@ Each entry in `libraries`:
 | `agdaLibPath` | yes | Absolute path to the library's `.agda-lib` file. The library `name` is parsed from its `name:` line |
 | `label` | no | UI display name. Falls back to the parsed `name:` value if absent |
 | `version` | no | Version string shown in the UI. Cosmetic only |
-| `useAgdai` | no (default `false`) | Whether to serve the `.agdai` cache for this library |
+| `agdaiDir` | no | When present, enables `.agdai` prefetching for this library. Path to the directory containing `.agdai` files and `agdai-manifest.json`. Accepts an absolute path or a path relative to repo root. Paths outside the repo must be gitignored manually |
 
 ### Scripts
 
@@ -140,6 +140,6 @@ Each entry in `libraries`:
 | `install-als` | Installs an ALS WASM build: `npm run install-als -- <path-to-als.wasm> --name <als-name> [--force]`. `--force` overwrites an existing install with the same name |
 | `remove-als` | Removes an installed ALS build: `npm run remove-als -- <als-name>` |
 | `list-als` | Lists installed ALS builds. Pass `--hash` to also print the SHA-256 of the `.wasm` file |
-| `install-agdai` | Builds `.agdai` cache with native agda and generates the dependency-graph manifest. Supports `--lib-file <path>`, `--agda-bin <path>`, `--wasm <als-name>` |
+| `build-agdai` | Compiles `.agdai` files with native agda (or ALS WASM) and writes them to the library's `agdaiDir`. Supports `--lib-file <path>`, `--agda-bin <path>`, `--wasm <als-name>` |
 | `remove-agdai` | Removes the `.agdai` cache and manifest for a library: `npm run remove-agdai -- <path/to/lib.agda-lib>` |
 | `agdai-status` | Shows manifest and cache status for each configured library |

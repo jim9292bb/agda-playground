@@ -10,7 +10,7 @@
     "setup": "scripts/setup-assets.sh",
     "auto-configure": "node scripts/auto-configure.mjs",
     "generate-manifest": "node scripts/generate-manifest.mjs",
-    "install-agdai": "node scripts/install-agdai-cache.mjs",
+    "build-agdai": "node scripts/build-agdai.mjs",
     "agdai-status": "node scripts/check-agdai-status.mjs",
     "install-als": "node scripts/install-als.mjs",
     "remove-als": "node scripts/remove-als.mjs",

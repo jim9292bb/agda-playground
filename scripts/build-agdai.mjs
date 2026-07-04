@@ -1,29 +1,29 @@
 /**
- * Installs precompiled .agdai files and generates the dependency-graph
- * manifest for each configured library.
+ * Compiles .agdai files for configured libraries and generates dependency-graph
+ * manifests. Output goes to each library's configured agdaiDir.
  *
  * Builds with native agda directly in the library's source directory:
  *   agda ≥ 2.8.0 — agda --build-library (single command)
  *   agda < 2.8.0 — agda --interaction-json + Cmd_load per source vertex;
  *                  dependency graph is computed in memory, not written to file
  *
- * After building, copies the library's _build/ into .deploy-assets/.cache/
- * and regenerates the dependency-graph manifest.
+ * After building, copies the library's _build/ into its agdaiDir and
+ * regenerates the dependency-graph manifest.
  *
  * Usage:
- *   node scripts/install-agdai-cache.mjs [--lib-file <path>] [--agda-bin <path>]
+ *   node scripts/build-agdai.mjs [--lib-file <path>] [--agda-bin <path>] [--wasm <als-name>]
  *
- * Without --lib-file, processes all libraries in deploy.config.json with useAgdai: true.
+ * Without --lib-file, processes all libraries with agdaiDir configured in deploy.config.json.
  * --agda-bin defaults to "agda" on PATH.
  */
 
 import { readFile, writeFile, access, mkdir, cp, rm } from 'node:fs/promises'
 import { readFileSync } from 'node:fs'
-import { dirname, join, sep } from 'node:path'
+import { dirname, join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawn, spawnSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import { getLocalLibraries } from './resolve-deploy-config.mjs'
+import { getLocalLibraries, REPO_ROOT } from './resolve-deploy-config.mjs'
 import { parseAgdaLibInclude } from './agda-lib-utils.mjs'
 import { buildGraph, processLibrary as generateManifest, buildGraphWasm, processLibraryWasm } from './generate-manifest.mjs'
 
@@ -273,10 +273,11 @@ async function buildAgdaiWasm(lib, alsName) {
   await buildWithCmdLoadWasm(lib, alsName, graph)
   const libSrcRoot = dirname(lib.agdaLibPath)
   const srcBuild = join(libSrcRoot, '_build')
-  const destBuild = join(lib.cacheDir, '_build')
+  const destBuild = join(lib.agdaiDir, '_build')
+  await mkdir(lib.agdaiDir, { recursive: true })
   await rm(destBuild, { recursive: true, force: true })
   await cp(srcBuild, destBuild, { recursive: true })
-  console.log(`[${lib.name}] .agdai written to .cache/${lib.cacheId}/_build/`)
+  console.log(`[${lib.name}] .agdai written to ${relative(REPO_ROOT, destBuild)}/`)
 }
 
 async function buildAgdai(lib, agdaBin) {
@@ -290,8 +291,9 @@ async function buildAgdai(lib, agdaBin) {
   const libSrcRoot = dirname(lib.agdaLibPath)
   const includeDir = include ? join(libSrcRoot, include) : libSrcRoot
 
+  await mkdir(lib.agdaiDir, { recursive: true })
   const allLibs = getLocalLibraries()
-  const libraryFile = join(lib.cacheDir, 'libraries')
+  const libraryFile = join(lib.agdaiDir, 'libraries')
   await writeFile(
     libraryFile,
     allLibs.map(l => l.agdaLibPath).join('\n') + '\n',
@@ -306,10 +308,10 @@ async function buildAgdai(lib, agdaBin) {
   }
 
   const srcBuild = join(libSrcRoot, '_build')
-  const destBuild = join(lib.cacheDir, '_build')
+  const destBuild = join(lib.agdaiDir, '_build')
   await rm(destBuild, { recursive: true, force: true })
   await cp(srcBuild, destBuild, { recursive: true })
-  console.log(`[${lib.name}] .agdai written to .cache/${lib.cacheId}/_build/`)
+  console.log(`[${lib.name}] .agdai written to ${relative(REPO_ROOT, destBuild)}/`)
 }
 
 async function main() {
@@ -324,11 +326,11 @@ async function main() {
     }
     libs = [target]
   } else {
-    libs = libs.filter(l => l.useAgdai)
+    libs = libs.filter(l => l.agdaiDir)
     if (libs.length === 0) {
-      console.log('No libraries have useAgdai: true in deploy.config.json — nothing to do.')
-      console.log('Set useAgdai: true for the libraries you want to install .agdai for,')
-      console.log('or use --lib-file <path/to/lib.agda-lib> to install for a specific library regardless.')
+      console.log('No libraries have agdaiDir configured in deploy.config.json — nothing to do.')
+      console.log('Set agdaiDir for the libraries you want to compile .agdai for,')
+      console.log('or use --lib-file <path/to/lib.agda-lib> to compile for a specific library regardless.')
       return
     }
   }
@@ -342,7 +344,7 @@ async function main() {
       await generateManifest(lib, args.agdaBin)
     }
   }
-  console.log('Run `npm run setup` to copy .agdai files into static/.')
+  console.log('Run `npm run setup` to package .agdai files into static/.')
 }
 
 main().catch(err => { console.error(err); process.exit(1) })

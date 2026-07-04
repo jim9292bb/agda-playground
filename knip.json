@@ -5,7 +5,7 @@
     "static/coi-serviceworker.js",
     "scripts/ensure-deploy-config.mjs",
     "scripts/build-static-assets.mjs",
-    "scripts/install-agdai-cache.mjs",
+    "scripts/build-agdai.mjs",
     "scripts/check-agdai-status.mjs",
     "scripts/auto-configure.mjs",
     "scripts/generate-manifest.mjs",

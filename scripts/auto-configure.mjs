@@ -18,7 +18,7 @@
  * Usage: node scripts/auto-configure.mjs
  */
 
-import { mkdir, mkdtemp, rm, readdir, cp, access, writeFile, readFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, readdir, cp, access, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -31,25 +31,43 @@ const DEPLOY_ASSETS = resolve(REPO_ROOT, '.deploy-assets')
 const RELEASE = 'https://github.com/jim9292bb/agda-playground/releases/download/cache-2.8.0'
 
 // Hardcoded metadata for this project's shipped defaults.
-// Each entry: { name, agdaLibFile, sourceUrl, releaseAssetPrefix }
 const SHIPPED_LIBRARIES = [
   {
     name: 'standard-library-2.3',
     agdaLibFile: 'standard-library.agda-lib',
     sourceUrl: 'https://github.com/agda/agda-stdlib/archive/refs/tags/v2.3.zip',
     releaseAssetPrefix: 'stdlib',
+    label: 'stdlib',
+    version: '2.3',
   },
   {
     name: 'cubical-0.9',
     agdaLibFile: 'cubical.agda-lib',
     sourceUrl: 'https://github.com/agda/cubical/archive/refs/tags/v0.9.zip',
     releaseAssetPrefix: 'cubical',
+    label: 'cubical',
+    version: '0.9',
   },
   {
     name: 'agda-categories',
     agdaLibFile: 'agda-categories.agda-lib',
     sourceUrl: 'https://github.com/agda/agda-categories/archive/refs/tags/v0.3.0.zip',
     releaseAssetPrefix: 'agda-categories',
+    label: 'agda-categories',
+    version: '0.3.0',
+  },
+]
+
+const SHIPPED_PROFILES = [
+  {
+    label: 'Standard Library v2.3 + Cubical v0.9 (ALS 2.8.0)',
+    als: 'als-2.8ext',
+    libraries: ['standard-library-2.3', 'cubical-0.9'],
+  },
+  {
+    label: 'Standard Library v2.3 + agda-categories v0.3.0 (ALS 2.8.0)',
+    als: 'als-2.8ext',
+    libraries: ['standard-library-2.3', 'agda-categories'],
   },
 ]
 
@@ -108,25 +126,24 @@ async function fetchFile(url, destPath) {
   await download(url, destPath)
 }
 
-async function ensureDeployConfig(libraries) {
+async function ensureDeployConfig(libsWithPaths) {
   const configPath = join(REPO_ROOT, 'deploy.config.json')
   if (await exists(configPath)) {
     console.log(`  already present: deploy.config.json (leaving as-is — delete it to regenerate)`)
     return
   }
-  const example = JSON.parse(await readFile(join(REPO_ROOT, 'deploy.config.example.json'), 'utf8'))
-  // Match downloaded library by the .agda-lib filename at the end of the placeholder path
-  const { basename } = await import('node:path')
-  const libByFilename = new Map(libraries.map(l => [basename(l.agdaLibPath), l]))
-  const profiles = example.profiles.map(profile => ({
-    ...profile,
-    libraries: profile.libraries.map(lib => {
-      const downloaded = libByFilename.get(basename(lib.agdaLibPath ?? ''))
-      return downloaded ? { ...lib, agdaLibPath: downloaded.agdaLibPath, useAgdai: true } : lib
+  const libMap = new Map(libsWithPaths.map(l => [l.name, l]))
+  const libMeta = new Map(SHIPPED_LIBRARIES.map(l => [l.name, l]))
+  const profiles = SHIPPED_PROFILES.map(profile => ({
+    label: profile.label,
+    als: profile.als,
+    libraries: profile.libraries.map(libName => {
+      const { agdaLibPath } = libMap.get(libName)
+      const { label, version } = libMeta.get(libName)
+      return { agdaLibPath, label, version, agdaiDir: `.deploy-assets/auto/agdai/${libName}` }
     }),
   }))
-  const config = { ...example, profiles }
-  await writeFile(configPath, JSON.stringify(config, null, 2) + '\n')
+  await writeFile(configPath, JSON.stringify({ profiles }, null, 2) + '\n')
   console.log(`  created deploy.config.json`)
 }
 
@@ -150,20 +167,20 @@ async function main() {
     const resolvedLibs = getLocalLibraries()
     const libByName = new Map(resolvedLibs.map(l => [l.name, l]))
 
-    // 4. Download prebuilt .agdai into .cache/<id>/
+    // 4. Download prebuilt .agdai into each library's agdaiDir
     for (const lib of libsWithPaths) {
       const resolved = libByName.get(lib.name)
-      if (!resolved) {
-        console.warn(`  warning: "${lib.name}" not in deploy.config.json — skipping cache download`)
+      if (!resolved?.agdaiDir) {
+        console.warn(`  warning: "${lib.name}" not in deploy.config.json or has no agdaiDir — skipping cache download`)
         continue
       }
-      await mkdir(resolved.cacheDir, { recursive: true })
+      await mkdir(resolved.agdaiDir, { recursive: true })
 
       await fetchFlatZip(
         `${RELEASE}/${lib.releaseAssetPrefix}-agdai.zip`,
-        resolved.cacheDir,
+        resolved.agdaiDir,
         workDir,
-        join(resolved.cacheDir, '_build'),
+        join(resolved.agdaiDir, '_build'),
       )
     }
 

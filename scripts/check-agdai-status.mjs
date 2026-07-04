@@ -1,6 +1,6 @@
 /**
  * Shows which libraries in deploy.config.json have prebuilt .agdai cache
- * and/or a manifest in .deploy-assets/.cache/.
+ * and/or a manifest in their configured agdaiDir.
  *
  * Useful before running `npm run setup` to know what is ready.
  *
@@ -8,8 +8,8 @@
  */
 
 import { access } from 'node:fs/promises'
-import { join } from 'node:path'
-import { getLocalLibraries } from './resolve-deploy-config.mjs'
+import { join, relative } from 'node:path'
+import { getLocalLibraries, REPO_ROOT } from './resolve-deploy-config.mjs'
 
 async function exists(path) {
   try { await access(path); return true } catch { return false }
@@ -23,18 +23,26 @@ async function main() {
     return
   }
 
-  const rows = await Promise.all(libs.map(async lib => ({
-    name: lib.name,
-    hasManifest: await exists(join(lib.cacheDir, 'agdai-manifest.json')),
-    hasCache: await exists(join(lib.cacheDir, '_build')),
-  })))
+  const rows = await Promise.all(libs.map(async lib => {
+    if (!lib.agdaiDir) return { name: lib.name, agdaiDir: null, hasManifest: false, hasCache: false }
+    return {
+      name: lib.name,
+      agdaiDir: relative(REPO_ROOT, lib.agdaiDir),
+      hasManifest: await exists(join(lib.agdaiDir, 'agdai-manifest.json')),
+      hasCache: await exists(join(lib.agdaiDir, '_build')),
+    }
+  }))
 
   const nameWidth = Math.max(...rows.map(r => r.name.length))
   for (const r of rows) {
     const name = r.name.padEnd(nameWidth)
+    if (!r.agdaiDir) {
+      console.log(`${name}  (no agdaiDir configured)`)
+      continue
+    }
     const manifest = r.hasManifest ? '✓ manifest' : '✗ manifest'
     const cache = r.hasCache ? '✓ cache' : '✗ cache'
-    console.log(`${name}  ${manifest}  ${cache}`)
+    console.log(`${name}  ${manifest}  ${cache}  (${r.agdaiDir})`)
   }
 }
 

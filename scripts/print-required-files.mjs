@@ -4,7 +4,7 @@
  *     reachable at the agdaLibPath in deploy.config.json).
  *   - Each ALS version's wasm file and agda-data/ directory.
  *
- * Libraries with useAgdai: true that are missing their cache (.agdai files
+ * Libraries with agdaiDir configured that are missing their cache (.agdai files
  * or manifest) get a non-fatal warning — the library still works, just
  * without prefetching.
  *
@@ -14,7 +14,7 @@
  */
 
 import { access } from 'node:fs/promises'
-import { join } from 'node:path'
+import { join, relative } from 'node:path'
 import { REPO_ROOT, getLocalLibraries, getSelectedAlsVersions } from './resolve-deploy-config.mjs'
 
 const DEPLOY_ASSETS = join(REPO_ROOT, '.deploy-assets')
@@ -43,12 +43,12 @@ async function main() {
       missing = true
     }
 
-    if (lib.useAgdai) {
-      if (!(await exists(join(lib.cacheDir, '_build')))) {
-        console.log(`(optional, not found) .cache/${lib.cacheId}/_build/ for "${lib.name}" — no prebuilt .agdai, run \`npm run build-agdai\``)
+    if (lib.agdaiDir) {
+      if (!(await exists(join(lib.agdaiDir, '_build')))) {
+        console.log(`(optional, not found) ${relative(REPO_ROOT, lib.agdaiDir)}/_build/ for "${lib.name}" — no prebuilt .agdai, run \`npm run build-agdai\``)
       }
-      if (!(await exists(join(lib.cacheDir, 'agdai-manifest.json')))) {
-        console.log(`(optional, not found) .cache/${lib.cacheId}/agdai-manifest.json for "${lib.name}" — prefetch disabled, run \`npm run generate-manifest\``)
+      if (!(await exists(join(lib.agdaiDir, 'agdai-manifest.json')))) {
+        console.log(`(optional, not found) ${relative(REPO_ROOT, lib.agdaiDir)}/agdai-manifest.json for "${lib.name}" — prefetch disabled, run \`npm run generate-manifest\``)
       }
     }
   }

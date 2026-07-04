@@ -6,8 +6,8 @@
  */
 
 import { rm, access } from 'node:fs/promises'
-import { join } from 'node:path'
-import { getLocalLibraries } from './resolve-deploy-config.mjs'
+import { join, relative } from 'node:path'
+import { getLocalLibraries, REPO_ROOT } from './resolve-deploy-config.mjs'
 
 async function exists(p) {
   try { await access(p); return true } catch { return false }
@@ -24,11 +24,15 @@ async function main() {
       console.error('Configured libraries:')
       const nameWidth = Math.max(...libs.map(l => l.name.length))
       for (const lib of libs) {
-        const hasManifest = await exists(join(lib.cacheDir, 'agdai-manifest.json'))
-        const hasCache = await exists(join(lib.cacheDir, '_build'))
+        if (!lib.agdaiDir) {
+          console.error(`  ${lib.name.padEnd(nameWidth)}  (no agdaiDir configured)`)
+          continue
+        }
+        const hasManifest = await exists(join(lib.agdaiDir, 'agdai-manifest.json'))
+        const hasCache = await exists(join(lib.agdaiDir, '_build'))
         const manifest = hasManifest ? '✓ manifest' : '✗ manifest'
         const cache = hasCache ? '✓ cache' : '✗ cache'
-        console.error(`  ${lib.name.padEnd(nameWidth)}  ${manifest}  ${cache}`)
+        console.error(`  ${lib.name.padEnd(nameWidth)}  ${manifest}  ${cache}  (${relative(REPO_ROOT, lib.agdaiDir)})`)
       }
     } else {
       console.error('No libraries configured in deploy.config.json.')
@@ -46,8 +50,13 @@ async function main() {
     process.exit(1)
   }
 
-  const manifest = join(lib.cacheDir, 'agdai-manifest.json')
-  const build = join(lib.cacheDir, '_build')
+  if (!lib.agdaiDir) {
+    console.log(`"${lib.name}" has no agdaiDir configured — nothing to remove.`)
+    return
+  }
+
+  const manifest = join(lib.agdaiDir, 'agdai-manifest.json')
+  const build = join(lib.agdaiDir, '_build')
   let removed = false
 
   if (await exists(manifest)) {
@@ -62,7 +71,7 @@ async function main() {
   }
 
   if (!removed) {
-    console.log(`Nothing to remove for "${lib.name}" (no manifest or cache found).`)
+    console.log(`Nothing to remove for "${lib.name}" (no manifest or cache found in ${relative(REPO_ROOT, lib.agdaiDir)}).`)
   }
 }
 

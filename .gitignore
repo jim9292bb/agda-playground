@@ -17,18 +17,15 @@ vite.config.js.timestamp-*
 # Contains OS-specific paths (agdaLibPath) that vary per machine; not committed.
 /deploy.config.json
 
-# Library/ALS staging areas (populated by `npm run auto-configure` or placed
-# by hand — see DEPLOYMENT.md). Zipped/copied into static/ for
-# serving by `npm run setup` — none of this is committed.
-/.deploy-assets/library/
-/.deploy-assets/.als/
+# Deploy staging area — libraries, ALS builds, .agdai cache (populated by
+# `npm run auto-configure` / `npm run install-als` / `npm run build-agdai`
+# or placed by hand — see DEPLOYMENT.md). Packaged into static/ by
+# `npm run setup` — none of this is committed.
+# Note: agdaiDir in deploy.config.json can point outside this directory;
+# such paths must be gitignored by the deployer.
+/.deploy-assets/
 /static/library/
 /static/als/
-
-# Generated .agdai cache and dependency graphs (produced by
-# `npm run generate-manifest` / `npm run build-agdai`). Keyed by a random
-# ID mapped in .cache/index.json. Do not edit by hand — use npm scripts.
-/.deploy-assets/.cache/
 
 # Generated from the real .agda-lib files (see
 # scripts/generate-library-info.mjs) — not committed.
