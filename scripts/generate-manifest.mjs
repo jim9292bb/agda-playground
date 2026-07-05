@@ -303,7 +303,10 @@ function getHighlightingPayload(absPath, agdaBin) {
         reject(new Error(`agda --interaction-json exited ${code} for ${absPath}: ${stderr || stdout}`))
         return
       }
-      const line = stdout.split('\n').find(l => l.includes('"kind":"HighlightingInfo"'))
+      // Agda < 2.8 emits two HighlightingInfo messages: first an indirect one
+      // (direct:false, no payload) then a direct one with the payload inline.
+      // Agda 2.8+ emits only the direct one.  Always pick the direct form.
+      const line = stdout.split('\n').find(l => l.includes('"kind":"HighlightingInfo"') && l.includes('"direct":true'))
       if (!line) {
         reject(new Error(`no HighlightingInfo response for ${absPath}: ${stdout || stderr}`))
         return
@@ -412,4 +415,5 @@ async function main() {
   }
 }
 
-main().catch(err => { console.error(err); process.exit(1) })
+if (process.argv[1] === fileURLToPath(import.meta.url))
+  main().catch(err => { console.error(err); process.exit(1) })
