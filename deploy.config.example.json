@@ -2,7 +2,7 @@
   "profiles": [
     {
       "label": "Standard Library v2.3 + Cubical v0.9 (ALS 2.8.0)",
-      "als": "als-2.8ext",
+      "als": "2.8.0",
       "libraries": [
         {
           "agdaLibPath": "/absolute/path/to/agda-stdlib/standard-library.agda-lib",
@@ -20,7 +20,7 @@
     },
     {
       "label": "Standard Library v2.3 + agda-categories v0.3.0 (ALS 2.8.0)",
-      "als": "als-2.8ext",
+      "als": "2.8.0",
       "libraries": [
         {
           "agdaLibPath": "/absolute/path/to/agda-stdlib/standard-library.agda-lib",

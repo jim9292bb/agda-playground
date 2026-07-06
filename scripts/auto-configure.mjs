@@ -1,13 +1,17 @@
 /**
- * Fetches this project's own shipped default library/ALS files, places
- * library sources into .deploy-assets/library/<name>/, creates or updates
- * deploy.config.json to point at them, and populates
- * .deploy-assets/.cache/<id>/ with prebuilt .agdai files from the release.
+ * Fetches this project's own shipped default library files, places library
+ * sources into .deploy-assets/library/<name>/, creates deploy.config.json
+ * to point at them, and populates each library's agdaiDir with prebuilt
+ * .agdai files from the cache release.
  *
- * This is NOT a generic, deploy.config.json-driven downloader — it doesn't
- * read the catalogs or deploy.config.json at all. It's hardcoded for this
- * project's own shipped defaults (stdlib 2.3, cubical 0.9, agda-categories
- * 0.3.0, ALS 2.8.0). If you add a library/ALS version of your own, place
+ * ALS runtime assets are NOT handled here: `npm run setup` downloads them
+ * from the als-runtime release straight into static/als/ per the versions
+ * in deploy.config.json (scripts/ensure-als-static.mjs), and the local
+ * graph tool is installed by npm install (scripts/ensure-graph-als.mjs).
+ *
+ * This is NOT a generic, deploy.config.json-driven downloader — the library
+ * set is hardcoded to this project's shipped defaults (stdlib 2.3, cubical
+ * 0.9, agda-categories 0.3.0). If you add a library of your own, place
  * files by hand instead; see DEPLOYMENT.md.
  *
  * Safe to run repeatedly: each step is skipped if its output already exists.
@@ -24,7 +28,6 @@ import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { extractZip } from './zip-utils.mjs'
 import { getLocalLibraries } from './resolve-deploy-config.mjs'
-import { installAls } from './install-als.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const DEPLOY_ASSETS = resolve(REPO_ROOT, '.deploy-assets')
@@ -61,12 +64,12 @@ const SHIPPED_LIBRARIES = [
 const SHIPPED_PROFILES = [
   {
     label: 'Standard Library v2.3 + Cubical v0.9 (ALS 2.8.0)',
-    als: 'als-2.8ext',
+    als: '2.8.0',
     libraries: ['standard-library-2.3', 'cubical-0.9'],
   },
   {
     label: 'Standard Library v2.3 + agda-categories v0.3.0 (ALS 2.8.0)',
-    als: 'als-2.8ext',
+    als: '2.8.0',
     libraries: ['standard-library-2.3', 'agda-categories'],
   },
 ]
@@ -182,17 +185,6 @@ async function main() {
         workDir,
         join(resolved.agdaiDir, '_build'),
       )
-    }
-
-    // 5. ALS: download wasm to temp dir, then run install-als to compile builtins
-    const alsInfoPath = join(DEPLOY_ASSETS, '.als', 'als-2.8ext', 'als-info.json')
-    if (await exists(alsInfoPath)) {
-      console.log('  already present: .als/als-2.8ext/')
-    } else {
-      const wasmUrl = 'https://github.com/agda-web/agda-language-server/releases/download/nightly-20260407/als-2.8.0.wasm'
-      const wasmPath = join(workDir, 'als-2.8.0.wasm')
-      await download(wasmUrl, wasmPath)
-      await installAls(wasmPath, { name: 'als-2.8ext', force: false })
     }
 
     console.log('Done. Run `npm run setup` next to prepare static/ for serving.')

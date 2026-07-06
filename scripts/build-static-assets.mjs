@@ -1,9 +1,8 @@
 /**
- * Builds static/{library,als,agdai}/ from each library's agdaiDir (for
- * .agdai and manifests), from each library's OS-path source tree (for
- * source zips), and from .deploy-assets/.als/ (for ALS wasm/data) — the one
- * place that turns "files a deployer placed or generated" into "what the
- * browser runtime actually fetches".
+ * Builds static/{library,agdai}/ from each library's agdaiDir (for .agdai
+ * and manifests) and from each library's OS-path source tree (for source
+ * zips) — the place that turns "files a deployer placed or generated" into
+ * "what the browser runtime actually fetches".
  *
  * Per selected library (from deploy.config.json):
  *   - zips the library's source tree (from agdaLibPath's parent directory)
@@ -16,11 +15,9 @@
  *     If absent, prefetching for that library is simply disabled at runtime
  *     (src/lib/agda/prefetch.js degrades gracefully per library).
  *
- * Per selected ALS version:
- *   - copies .deploy-assets/.als/<version>/<wasmFilename> into
- *     static/als/<version>/ unchanged.
- *   - zips .deploy-assets/.als/<version>/agda-data/ into
- *     static/als/<version>/<AGDA_DATA_ZIP_NAME> (no wrapper).
+ * ALS runtime assets (static/als/<version>/) are not built here — they are
+ * downloaded ready-to-serve from the als-runtime release by
+ * scripts/ensure-als-static.mjs.
  *
  * Run via `npm run setup` (scripts/setup-assets.sh), after
  * scripts/print-required-files.mjs has confirmed everything needed
@@ -30,11 +27,9 @@
 import { cp, mkdir, access } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { zipDirectory } from './zip-utils.mjs'
-import { REPO_ROOT, getLocalLibraries, getSelectedAlsVersions } from './resolve-deploy-config.mjs'
+import { REPO_ROOT, getLocalLibraries } from './resolve-deploy-config.mjs'
 
-const DEPLOY_ASSETS = join(REPO_ROOT, '.deploy-assets')
 const STATIC = join(REPO_ROOT, 'static')
-const AGDA_DATA_ZIP_NAME = 'agda-data.zip'
 
 async function exists(path) {
   try {
@@ -47,7 +42,6 @@ async function exists(path) {
 
 async function main() {
   await mkdir(join(STATIC, 'library'), { recursive: true })
-  await mkdir(join(STATIC, 'als'), { recursive: true })
   await mkdir(join(STATIC, 'agdai'), { recursive: true })
 
   for (const lib of getLocalLibraries()) {
@@ -75,18 +69,6 @@ async function main() {
         console.log(`[${lib.name}] no agdai-manifest.json in agdaiDir — prefetching disabled (run \`npm run generate-manifest\`).`)
       }
     }
-  }
-
-  for (const als of getSelectedAlsVersions()) {
-    const alsSrcRoot = join(DEPLOY_ASSETS, '.als', als.version)
-    const alsOutRoot = join(STATIC, 'als', als.version)
-    await mkdir(alsOutRoot, { recursive: true })
-
-    console.log(`[als ${als.version}] copying ${als.wasmFilename}...`)
-    await cp(join(alsSrcRoot, als.wasmFilename), join(alsOutRoot, als.wasmFilename))
-
-    console.log(`[als ${als.version}] zipping agda-data/ into static/als/${als.version}/${AGDA_DATA_ZIP_NAME}...`)
-    await zipDirectory(join(alsSrcRoot, 'agda-data'), join(alsOutRoot, AGDA_DATA_ZIP_NAME))
   }
 
   console.log('Done.')

@@ -1,54 +1,51 @@
 /**
- * Compiles .agdai files for configured libraries and generates dependency-graph
- * manifests. Output goes to each library's configured agdaiDir.
+ * Compiles .agdai files for a library and generates its dependency-graph
+ * manifest. Standalone: does not read or write deploy.config.json.
+ *
+ *   node scripts/build-agdai.mjs <lib-file> <output-dir> [--libraries-file <path>] [--agda-bin <path>]
+ *
+ * <lib-file>: path to the library's .agda-lib file.
+ * <output-dir>: directory to write .agdai files and the manifest into. If
+ *   this is meant to serve a deploy.config.json library entry, pass its
+ *   agdaiDir here so the output lands where the app will look for it.
+ * --libraries-file: a file listing one .agda-lib path per line, passed to
+ *   agda as --library-file (for resolving the library's own dependencies).
+ *   Omit to let agda fall back to ~/.agda/libraries.
+ * --agda-bin: path to the agda binary (default: "agda" on PATH).
  *
  * Builds with native agda directly in the library's source directory:
  *   agda ≥ 2.8.0 — agda --build-library (single command)
  *   agda < 2.8.0 — agda --interaction-json + Cmd_load per source vertex;
  *                  dependency graph is computed in memory, not written to file
  *
- * After building, copies the library's _build/ into its agdaiDir and
- * regenerates the dependency-graph manifest.
- *
- * Usage:
- *   node scripts/build-agdai.mjs [--lib-file <path>] [--agda-bin <path>] [--wasm <als-name>]
- *
- * Without --lib-file, processes all libraries with agdaiDir configured in deploy.config.json.
- * --agda-bin defaults to "agda" on PATH.
+ * After building, copies the library's _build/ into the output dir and
+ * regenerates the dependency-graph manifest there.
  */
 
-import { readFile, writeFile, access, mkdir, cp, rm } from 'node:fs/promises'
-import { readFileSync } from 'node:fs'
-import { dirname, join, relative, sep } from 'node:path'
+import { readFile, mkdir, cp, rm } from 'node:fs/promises'
+import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawn, spawnSync } from 'node:child_process'
-import { randomBytes } from 'node:crypto'
-import { getLocalLibraries, REPO_ROOT } from './resolve-deploy-config.mjs'
-import { parseAgdaLibInclude } from './agda-lib-utils.mjs'
-import { buildGraph, processLibrary as generateManifest, buildGraphWasm, processLibraryWasm } from './generate-manifest.mjs'
+import { parseAgdaLibInclude, parseAgdaLibName } from './agda-lib-utils.mjs'
+import { buildGraph, processLibrary as generateManifest } from './generate-manifest.mjs'
 
-const SCRIPTS_DIR = dirname(fileURLToPath(import.meta.url))
-const DEPLOY_ASSETS = join(SCRIPTS_DIR, '../.deploy-assets')
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 function parseArgs(argv) {
-  const args = { libFile: null, agdaBin: 'agda', wasm: null }
+  const args = { agdaBin: 'agda', positional: [], librariesFile: null }
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === '--lib-file') {
-      args.libFile = argv[++i]
-    } else if (argv[i] === '--agda-bin') {
+    if (argv[i] === '--agda-bin') {
       args.agdaBin = argv[++i]
-    } else if (argv[i] === '--wasm') {
-      args.wasm = argv[++i]
-    } else {
+    } else if (argv[i] === '--libraries-file') {
+      args.librariesFile = argv[++i]
+    } else if (argv[i].startsWith('--')) {
       console.error(`unknown argument: ${argv[i]}`)
       process.exit(1)
+    } else {
+      args.positional.push(argv[i])
     }
   }
   return args
-}
-
-async function exists(p) {
-  try { await access(p); return true } catch { return false }
 }
 
 function parseAgdaVersion(str) {
@@ -75,13 +72,17 @@ function findSourceVertices(graph) {
   return Object.keys(graph).filter(mod => !hasIncoming.has(mod))
 }
 
+/** `--build-library` takes no argument — it builds the .agda-lib found in
+ *  the current directory, so cwd must be the library's own source root.
+ *  libraryFile: path to a libraries listing file for agda's --library-file,
+ *  or null to omit the flag (agda falls back to ~/.agda/libraries). */
 function buildWithBuildLibrary(lib, agdaBin, libraryFile) {
   return new Promise((resolve, reject) => {
     console.log(`[${lib.name}] running agda --build-library...`)
     const proc = spawn(agdaBin, [
-      `--build-library=${lib.agdaLibPath}`,
-      `--library-file=${libraryFile}`,
-    ], { stdio: ['ignore', 'inherit', 'inherit'] })
+      '--build-library',
+      ...(libraryFile ? [`--library-file=${libraryFile}`] : []),
+    ], { cwd: dirname(lib.agdaLibPath), stdio: ['ignore', 'inherit', 'inherit'] })
     proc.on('error', reject)
     proc.on('close', code => {
       if (code !== 0) reject(new Error(`agda --build-library exited ${code} for "${lib.name}"`))
@@ -94,7 +95,10 @@ async function buildWithCmdLoad(lib, agdaBin, graph, includeDir, libraryFile) {
   const sourceVertices = findSourceVertices(graph)
   console.log(`[${lib.name}] ${sourceVertices.length} source vertices to Cmd_load (covers all ${Object.keys(graph).length} modules)`)
 
-  const proc = spawn(agdaBin, ['--interaction-json', `--library-file=${libraryFile}`], {
+  const proc = spawn(agdaBin, [
+    '--interaction-json',
+    ...(libraryFile ? [`--library-file=${libraryFile}`] : []),
+  ], {
     cwd: includeDir,
   })
   let buf = ''
@@ -137,150 +141,9 @@ async function buildWithCmdLoad(lib, agdaBin, graph, includeDir, libraryFile) {
   console.log(`[${lib.name}] Cmd_load done: ${sourceVertices.length} vertices, ${((performance.now() - t0) / 1000).toFixed(1)}s`)
 }
 
-async function buildWithCmdLoadWasm(lib, alsName, graph) {
-  const alsDir = join(DEPLOY_ASSETS, '.als', alsName)
-  let info
-  try {
-    info = JSON.parse(readFileSync(join(alsDir, 'als-info.json'), 'utf8'))
-  } catch {
-    throw new Error(`ALS "${alsName}" not found or missing als-info.json — run \`npm run install-als\` first`)
-  }
-  const wasmPath = join(alsDir, info.wasmFilename)
-  const agdaDataDir = join(alsDir, 'agda-data')
-
-  const agdaLibSrc = await readFile(lib.agdaLibPath, 'utf8')
-  const include = parseAgdaLibInclude(agdaLibSrc)
-  const libSrcRoot = dirname(lib.agdaLibPath)
-
-  // Build VFS preopen map: main lib at /lib/, dependencies at /dep0/, /dep1/, ...
-  const preopens = { '/lib': libSrcRoot, '/agda-data': agdaDataDir }
-  const vfsIncludeDirs = [include ? `/lib/${include}` : '/lib']
-  let depIdx = 0
-  for (const depLib of getLocalLibraries()) {
-    if (depLib.agdaLibPath === lib.agdaLibPath) continue
-    const depSrc = await readFile(depLib.agdaLibPath, 'utf8')
-    const depInclude = parseAgdaLibInclude(depSrc)
-    const depRoot = dirname(depLib.agdaLibPath)
-    const vfsDepRoot = `/dep${depIdx++}`
-    preopens[vfsDepRoot] = depRoot
-    vfsIncludeDirs.push(depInclude ? `${vfsDepRoot}/${depInclude}` : vfsDepRoot)
-  }
-
-  const workerScript = join(SCRIPTS_DIR, `.wasm-cmdload-${randomBytes(4).toString('hex')}.mjs`)
-  await writeFile(workerScript, `
-import { readFile } from 'node:fs/promises'
-import { WASI } from 'node:wasi'
-const cfg = JSON.parse(process.argv[2])
-const wasi = new WASI({
-  version: 'preview1', args: ['als', '--raw'],
-  env: { HOME: '/home/root', Agda_datadir: '/agda-data' },
-  preopens: cfg.preopens,
-})
-const buf = await readFile(cfg.wasmPath)
-const mod = await WebAssembly.compile(buf)
-const inst = await WebAssembly.instantiate(mod, wasi.getImportObject())
-try { wasi.start(inst) } catch(e) { if (!String(e).includes('exit')) throw e }
-`)
-
-  const child = spawn(process.execPath, [
-    workerScript, JSON.stringify({ preopens, wasmPath }),
-  ], { stdio: ['pipe', 'pipe', 'pipe'] })
-
-  child.stderr.on('data', d => {
-    const s = d.toString()
-    if (!s.includes('ExperimentalWarning') && !s.includes('[Info]') && !s.includes('[Debug]') && !s.includes('[Warning]'))
-      process.stderr.write(s)
-  })
-
-  let nextId = 1
-  const send = obj => {
-    const body = JSON.stringify({ jsonrpc: '2.0', ...obj })
-    child.stdin.write(`Content-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}`)
-  }
-
-  let inBuf = ''
-  let initResolve = null
-  let pendingEndResolve = null
-  let pendingHasError = false
-  const initId = nextId++
-  const initDone = new Promise(r => { initResolve = r })
-
-  child.stdout.on('data', d => {
-    inBuf += d.toString()
-    for (;;) {
-      const m = inBuf.match(/Content-Length: (\d+)\r\n\r\n/)
-      if (!m) break
-      const len = parseInt(m[1])
-      const start = m.index + m[0].length
-      if (inBuf.length < start + len) break
-      const body = inBuf.slice(start, start + len)
-      inBuf = inBuf.slice(start + len)
-      try {
-        const msg = JSON.parse(body)
-        if (msg.id === initId && msg.result != null && initResolve) {
-          initResolve(); initResolve = null
-        }
-        if (msg.method === 'agda' && msg.id != null) {
-          const { tag, contents } = msg.params ?? {}
-          if (tag === 'ResponseJSONRaw' && contents?.kind === 'Error') pendingHasError = true
-          send({ id: msg.id, result: null })
-          if (tag === 'ResponseEnd' && pendingEndResolve) {
-            const resolve = pendingEndResolve
-            const hasError = pendingHasError
-            pendingEndResolve = null
-            pendingHasError = false
-            resolve(hasError)
-          }
-        }
-      } catch {}
-    }
-  })
-
-  send({ id: initId, method: 'initialize', params: { processId: null, rootUri: null, capabilities: {} } })
-  await initDone
-  send({ method: 'initialized', params: {} })
-
-  const sourceVertices = findSourceVertices(graph)
-  console.log(`[${lib.name}] ${sourceVertices.length} source vertices to Cmd_load via WASM (covers all ${Object.keys(graph).length} modules)`)
-
-  const includeDirsArg = '[' + vfsIncludeDirs.map(d => JSON.stringify(d)).join(', ') + ']'
-  const vfsLibInclude = include ? `/lib/${include}/` : '/lib/'
-
-  const t0 = performance.now()
-  let count = 0
-  for (const mod of sourceVertices) {
-    const relPath = mod.split('.').join('/') + '.agda'
-    const vfsPath = vfsLibInclude + relPath
-    const hasError = await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error(`timeout: Cmd_load ${mod}`)), 300_000)
-      pendingEndResolve = value => { clearTimeout(timer); resolve(value) }
-      send({ id: nextId++, method: 'agda', params: {
-        tag: 'CmdReq',
-        contents: `IOTCM ${JSON.stringify(vfsPath)} NonInteractive Direct (Cmd_load ${JSON.stringify(vfsPath)} ${includeDirsArg})`,
-      }})
-    })
-    if (hasError) throw new Error(`Cmd_load reported an error for ${mod}`)
-    if (++count % 10 === 0) console.log(`  ${count}/${sourceVertices.length}...`)
-  }
-
-  child.kill()
-  await rm(workerScript, { force: true })
-  console.log(`[${lib.name}] Cmd_load done: ${sourceVertices.length} vertices, ${((performance.now() - t0) / 1000).toFixed(1)}s`)
-}
-
-async function buildAgdaiWasm(lib, alsName) {
-  const graph = await buildGraphWasm(lib, alsName)
-  await buildWithCmdLoadWasm(lib, alsName, graph)
-  const libSrcRoot = dirname(lib.agdaLibPath)
-  const srcBuild = join(libSrcRoot, '_build')
-  const destBuild = join(lib.agdaiDir, '_build')
-  await mkdir(lib.agdaiDir, { recursive: true })
-  await rm(destBuild, { recursive: true, force: true })
-  await cp(srcBuild, destBuild, { recursive: true })
-  console.log(`[${lib.name}] .agdai written to ${relative(REPO_ROOT, destBuild)}/`)
-}
-
-async function buildAgdai(lib, agdaBin) {
+/** libraryFile: path to a libraries listing file for agda's --library-file,
+ *  or null to omit the flag (agda falls back to ~/.agda/libraries). */
+async function buildAgdai(lib, agdaBin, libraryFile) {
   const versionStr = spawnSync(agdaBin, ['--numeric-version'], { encoding: 'utf8' }).stdout
   const agdaVersion = parseAgdaVersion(versionStr)
   if (!agdaVersion) throw new Error(`could not determine agda version from "${agdaBin} --numeric-version": ${versionStr}`)
@@ -292,12 +155,6 @@ async function buildAgdai(lib, agdaBin) {
   const includeDir = include ? join(libSrcRoot, include) : libSrcRoot
 
   await mkdir(lib.agdaiDir, { recursive: true })
-  const allLibs = getLocalLibraries()
-  const libraryFile = join(lib.agdaiDir, 'libraries')
-  await writeFile(
-    libraryFile,
-    allLibs.map(l => l.agdaLibPath).join('\n') + '\n',
-  )
 
   if (versionGte(agdaVersion, [2, 8, 0])) {
     await buildWithBuildLibrary(lib, agdaBin, libraryFile)
@@ -316,34 +173,23 @@ async function buildAgdai(lib, agdaBin) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2))
-  let libs = getLocalLibraries()
 
-  if (args.libFile) {
-    const target = libs.find(l => l.agdaLibPath === args.libFile)
-    if (!target) {
-      const paths = libs.map(l => l.agdaLibPath).join(', ') || '(none configured)'
-      throw new Error(`"${args.libFile}" not found in deploy.config.json. Available: ${paths}`)
-    }
-    libs = [target]
-  } else {
-    libs = libs.filter(l => l.agdaiDir)
-    if (libs.length === 0) {
-      console.log('No libraries have agdaiDir configured in deploy.config.json — nothing to do.')
-      console.log('Set agdaiDir for the libraries you want to compile .agdai for,')
-      console.log('or use --lib-file <path/to/lib.agda-lib> to compile for a specific library regardless.')
-      return
-    }
+  if (args.positional.length !== 2) {
+    console.error('Usage: node scripts/build-agdai.mjs <lib-file> <output-dir> [--libraries-file <path>] [--agda-bin <path>]')
+    process.exit(1)
   }
 
-  for (const lib of libs) {
-    if (args.wasm) {
-      await buildAgdaiWasm(lib, args.wasm)
-      await processLibraryWasm(lib, args.wasm)
-    } else {
-      await buildAgdai(lib, args.agdaBin)
-      await generateManifest(lib, args.agdaBin)
-    }
-  }
+  const [libFileArg, outputDirArg] = args.positional
+  const agdaLibPath = resolve(libFileArg)
+  const agdaiDir = resolve(outputDirArg)
+  const agdaLibSrc = await readFile(agdaLibPath, 'utf8')
+  const name = parseAgdaLibName(agdaLibSrc) ?? agdaLibPath
+  const lib = { name, agdaLibPath, agdaiDir }
+
+  const libraryFile = args.librariesFile ? resolve(args.librariesFile) : null
+
+  await buildAgdai(lib, args.agdaBin, libraryFile)
+  await generateManifest(lib, args.agdaBin)
   console.log('Run `npm run setup` to package .agdai files into static/.')
 }
 

@@ -45,7 +45,8 @@ import { fileURLToPath } from 'node:url'
 import { spawn } from 'node:child_process'
 import { cpus } from 'node:os'
 import { randomBytes } from 'node:crypto'
-import { getLocalLibraries, getSelectedAlsVersions, REPO_ROOT } from './resolve-deploy-config.mjs'
+import { getLocalLibraries, REPO_ROOT } from './resolve-deploy-config.mjs'
+import { GRAPH_ALS_VERSION } from './als-release.mjs'
 import { parseAgdaLibInclude } from './agda-lib-utils.mjs'
 
 const DEPLOY_ASSETS = dirname(fileURLToPath(import.meta.url))
@@ -211,7 +212,7 @@ async function createWasmPool(alsName, srcDir) {
   try {
     info = JSON.parse(readFileSync(join(alsDir, 'als-info.json'), 'utf8'))
   } catch {
-    throw new Error(`ALS "${alsName}" not found or missing als-info.json — run \`npm run install-als\` first`)
+    throw new Error(`ALS "${alsName}" not found under .deploy-assets/.als/ — run \`npm install\` (its postinstall step installs the graph tool), or check your network and re-run \`node scripts/ensure-graph-als.mjs\``)
   }
   const wasmPath = join(alsDir, info.wasmFilename)
   const agdaDataDir = join(alsDir, 'agda-data')
@@ -397,13 +398,11 @@ async function main() {
   let wasm = args.wasm
   let agdaBin = args.agdaBin
   if (!wasm && !agdaBin) {
-    const versions = getSelectedAlsVersions()
-    if (versions.length > 0) {
-      wasm = versions[0].version
-      console.log(`Using ALS "${wasm}" (auto-detected from deploy.config.json).`)
-    } else {
-      agdaBin = 'agda'
-    }
+    // Graph extraction (Cmd_tokenHighlighting) is purely lexical, so it
+    // always uses the pinned graph-tool ALS regardless of each profile's
+    // runtime ALS version. Installed by npm install (ensure-graph-als.mjs).
+    wasm = GRAPH_ALS_VERSION
+    console.log(`Using the ALS ${wasm} graph tool.`)
   }
 
   for (const lib of libs) {

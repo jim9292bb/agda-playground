@@ -3,19 +3,11 @@
   "entry": [
     "src/app.d.ts",
     "static/coi-serviceworker.js",
-    "scripts/ensure-deploy-config.mjs",
     "scripts/build-static-assets.mjs",
-    "scripts/build-agdai.mjs",
-    "scripts/check-agdai-status.mjs",
-    "scripts/auto-configure.mjs",
-    "scripts/generate-manifest.mjs",
     "scripts/print-required-files.mjs",
-    "scripts/generate-library-info.mjs",
     "scripts/run-als-version.mjs",
-    "scripts/install-als.mjs",
-    "scripts/remove-als.mjs",
-    "scripts/remove-agdai.mjs",
-    "scripts/build-agda-data.mjs"
+    "scripts/build-agda-data.mjs",
+    "scripts/ensure-als-static.mjs"
   ],
   "ignore": [
     "experiments/**"

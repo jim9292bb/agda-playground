@@ -18,7 +18,7 @@ vite.config.js.timestamp-*
 /deploy.config.json
 
 # Deploy staging area — libraries, ALS builds, .agdai cache (populated by
-# `npm run auto-configure` / `npm run install-als` / `npm run build-agdai`
+# `npm run auto-configure` / `npm run build-agdai`
 # or placed by hand — see DEPLOYMENT.md). Packaged into static/ by
 # `npm run setup` — none of this is committed.
 # Note: agdaiDir in deploy.config.json can point outside this directory;

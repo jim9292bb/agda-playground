@@ -14,9 +14,13 @@ npm run setup
 npm run build
 ```
 
-`auto-configure` downloads all libraries and ALS, creates `deploy.config.json`,
-and fetches prebuilt `.agdai` files. `setup` generates dependency-graph
-manifests and packages everything into `static/`. To run locally instead of
+`npm install` also installs the local ALS graph tool (postinstall; a failed
+download only warns). `auto-configure` downloads the shipped libraries,
+creates `deploy.config.json`, and fetches prebuilt `.agdai` files. `setup`
+downloads the ALS runtime assets (wasm + agda-data) for every version in
+`deploy.config.json` straight into `static/als/` from this project's
+[`als-runtime` release](https://github.com/jim9292bb/agda-playground/releases/tag/als-runtime),
+then packages everything into `static/`. To run locally instead of
 deploying, use `npm run dev` — the app will be available at `http://localhost:8099`.
 
 ## Custom deployment
@@ -31,14 +35,30 @@ cd agda-playground/als-demo
 npm install
 ```
 
-**2. Install ALS:**
+**2. (Optional) Build `.agdai` cache:**
+
+`build-agdai` is standalone — it never reads or writes `deploy.config.json`.
+Pick an output directory for the library's compiled `.agdai` files and
+manifest (e.g. `.deploy-assets/auto/agdai/<name>`); you'll set this same
+path as `agdaiDir` in the next step.
 
 ```sh
-npm run install-als -- /path/to/als.wasm --name als-2.8ext
+npm run build-agdai -- <path/to/lib.agda-lib> <output-dir> [--libraries-file <path>] [--agda-bin <path>]
 ```
 
-Downloads agda-data from Hackage, compiles builtins, and installs everything
-into `.deploy-assets/.als/als-2.8ext/`.
+`<path/to/lib.agda-lib>` and `<output-dir>` are positional and both required.  
+`--libraries-file`: a file listing one `.agda-lib` path per line, for
+resolving the library's own dependencies (needed if it has a `depend:` on
+another library, e.g. agda-categories on the standard library); omit to let
+agda fall back to `~/.agda/libraries`.  
+`--agda-bin`: path to the `agda` binary (default: `agda` on `PATH`).
+
+Run once per library — there's no batch mode. First-time builds take ~8 min
+for stdlib.
+
+Since it's standalone, `build-agdai` is also handy for one-off builds or
+testing a library against a different Agda version without touching
+`deploy.config.json` at all — just point `<output-dir>` at a scratch directory.
 
 **3. Configure `deploy.config.json`:**
 
@@ -46,25 +66,20 @@ into `.deploy-assets/.als/als-2.8ext/`.
 cp deploy.config.example.json deploy.config.json
 ```
 
-Set `"als"` to the name from step 2 and set `agdaLibPath` for each library.
+Set `"als"` to one of the [supported ALS versions](#supported-als-versions),
+set `agdaLibPath` for each library, and — if you built a cache in step 2 —
+set `agdaiDir` to the same output directory you used there.
 See [`deploy.config.json` schema](#deployconfigjson-schema) below.
 
-**4. (Optional) Build `.agdai` cache:**
-
-```sh
-npm run build-agdai -- --lib-file <path/to/lib.agda-lib> --agda-bin <path>
-```
-
-`--lib-file`: process only this library (default: all libraries with `agdaiDir` set).  
-`--agda-bin`: path to the `agda` binary (default: `agda` on `PATH`).
-
-First-time builds take ~8 min for stdlib. Check what's ready at any time:
+`npm run setup` downloads each referenced version's `als-<version>.wasm` and
+`agda-data.zip` straight into `static/als/<version>/` — no separate ALS
+install step. Once `agdaiDir` is set, check the cache status at any time with:
 
 ```sh
 npm run agdai-status
 ```
 
-**5. Build:**
+**4. Build:**
 
 ```sh
 npm run setup
@@ -75,6 +90,23 @@ To run locally instead of deploying, use `npm run dev` — the app will be
 available at `http://localhost:8099`.
 
 ## Reference
+
+### Supported ALS versions
+
+The `als` field in `deploy.config.json` accepts exactly the versions
+published as assets of this project's
+[`als-runtime` release](https://github.com/jim9292bb/agda-playground/releases/tag/als-runtime):
+
+| `als` value | Agda / ALS version | Suggested libraries |
+|---|---|---|
+| `"2.8.0"` | Agda 2.8.0 (shipped default) | stdlib 2.3, cubical 0.9, agda-categories 0.3.0 |
+| `"2.7.0.1"` | Agda 2.7.0.1 | stdlib 2.1.1–2.3, cubical 0.8 |
+| `"2.6.4.3"` | Agda 2.6.4.3 | stdlib 2.1, cubical 0.7 |
+
+Any other value makes `npm run setup` fail when it tries to download
+`als-<version>.wasm` from the release. To add a version, publish its
+`als-<version>.wasm` + `agda-data-<version>.zip` pair to the release first
+(see the release notes for the asset format and provenance).
 
 ### `deploy.config.json` schema
 
@@ -92,7 +124,7 @@ Example:
   "profiles": [
     {
       "label": "stdlib + cubical (ALS 2.8.0)",
-      "als": "als-2.8ext",
+      "als": "2.8.0",
       "libraries": [
         {
           "agdaLibPath": "/path/to/agda-stdlib/standard-library.agda-lib",
@@ -118,7 +150,7 @@ valid by construction, so the UI only needs a single profile selector.
 | Field | Required | Description |
 |---|---|---|
 | `label` | yes | Display name in the profile selector. Must be unique — used as the profile's identity in the UI and local storage |
-| `als` | yes | ALS directory name under `.deploy-assets/.als/` |
+| `als` | yes | Agda version number — must be one of the [supported ALS versions](#supported-als-versions). `npm run setup` downloads `als-<version>.wasm` and `agda-data.zip` for it from the `als-runtime` release into `static/als/<version>/` |
 | `libraries` | yes | List of library entries — see below |
 
 Each entry in `libraries`:
@@ -134,12 +166,9 @@ Each entry in `libraries`:
 
 | `npm run` | Description |
 |---|---|
-| `auto-configure` | Downloads this project's shipped defaults (libraries + ALS), creates `deploy.config.json`, fetches prebuilt `.agdai` files |
-| `generate-manifest` | Generates dependency-graph manifests from library source using ALS WASM. Auto-detects ALS from `deploy.config.json`; supports `--lib-file <path>`, `--wasm <als-name>`, `--agda-bin <path>`. Also runs automatically before `setup` |
-| `setup` | Generates dependency-graph manifests (via `generate-manifest`), then packages everything into `static/` for serving |
-| `install-als` | Installs an ALS WASM build: `npm run install-als -- <path-to-als.wasm> --name <als-name> [--force]`. `--force` overwrites an existing install with the same name |
-| `remove-als` | Removes an installed ALS build: `npm run remove-als -- <als-name>` |
-| `list-als` | Lists installed ALS builds. Pass `--hash` to also print the SHA-256 of the `.wasm` file |
-| `build-agdai` | Compiles `.agdai` files with native agda (or ALS WASM) and writes them to the library's `agdaiDir`. Supports `--lib-file <path>`, `--agda-bin <path>`, `--wasm <als-name>` |
+| `auto-configure` | Downloads this project's shipped default libraries, creates `deploy.config.json`, fetches prebuilt `.agdai` files |
+| `generate-manifest` | Generates dependency-graph manifests from library source using the ALS graph tool (installed by `npm install`). Supports `--lib-file <path>`, `--wasm <als-name>`, `--agda-bin <path>`. Also runs automatically before `setup` |
+| `setup` | Downloads ALS runtime assets into `static/als/` per `deploy.config.json`, generates dependency-graph manifests (via `generate-manifest`), then packages everything into `static/` for serving |
+| `build-agdai` | Compiles `.agdai` files with native agda, independent of `deploy.config.json`: `npm run build-agdai -- <lib-file> <output-dir> [--libraries-file <path>] [--agda-bin <path>]`. To feed a library's prefetch cache, pass its `agdaiDir` as `<output-dir>` |
 | `remove-agdai` | Removes the `.agdai` cache and manifest for a library: `npm run remove-agdai -- <path/to/lib.agda-lib>` |
 | `agdai-status` | Shows manifest and cache status for each configured library |

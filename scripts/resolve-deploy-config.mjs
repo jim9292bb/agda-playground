@@ -10,7 +10,7 @@
  *                     example into place automatically on a fresh clone.
  */
 
-import { readFileSync } from 'node:fs'
+import { readFileSync, statSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join, resolve } from 'node:path'
 import { parseAgdaLibName } from './agda-lib-utils.mjs'
@@ -30,9 +30,12 @@ function readDeployConfig() {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
- * Deduplicated ALS names referenced by any configured profile.
- * wasmFilename is read from .deploy-assets/.als/<als>/als-info.json.
- * Returns { version: alsName, wasmFilename } pairs.
+ * Deduplicated ALS versions referenced by any configured profile. The `als`
+ * field is a bare Agda version number (e.g. "2.8.0"); the WASM filename is
+ * derived from it (als-<version>.wasm — the als-runtime release convention).
+ * wasmBytes is read from the downloaded file under static/als/<version>/
+ * when present (used by the UI download progress bar; optional).
+ * Returns { version, wasmFilename, wasmBytes } records.
  */
 export function getSelectedAlsVersions() {
   const { profiles } = readDeployConfig()
@@ -42,14 +45,12 @@ export function getSelectedAlsVersions() {
     const { als } = profile
     if (!als || seen.has(als)) continue
     seen.add(als)
-    const infoPath = join(REPO_ROOT, '.deploy-assets', '.als', als, 'als-info.json')
-    let wasmFilename, wasmBytes
+    const wasmFilename = `als-${als}.wasm`
+    let wasmBytes
     try {
-      const info = JSON.parse(readFileSync(infoPath, 'utf8'))
-      wasmFilename = info.wasmFilename
-      wasmBytes = info.wasmBytes
+      wasmBytes = statSync(join(REPO_ROOT, 'static', 'als', als, wasmFilename)).size
     } catch {}
-    result.push({ version: als, wasmFilename: wasmFilename ?? '', wasmBytes })
+    result.push({ version: als, wasmFilename, wasmBytes })
   }
   return result
 }
