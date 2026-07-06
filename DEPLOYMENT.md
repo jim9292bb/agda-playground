@@ -170,5 +170,4 @@ Each entry in `libraries`:
 | `generate-manifest` | Generates dependency-graph manifests from library source using the ALS graph tool (installed by `npm install`). Supports `--lib-file <path>`, `--wasm <als-name>`, `--agda-bin <path>`. Also runs automatically before `setup` |
 | `setup` | Downloads ALS runtime assets into `static/als/` per `deploy.config.json`, generates dependency-graph manifests (via `generate-manifest`), then packages everything into `static/` for serving |
 | `build-agdai` | Compiles `.agdai` files with native agda, independent of `deploy.config.json`: `npm run build-agdai -- <lib-file> <output-dir> [--libraries-file <path>] [--agda-bin <path>]`. To feed a library's prefetch cache, pass its `agdaiDir` as `<output-dir>` |
-| `remove-agdai` | Removes the `.agdai` cache and manifest for a library: `npm run remove-agdai -- <path/to/lib.agda-lib>` |
 | `agdai-status` | Shows manifest and cache status for each configured library |

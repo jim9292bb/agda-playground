@@ -13,7 +13,6 @@
     "generate-manifest": "node scripts/generate-manifest.mjs",
     "build-agdai": "node scripts/build-agdai.mjs",
     "agdai-status": "node scripts/check-agdai-status.mjs",
-    "remove-agdai": "node scripts/remove-agdai.mjs",
     "predev": "node scripts/ensure-deploy-config.mjs && node scripts/generate-library-info.mjs && node scripts/generate-als-info.mjs",
     "dev": "vite dev",
     "prebuild": "node scripts/ensure-deploy-config.mjs && node scripts/generate-library-info.mjs && node scripts/generate-als-info.mjs",
