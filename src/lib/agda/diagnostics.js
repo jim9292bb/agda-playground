@@ -13,15 +13,21 @@ import { offsetTable, mapUtf8Pos } from '$lib/codemirror/offsets'
  */
 
 /**
- * Parse the common Agda diagnostic prefix:
- * `/source.agda:7.16-17: error: [NotInScope] ...`
+ * Parse the common Agda diagnostic prefix. Two formats are in use across
+ * supported Agda/ALS versions:
+ *   Agda ≥ 2.8:   `/source.agda:7.16-17: error: [NotInScope] ...`
+ *   Agda < 2.8:   `/source.agda:7,16-17\n...`  (comma-separated position,
+ *                 no trailing "kind: [code]" — the caller must supply
+ *                 defaultSeverity since it isn't present in the text)
  *
  * @param {string} message
+ * @param {'error' | 'warning'} [defaultSeverity] used when the message has
+ *   no embedded "error:"/"warning:" marker (always true for Agda < 2.8)
  * @returns {AgdaDiagnostic | null}
  */
-export function parseAgdaDiagnostic(message) {
+export function parseAgdaDiagnostic(message, defaultSeverity = 'error') {
   const match = message.match(
-    /^(.+?):(\d+)\.(\d+)(?:-(?:(\d+)\.)?(\d+))?:\s*(error|warning):\s*(?:\[([^\]]+)\]\s*)?([\s\S]*)$/i,
+    /^(.+?):(\d+)[.,](\d+)(?:-(?:(\d+)[.,])?(\d+))?(?::\s*(error|warning):\s*(?:\[([^\]]+)\]\s*)?)?([\s\S]*)$/i,
   )
   if (!match) return null
 
@@ -32,7 +38,7 @@ export function parseAgdaDiagnostic(message) {
     column: Number(column),
     endLine: explicitEndLine ? Number(explicitEndLine) : endColumn ? Number(line) : undefined,
     endColumn: endColumn ? Number(endColumn) : undefined,
-    severity: severity.toLowerCase() === 'warning' ? 'warning' : 'error',
+    severity: severity ? (severity.toLowerCase() === 'warning' ? 'warning' : 'error') : defaultSeverity,
     code,
     message: body.trim(),
   }

@@ -289,12 +289,16 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
         console.warn('Suppressed Agda internal error:', message)
         return
       }
-      if (info.kind === 'Error' || info.kind === 'AllGoalsWarnings' && (info.errors?.length ?? 0) > 0) {
+      if (info.kind === 'Error') {
         controller.lastAgdaError = message
-        controller.lastAgdaDiagnostics = message
-          .split(/\n\n+/)
-          .map(parseAgdaDiagnostic)
+        controller.lastAgdaDiagnostics = [parseAgdaDiagnostic(info.error.message, 'error')]
           .filter(isAgdaDiagnostic)
+      } else if (info.kind === 'AllGoalsWarnings' && (info.errors?.length ?? 0) > 0) {
+        controller.lastAgdaError = message
+        controller.lastAgdaDiagnostics = [
+          ...(info.errors ?? []).map(e => parseAgdaDiagnostic(e.message, 'error')),
+          ...(info.warnings ?? []).map(w => parseAgdaDiagnostic(w.message, 'warning')),
+        ].filter(isAgdaDiagnostic)
       }
       if (!controller.suppressDisplayInfo) {
         const queryResult = getQueryResult(info)

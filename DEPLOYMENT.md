@@ -108,6 +108,22 @@ Any other value makes `npm run setup` fail when it tries to download
 `als-<version>.wasm` + `agda-data-<version>.zip` pair to the release first
 (see the release notes for the asset format and provenance).
 
+**Known cross-version behavior differences:**
+
+- **Auto (`Cmd_autoOne`)**: Agda 2.7.0 replaced the old term synthesizer
+  _Agsy_ with a new implementation, _Mimer_ ([2.7.0 release notes](https://agda.readthedocs.io/en/v2.7.0/tools/auto.html),
+  marked `[Breaking]`). ALS 2.6.4.3 still uses Agsy; ALS 2.7.0.1 and 2.8.0
+  use Mimer. Mimer is strictly more capable — Agsy is known to fail on
+  goals Mimer solves instantly (confirmed: a trivial `idN n = {! !}` case
+  that 2.7.0.1/2.8.0 solve in under a second returns no solution on
+  2.6.4.3). Auto does not hang, it just may not find an answer that newer
+  versions do.
+- **Diagnostic message format**: Agda 2.7.0 changed error/warning position
+  formatting from comma-separated (`7,16-17`) to period-separated with an
+  embedded error code (`7.16-17: error: [NotInScope]`), to comply with the
+  GNU error message standard. The app's diagnostics parser
+  (`src/lib/agda/diagnostics.js`) handles both formats.
+
 ### `deploy.config.json` schema
 
 `deploy.config.json` (repo root, gitignored) is plain JSON. Created from
