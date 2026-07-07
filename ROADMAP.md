@@ -113,624 +113,71 @@ users are choosing from a menu, not supplying an arbitrary external server.
 No new trust boundary, no hash pinning, no warning dialogs needed.
 
 Self-deployers configure which Agda environment combinations their
-deployment offers via `deploy.config.json` (repo root, plain JSON — see
-deploy-assets/README.md "`deploy.config.json` schema" for the field
-docs). The schema is a flat list of `profiles`; each
-profile is a complete, ready-to-use combination (one ALS version + a
-compatible library set), not a separate "pick an ALS version" + "pick a
-library set" pair of independent choices — every option is valid by
-construction, so there's nothing to cross-reference or filter in the UI.
-Everything under `deploy-assets/` reads from it via
-`deploy-assets/resolve-deploy-config.mjs` instead of hardcoding stdlib/cubical.
-The default config reproduces this project's own deployment (ALS 2.8.0,
-stdlib 2.3 + Cubical 0.9, as a single profile) unchanged.
+deployment offers via `deploy.config.json` (repo root, gitignored, plain
+JSON — see `DEPLOYMENT.md`'s "`deploy.config.json` schema" section for the
+field docs). The schema is a flat list of `profiles`; each profile is a
+complete, ready-to-use combination (one ALS version + a compatible library
+set), not a separate "pick an ALS version" + "pick a library set" pair of
+independent choices — every option is valid by construction, so there's
+nothing to cross-reference or filter in the UI. Everything under
+`.deploy-assets/` reads from it via `scripts/resolve-deploy-config.mjs`
+instead of hardcoding stdlib/cubical. The shipped defaults
+(`npm run auto-configure`) reproduce this project's own deployment across
+all three supported ALS versions — see `DEPLOYMENT.md` for the current
+version/library matrix.
 
-Done:
+Done (condensed — see git history for the full step-by-step record):
 
-- [x] Generalize `deploy-assets/generate-manifest.mjs` and `extract-agdai.mjs`
-      to read a library spec catalog (`deploy-assets/libraries.mjs`) instead of
-      the hardcoded stdlib/cubical pair.
-- [x] Add `deploy.config.mjs` + `deploy-assets/als-catalog.mjs` +
-      `deploy-assets/resolve-deploy-config.mjs`: a single config file drives
-      which ALS versions and library combinations get downloaded
-      (`scripts/download-assets.sh` → `deploy-assets/print-download-list.mjs`),
-      cached (`extract-agdai.mjs`), and exposed to the runtime
-      (`src/lib/runtime/interface.ts`'s `agdaVersionMap`).
-- [x] `interface.ts`'s `agdaVersionMap`/`supportedAgdaVersions` derived from
-      `deploy.config.mjs` instead of a hardcoded 3-entry map; dropped the
-      unused `stdlibCandidates` field.
-- [x] Flattened the schema from independent `alsVersions` + `librarySets`
-      (with a `compatibleAlsVersions` cross-reference) to a single flat
-      `profiles` list, each a self-contained (alsVersion, libraries) pairing —
-      removes the possibility of the UI ever presenting an invalid pairing
-      and the need for compatibility-filtering logic.
-- [x] Verified behavior-preserving at each step: regenerated
-      `static/agdai-manifest.json` was byte-for-byte identical to the
-      pre-refactor version (2232 modules, 292 KB) after the library-spec
-      generalization, after adding deploy.config.mjs, and again after the
-      profiles flattening.
+- [x] Generalized the whole asset pipeline (manifest generation, `.agdai`
+      caching, static packaging, runtime library resolution) from a
+      hardcoded stdlib/cubical pair to a `deploy.config.json`-driven list of
+      profiles, each an (ALS version, library set) combination.
+- [x] Added a "Deployment profile" selector to Settings → Runtime and
+      libraries; `AgdaController.switchProfile()` restarts the worker with
+      the selected profile's ALS version + libraries.
+- [x] Proved the system generalizes past stdlib/cubical by adding
+      agda-categories 0.3.0 as a third library, including prebuilding and
+      publishing its `.agdai` cache and fixing several bugs the addition
+      surfaced (cross-library dependency attribution, coinfective-import
+      options handling, an on-demand `.agdai`-fetch path that only
+      recognized the original two libraries' cache directories).
+- [x] Replaced the `Everything.agda`/native-`--dependency-graph` manifest
+      pipeline with a `Cmd_tokenHighlighting`-based import scanner
+      (`scripts/generate-manifest.mjs`) that reads each file's direct
+      imports without needing a synthetic combined entry point or resolving
+      any imports — faster, and fixed a latent accuracy bug where the old
+      pipeline's `.dot` output had already been transitively reduced.
+      Manifests are now split one-per-library under
+      `static/agdai/<name>/agdai-manifest.json`.
+      `scripts/build-agdai-cache.mjs` covers `.agdai` cache generation on
+      native `agda` versions without `--build-library`, using a
+      provably-minimal source-vertex covering set.
+- [x] Simplified the config format down from a two-file
+      `deploy.config.mjs` + separate library/ALS catalog through several
+      intermediate shapes to today's single flat `deploy.config.json`
+      (repo root, gitignored, plain JSON — no catalog indirection; each
+      profile lists its libraries and ALS version directly).
+      `.deploy-assets/` now stages raw unzipped files (library source
+      trees, `.agdai` caches, ALS wasm + `agda-data/`); `npm run setup`
+      is responsible for zipping whatever the browser runtime fetches as a
+      zip.
+- [x] Extended to three ALS versions (2.8.0, 2.7.0.1, 2.6.4.3), each with
+      its own stdlib + Cubical version and `.agdai` cache release — see
+      `scripts/auto-configure.mjs`'s `SHIPPED_LIBRARIES`/`SHIPPED_PROFILES`
+      and `DEPLOYMENT.md`'s supported-versions table.
+- [x] Fixed stale browser-test selectors (Settings button lookup, error
+      view tab, example picker) so `npm run test:browser` passes cleanly
+      against the current UI.
 
-Done (continued):
-
-- [x] `src/lib/worker/als-wasi-shim.ts`'s `buildFilesystem()` no longer
-      hardcodes stdlib/cubical: it takes a generic `LibraryToLoad[]` and
-      generates `~/.config/agda/libraries`/`defaults` from each library's
-      `folderName`/`agdaLibFile`/`libraryName` (added as explicit fields on
-      `deploy-assets/libraries.mjs` catalog entries, alongside
-      `archiveRootPrefix`/`includeSubpath` for the generic zip-extraction
-      path-rewrite). This is the actual mechanism that combines multiple
-      libraries for one Agda session — Agda's own `.agda-lib`
-      `depend:`/`flags:` resolution handles the rest; `deploy.config.mjs`'s
-      job is only to decide which `.agda-lib` paths get registered.
-- [x] Added a "Deployment profile" `<select>` to Settings → Runtime and
-      libraries (previously a static read-only display), populated from
-      `interface.ts`'s `deployProfiles` export. `AgdaController.switchProfile()`
-      terminates the current worker and restarts with the new profile's ALS
-      version + libraries; the backend is now constructed lazily since it
-      depends on the active profile.
-- [x] `src/lib/agda/prefetch.js`'s `AGDA_VERSION` constant is gone;
-      `triggerPrefetch()` takes the active profile's resolved libraries and
-      builds each `.agdai` path from that library's own
-      `agdaiCacheVersion`/`folderName`/`includeSubpath`, scoped to the
-      active profile's `libKey`s.
-- [x] Verified via the real browser regression suites (not just
-      `npm run check`/`build`): `test:browser:core-commands` and
-      `test:browser:library-loads` both PASS against this refactor.
-
-Done (agda-categories, second library proving the system generalizes):
-
-- [x] Added `agda-categories` v0.3.0 (targets Agda 2.8.0 + standard-library-2.3,
-      per its release notes) to `deploy-assets/libraries.mjs`, and a
-      `stdlib-2.3-agda-categories-0.3.0-als-2.8.0` profile to `deploy.config.mjs`.
-- [x] `deploy-assets/generate-manifest.mjs` now extracts every selected
-      library's source upfront and builds one shared real `--library-file`
-      registering all of them (previously each library was checked against
-      `--library-file=/dev/null` in total isolation), so a library with a
-      `depend:` on another configured library resolves the same way the
-      browser runtime resolves it. Two bugs fixed along the way:
-      (1) leaving each library's generated `Everything.agda` in place caused
-      `[AmbiguousTopLevelModuleName]` once a later library's search path
-      could see an earlier one's leftover file — fixed by deleting it
-      immediately after that library's check; (2) a library's dependency
-      graph naturally includes modules from libraries it depends on (e.g.
-      agda-categories pulls in stdlib modules), so attributing `libOf` from
-      the full edge map let a later library "steal" ownership of an earlier
-      library's module — fixed by attributing `libOf` only from the modules
-      a library actually defines (`findAgdaFiles(includeDir)`), not every
-      module reachable from its generated `Everything.agda`.
-- [x] Removed agda-categories' `optionsPragma` (`--without-K --safe` was
-      previously assumed uniform across the library, but at least one file,
-      `Categories.Adjoint.Parametric.agda`, has no `{-# OPTIONS #-}` pragma
-      at all — declaring those flags on the generated `Everything.agda`
-      tripped Agda's coinfective check, `[CoInfectiveImport]`, against such
-      files). No options at all on the wrapper file is the correct fix:
-      coinfective flags are only enforced when the *importer* declares them.
-- [x] `static/agdai-manifest.json` regenerated (2734 modules, 371 KB; 1153
-      stdlib, 1090 cubical, 502 agda-categories — matches agda-categories'
-      502 source files).
-- [x] Added `scripts/browser-test-agda-categories-smoke.sh`
-      (`npm run test:browser:agda-categories`): switches the Settings →
-      Runtime profile selector to the agda-categories profile via the real
-      UI, loads a fixture importing `Categories.Category.Core`, and asserts
-      a clean `Load finished.` with no library-resolution errors. Verified
-      no regression in `test:browser:libraries` / `test:browser:library-cache-profile`
-      (the stdlib+cubical profile) after these changes.
-- [x] Prebuilt an `.agdai` cache for agda-categories via
-      `experiments/build-library` (`npm run build:agda-categories`).
-      `--build-library`'s 600s timeout was too short for a full type-check of
-      ~500 modules depending on stdlib (bumped to 1800s). Also: `--build-library`
-      writes interfaces for *every* module it checks, including depended-on
-      libraries' (here, some stdlib modules), into the same HOME-rooted
-      `_build/` tree as the library being built — `collectAgdai()` now only
-      keeps a `.agdai` if a matching `.agda` source exists under that
-      library's own extracted root, so the result is exactly agda-categories'
-      502 modules (verified 1:1 against its source tree — no missing, no
-      foreign leakage). Uploaded as `agda-categories-agdai.zip` to the
-      `cache-2.8.0` GitHub release alongside stdlib/cubical's, and wired into
-      `deploy-assets/libraries.mjs`'s `agdaiCacheVersion`/`agdaiZipUrl`/
-      `agdaiZipName` — `print-download-list.mjs`/`extract-agdai.mjs` already
-      read these generically, no script changes needed there.
-- [x] Fixed: the prebuilt cache above was actually never used at runtime.
-      `src/lib/worker/als-wasi-shim.ts`'s `_ensureAgdai()` (the on-demand
-      `.agdai` network-fetch path, triggered when the WASM Agda process
-      probes for an interface file) had a hardcoded
-      `path_str.startsWith('stdlib/_build/') || path_str.startsWith('cubical/_build/')`
-      check — a leftover from before the multi-library generalization that
-      never got updated for new library folder names. Any other library's
-      `.agdai` probe silently returned without fetching, so Agda always fell
-      back to recompiling from source. The original smoke fixture (a single
-      shallow `Categories.Category.Core` import) didn't exercise this path
-      deeply enough to expose it — its "first Cmd_load ~4.1s" reading was
-      almost entirely stdlib's (working) cache plus one tiny from-source
-      agda-categories file. Caught when manually loading a deeper import
-      (`Categories.Category.Monoidal.Instance.StrictCats`, ~170 transitive
-      modules) showed dozens of `Checking <module>` log lines and a 123s
-      load. Fixed by generalizing the check to `path_str.includes('/_build/')`
-      — any registered library's real cache path always contains `_build/`;
-      source-tree probes never do. Same load now takes ~9s with zero
-      `Checking <module>` lines. Strengthened
-      `scripts/browser-test-agda-categories-smoke.sh`'s fixture to use the
-      deep import and assert no `Checking Categories\.` lines appear, so a
-      regression of this path-prefix check is actually caught next time.
-- [x] Removed download URLs from `deploy-assets/libraries.mjs`/`als-catalog.mjs`
-      entirely (`sourceArchiveUrl`, `agdaiZipUrl`, `wasmUrl`, `dataZipUrl`) —
-      both catalogs are now pure metadata; self-deployers can no longer
-      configure a download URL, only place files by hand in
-      `deploy-assets/library/`/`deploy-assets/als/`. `print-download-list.mjs`
-      (URL-driven) was replaced by `print-required-files.mjs` (just
-      filenames, for `scripts/setup-assets.sh`'s verification step).
-      `scripts/download-assets.sh` was renamed to `scripts/auto-configure.sh`
-      and rewritten as a hardcoded, non-catalog-driven fetch of exactly this
-      project's own shipped defaults — used by this project's own CI
-      (`npm run auto-configure`), not a generic/extensible mechanism.
-- [x] Switched `deploy-assets/{library,als}/` from staging *compressed
-      archives* to staging **raw, unzipped files** — a deployer (or
-      `npm run auto-configure`, now `deploy-assets/auto-configure.mjs`,
-      rewritten in Node to fetch-and-extract instead of fetch-and-leave-as-zip)
-      places a raw library source tree plus an optional raw `_build/`
-      `.agdai` cache under `deploy-assets/library/<name>/`, and a raw wasm +
-      `agda-data/` directory under `deploy-assets/als/`. `npm run setup`
-      (`deploy-assets/build-static-assets.mjs`) is now responsible for
-      zipping whatever the browser runtime needs as a zip (library source,
-      `agda-data.zip` — both fetched and unzipped client-side, confirmed
-      via `src/lib/runtime/browser-wasi-shim.ts`/`als-wasi-shim.ts`) using
-      a new pure-Node `zipDirectory()` in `zip-utils.mjs`, wrapping the
-      source zip under `archiveRootPrefix` so the existing client-side
-      unzip-and-strip logic needs zero changes. `.agdai` cache files
-      (never fetched by the browser — confirmed `agdaiZipAsset` is
-      unused at runtime) are just copied as a tree, no zip step needed;
-      `extract-agdai.mjs` deleted as a result.
-- [x] Split `deploy-assets/generate-manifest.mjs` (single script: build
-      Everything.agda, invoke native `agda --dependency-graph`, parse the
-      `.dot`, write `static/agdai-manifest.json`, committed to git) into
-      `prepare-dependency-graph.mjs` (everything except invoking `agda` —
-      writes a generated `run-agda.sh` that, per library, writes/runs/
-      cleans up its own synthetic `Everything.agda` in sequence, avoiding
-      `AmbiguousTopLevelModuleName` from two libraries' synthetic files
-      coexisting) and `dot-to-manifest.mjs` (pure `.dot`-parsing, no `agda`
-      needed). The dependency graph is no longer committed to git or
-      auto-fetched for anything beyond this project's own shipped
-      defaults: self-deployers who change `deploy.config.mjs` must produce
-      their own via the two scripts above and place the result themselves.
-      This project's own default graphs (stdlib + cubical + agda-categories)
-      are produced the same way by a maintainer and uploaded to the
-      `cache-2.8.0` GitHub Release, where `npm run auto-configure`
-      downloads them from (best-effort — missing one just disables
-      prefetching for that library, doesn't fail the rest).
-- [x] Split the dependency graph itself from one combined
-      `{ graph, libOf }` file (covering the union of every library
-      referenced by *any* configured profile) into one `{ graph }` file
-      per library (`deploy-assets/library/<name>/agdai-manifest.json` →
-      `static/agdai/<name>/agdai-manifest.json`) — a session now only
-      fetches the manifests for its *active* profile's libraries, and
-      adding a new library later never touches an existing one's
-      manifest. `libOf` is gone from the file format: within one
-      library's own file every key is trivially "this library's module";
-      `src/lib/agda/prefetch.js` derives the equivalent client-side when
-      merging the active profile's libraries' manifests (one
-      `fetch()`-and-cache per library, keyed by `libKey`), so cross-library
-      dependency edges (agda-categories → stdlib) still resolve — every
-      active-profile library's manifest is loaded up front, not
-      discovered-and-fetched mid-walk. `src/lib/runtime/interface.ts`'s
-      `ResolvedLibrary` gained `manifestAsset`, derived purely from the
-      existing folder-name convention (no new catalog field, same as
-      `_build/`).
-- [x] Removed several `libraries.mjs` catalog fields nothing but
-      themselves needed: `libKey` (now computed inline in
-      `interface.ts` as `${name}@${version}`), `agdaiZipName`/
-      `ResolvedLibrary.agdaiZipAsset` (dead — confirmed unread anywhere,
-      and `build-static-assets.mjs` no longer produces a zip at that
-      path at all), `sourceZipName`/`archiveRootPrefix` (now derived in
-      `findLibrary()` — neither value's exact text matters, only
-      uniqueness/non-emptiness, which `name`+`version` already
-      guarantee), and `optionsPragma` (confirmed empirically necessary —
-      `.agda-lib` `flags:` don't apply to the synthetic `Everything.agda`
-      — but nothing else reads it, so it moved to a
-      `--scope-check-pragma` CLI flag on `prepare-dependency-graph.mjs`
-      instead of living in a catalog every other tool also reads).
-      `experiments/build-library/src/build-agdai.mjs` and
-      `experiments/runtime-fs/src/{benchmark.js,vscode-wasm-memfs-runtime.js}`
-      — previously hardcoding the literal zip filenames/archive prefixes
-      — were switched to read `findLibrary()`'s derived values instead,
-      so they no longer silently break if those values change.
-- [x] `prepare-dependency-graph.mjs` is now always scoped to exactly one
-      library per run (`--library <name>`, required), since there's no
-      longer a per-library `optionsPragma` to read for a batch of
-      libraries at once — every *currently-selected* library is still
-      registered together in the shared `libraries` file regardless (so
-      `depend:` still resolves), only the Everything.agda/dot-output step
-      is limited to the one requested library. `dot-to-manifest.mjs`
-      mirrors this: it processes whatever `own-modules.json` says was
-      most recently prepared, not every selected library. Verified by
-      running this new flow for real (native agda) for all three of this
-      project's own libraries and diffing the output manifests against
-      the previously-committed ones — byte-identical.
-- [x] Renamed `prepare-dependency-graph.mjs` to `generate-dot.mjs` and had
-      it invoke `agda` directly (`execFile`) instead of generating an
-      intermediate `run-agda.sh` for the deployer to run separately — one
-      command now produces the `.dot` file end to end, matching
-      `dot-to-manifest.mjs`'s framing as "one script generates the `.dot`,
-      one converts it." Verified by running it for real for all three of
-      this project's own libraries — byte-identical output to before.
-      Also added a completeness check to `dot-to-manifest.mjs`: every
-      module `own-modules.json` expects must have a label in the parsed
-      `.dot` graph, or it errors out naming the missing ones, instead of
-      silently recording them as having zero dependencies. Confirmed (by
-      manually truncating a real `.dot` file's edge lines while leaving
-      labels intact) that this only catches a module never being labeled
-      at all, not an existing label missing some of its edges — there's
-      no independent source of truth for edge-completeness short of
-      reimplementing Agda's own import resolution, and no evidence Agda's
-      Dot backend ever produces output in that partially-labeled shape
-      (a real hard failure, tested directly, writes no `.dot` file at
-      all, not a partial one).
-- [x] Reversed course on `generate-dot.mjs`: deleted it entirely instead
-      of having it invoke `agda`. A single synthetic `Everything.agda`
-      covering a whole library can't always work — a library mixing
-      modules that need mutually exclusive `{-# OPTIONS #-}` has no one
-      pragma value that covers all of them — so splitting modules into
-      groups (and writing the right options per group) needs a human who
-      understands the library's structure, not a script guessing.
-      Self-deployers now write their own `Everything.agda`-style file(s)
-      under `deploy-assets/library/<name>/everything/`, run native `agda
-      --dependency-graph` themselves (so they see its real output
-      directly, not a wrapper's tolerance logic deciding for them), and
-      place the resulting `.dot` file(s) under
-      `deploy-assets/library/<name>/dots/`. The shared library-file
-      needed for cross-library `depend:` resolution is now also pure
-      documentation (`deploy-assets/README.md`) — no script writes it.
-      `dot-to-manifest.mjs` is the only script left: it takes `--library
-      <name>`, computes that library's own module set by scanning its
-      source tree directly (not derived from the `everything/` files, so
-      it doesn't matter how modules got grouped), merges every `.dot` file
-      under `dots/`, and runs the existing completeness check against the
-      merged result. `build-static-assets.mjs`'s zip-exclude list gained
-      `everything`/`dots` so neither ships to the browser. Also required
-      an extra `-i deploy-assets/library/<name>/everything` flag on the
-      `agda` invocation, confirmed empirically — without it agda rejects
-      the entry file with `ModuleNameDoesntMatchFileName`, since
-      `everything/` isn't part of the library's own registered include
-      path. Verified by manually walking the new flow for real (native
-      agda) for stdlib, cubical, and agda-categories. stdlib and
-      agda-categories came out byte-identical to the previously-committed
-      manifests; cubical gained one module
-      (`Cubical.Codata.Everything`) that the old `generate-dot.mjs` had
-      been silently dropping — its own `findAgdaFiles()` excluded any
-      file literally named `Everything.agda` anywhere in the tree (by
-      filename, not by checking the module name), which incorrectly
-      caught this real, nested library module purely by filename
-      coincidence with the synthetic entry-point convention. The new
-      implementation only excludes the dedicated `everything/`/`dots/`
-      directories, not files by name, so this module is now correctly
-      included.
-- [x] Restructured `deploy-assets/als/` from one flat directory shared by
-      every ALS version into one directory per version
-      (`deploy-assets/als/<version>/<wasmFilename>` +
-      `deploy-assets/als/<version>/agda-data/`, mirroring static output
-      under `static/als/<version>/`). Motivation: `agda-data/` bundles the
-      `Agda.Builtin.*` primitive source files that ship with a specific
-      Agda compiler build — these aren't safely interchangeable across ALS
-      versions (a newer compiler's primitive sources can use
-      syntax/BUILTINs an older compiler doesn't recognize), so sharing one
-      `agda-data/` across every catalog entry (as the old flat layout did)
-      was a latent correctness risk for any non-default ALS version,
-      beyond the previously-known "no speedup" caveat. (The `.agdai` cache
-      half of `agda-data/` was never actually at risk — it's written under
-      a version-numbered `_build/<version>/` subpath, so a version only
-      ever reads its own; only the primitive *source* files needed real
-      isolation.) This also incidentally fixes a separate bug: with the
-      old flat layout, two ALS versions selected in the same deployment
-      would have collided writing to the same `static/als/<dataZipName>`
-      output path, since `dataZipName` is the literal string
-      `'agda-data.zip'` for every catalog entry — versioning the output
-      directory removes that collision too.
-- [x] Made `agda-data/` mandatory for every ALS version instead of
-      optional. The `dataZipName` catalog field was doing two unrelated
-      jobs at once: describing the (always-identical) output filename,
-      and acting as a presence flag the runtime used to decide whether to
-      even attempt fetching `agda-data.zip` (skip if unset; hard error on
-      404 if set). Since every currently-cataloged version's entry set it
-      to the same literal string, the field carried no real per-entry
-      information — the decision to make it simpler landed on "always
-      required" rather than "derive the filename, keep optionality via
-      graceful 404 handling": removed the `dataZipName` field entirely,
-      added a single `AGDA_DATA_ZIP_NAME` constant in
-      `deploy-assets/als-catalog.mjs`, and made
-      `deploy-assets/print-required-files.mjs` treat
-      `deploy-assets/als/<version>/agda-data/` as required (prints
-      `MISSING:` and refuses to proceed) exactly like the wasm file
-      already was. `src/lib/runtime/interface.ts`'s `dataPath` and
-      `src/lib/worker/als-wasi-shim.ts`'s `dataZip` are no longer optional
-      types — `fetchWASMAndData()` always fetches and hard-fails on
-      failure, matching the wasm fetch's existing behavior, instead of a
-      conditional fetch-or-skip.
-- [x] Validate that no two libraries selected together in one
-      `deploy.config.mjs` profile declare the same `libraryName`.
-      `libraryName` is copied verbatim from a library's own `.agda-lib`
-      `name:` field into the VFS's `~/.config/agda/libraries`/`defaults`
-      files — a duplicate would make Agda's `depend:` resolution between
-      the two libraries ambiguous, and nothing caught this ahead of time
-      (`getSelectedLibraries()` only dedupes by this project's own
-      `name`+`version` key, not by `libraryName`).
-      `resolveProfileLibraries()` (`src/lib/runtime/interface.ts`) now
-      throws a clear error naming both conflicting libraries if it finds
-      a duplicate, validated eagerly for every configured profile at
-      module load (matching `agdaVersionMap`'s existing eager-build
-      pattern). Verified by temporarily duplicating agda-categories'
-      `libraryName` to match stdlib's and confirming the error surfaces in
-      the browser console — `npm run build` doesn't catch it (`ssr =
-      false`, so this module only executes client-side), so this is a
-      runtime guard, not a build-time one.
-- [x] Added a `folderName` field (`${name}-${version}`, derived in
-      `findLibrary()` like `sourceZipName`/`archiveRootPrefix`) so two
-      different versions of the same-named library can be placed side by
-      side under `deploy-assets/library/` — e.g. `stdlib-2.3/` and
-      `stdlib-2.2/` for two different `deploy.config.mjs` profiles each
-      pinned to a different stdlib version. Previously every library's
-      staging directory was just `deploy-assets/library/<name>/` (no
-      version), so only one version of a given library could ever be
-      placed at a time — directly blocking the "multiple versions of a
-      given library" goal above. Moved this project's own three libraries'
-      staging directories to the new convention
-      (`stdlib-2.3/`, `cubical-0.9/`, `agda-categories-0.3.0/`) and updated
-      `build-static-assets.mjs`, `print-required-files.mjs`,
-      `dot-to-manifest.mjs`, and `auto-configure.mjs`'s hardcoded defaults
-      accordingly. Scope note: this only fixes the deploy-assets staging
-      side — `static/agdai/<name>/` (build output) and
-      `src/lib/runtime/interface.ts`'s `manifestAsset`/`sourceZipAsset`
-      (runtime fetch paths) are still keyed by bare `name`, so two
-      different versions of the same library still can't both be *served*
-      from one static/ build yet; only one version can be staged-then-built
-      at a time today. Fixing that is separate follow-up work, not done
-      here.
-- [x] Deleted `deploy-assets/libraries.mjs` entirely — the previous
-      follow-up note above is now moot, since this also fixed the
-      `static/agdai/<name>/`/`manifestAsset` gap it described. `name`+
-      `version` are no longer the catalog primary key; `folderName` is now
-      hand-specified directly in `deploy.config.mjs` (`{ folderName,
-      agdaLibFile, name?, version? }`, with `name`/`version` purely
-      cosmetic), and everything — staging, static output, and the
-      browser's runtime fetch paths in `src/lib/runtime/interface.ts` — is
-      keyed by `folderName` end to end. `includeSubpath`/`libraryName`
-      (previously hand-copied into the catalog from each library's own
-      `.agda-lib`, risking drift from the real file) are now generated
-      directly from that file's `include:`/`name:` lines by the new
-      `deploy-assets/generate-library-info.mjs`, writing
-      `deploy-assets/generated-libraries.mjs` (gitignored — regenerated by
-      `npm run setup`, and also by new `predev`/`precheck`/`prebuild`
-      package.json hooks so `npm run check`/`build`/`dev` never hard-fail
-      just because `deploy-assets/library/` isn't populated yet, e.g. CI's
-      fast `check-and-build` job which deliberately skips
-      `auto-configure`/`setup`). Found and fixed a real formatting
-      inconsistency while testing this: agda-categories' `.agda-lib`
-      declares `include: src/` (trailing slash) while stdlib's declares
-      `include: src` (none) — both valid, but a naive parser feeding the
-      result into manual string concatenation (`prefetch.js`,
-      `als-wasi-shim.ts` — unlike `dot-to-manifest.mjs`'s use via
-      `path.join()`, which already normalized this silently) would have
-      produced a double slash; `agda-lib-utils.mjs`'s `parseAgdaLibInclude`
-      now strips a trailing slash unconditionally.
-
-      Also replaced the hand-maintained `agdaiCacheVersion` catalog field
-      with a live `agda --numeric-version` query
-      (`als-wasi-shim.ts`'s `getNumericAgdaVersion()`, mirroring the
-      existing `getALSVersion()`/`--version` mechanism) — the prefetch
-      `_build/<version>/` path is now built from whatever Agda version is
-      *actually* running, never a hand-typed guess that could drift from
-      reality.
-- [x] Converted `deploy.config.mjs` to plain JSON (`deploy.config.json`).
-      With `libraries` entries down to 4 flat string fields (after the
-      `libraries.mjs` deletion above), the in-file comments were the only
-      remaining reason to keep this a `.mjs` module instead of pure data —
-      moved them to `deploy-assets/README.md`'s new "`deploy.config.json`
-      schema" section instead. `deploy-assets/resolve-deploy-config.mjs`
-      (Node) imports it via `with { type: 'json' }` (stable in Node 22);
-      `src/lib/runtime/interface.ts` (Vite/browser) imports it as a plain
-      default import, relying on `tsconfig.base.json`'s existing
-      `resolveJsonModule` + `moduleResolution: "bundler"`. Had to update
-      `tsconfigs/tsconfig.app.json`'s hardcoded include entry (pointed at
-      the now-deleted `.mjs` path). Considered keeping it a trimmed-down
-      `.mjs` with one-line inline reminders instead (the constraints —
-      `folderName` uniqueness, `name`/`version` being purely cosmetic —
-      are the kind of thing a deployer benefits from seeing at the moment
-      they're editing, not just in a separate doc they'd have to already
-      know to check) — decided the full JSON conversion was worth it
-      anyway, with a config-validation pre-flight step (run before `npm
-      run setup`, catching mistakes deterministically rather than relying
-      on a deployer having read the right comment) as explicit deferred
-      follow-up work instead of inline comments. That validation step
-      itself is not yet implemented — see "Not yet implemented" below.
-- [x] Deleted `deploy-assets/als-catalog.mjs`, applying the same
-      simplification already done for libraries to ALS: each profile's
-      `alsVersion` is no longer a key into a separate catalog — its
-      `wasmFilename` is now a sibling field directly on the profile in
-      `deploy.config.json`, same shape as `libraries` entries. If the same
-      `alsVersion` is referenced from more than one profile (both of this
-      project's own profiles use `2.8.0`), every reference must agree on
-      `wasmFilename` — validated the same way as the existing
-      folderName/libraryName consistency checks
-      (`resolve-deploy-config.mjs`'s `getSelectedAlsVersions()` and
-      `src/lib/runtime/interface.ts`'s `agdaVersionMap` construction loop
-      both throw a clear error on mismatch). `AGDA_DATA_ZIP_NAME` (always
-      `'agda-data.zip'`, never per-version) had no real catalog left to
-      live in — inlined as a literal constant directly in both
-      `build-static-assets.mjs` and `interface.ts` (the two places that
-      must agree on it), each with a comment pointing at its sibling.
-- [x] Fixed a real regression introduced by the `agda --numeric-version`
-      query above: `als` (the ALS WASM binary, not the bare `agda`
-      compiler tested manually at the time) has no `--numeric-version`
-      flag of its own — confirmed in
-      `references/agda-web-agda-language-server/src/Options.hs`, which
-      only defines `--help`/`--port`/`--raw`/`--setup`/`--version`, and
-      `--numeric-version` isn't one of the few options forwarded to the
-      underlying Agda library either (that forwarding only happens for
-      options wrapped in `+AGDA ... -AGDA`). Spawning it directly produced
-      no stdout output at all, so `getNumericAgdaVersion()` always
-      resolved to `""` — an empty string, falsy — so
-      `src/routes/+page.svelte`'s prefetch gate
-      (`if (prefetchFn && editorView && receivedNumericAgdaVersion)`)
-      never ran, meaning `agdai-manifest.json` was never fetched and the
-      prefetch optimization silently never fired for anyone, ever, since
-      it was introduced. Completely invisible from "does the app work" —
-      every `.agdai` file still loaded correctly through the independent
-      on-demand fetch path (`als-wasi-shim.ts`'s SharedArrayBuffer bridge),
-      just one file at a time as ALS's type-checker requested each one,
-      instead of fetched in a parallel batch ahead of time. Found by
-      reproducing in a real browser session and tracing the actual
-      `fetch()` calls (`window.fetch` monkey-patched directly, since
-      neither the CDP-level network monitor nor manual code reading alone
-      settled it) down to a temporary debug log at the gate itself, which
-      showed `numericVersion: ""`.
-
-      Fix: removed the separate `--numeric-version` WASI spawn entirely
-      and instead parse the numeric version straight out of
-      `getALSVersion()`'s already-working `--version` output (format:
-      `"Agda vX.Y.Z Language Server vN..."`, confirmed via the same
-      session) with `/Agda v([\d.]+)/` — one spawn instead of two, and no
-      dependency on a flag that doesn't exist. Verified the fix directly
-      in-browser: `agdai-manifest.json` now actually appears in the
-      network log and `prefetch.js`'s own `[prefetch] N .agdai files for
-      M imports` debug line now fires, which it never did before.
-      `npm run check`/`build` and full `npm run test:browser` (18
-      scripts, 0 failures) still pass — this whole class of bug was
-      invisible to that suite too, since the on-demand fallback masks it
-      functionally; only direct network/console inspection caught it.
-- [x] `print-required-files.mjs` now actually runs each placed `als` wasm
-      with `--version` (new `deploy-assets/run-als-version.mjs`, via
-      Node's built-in `node:wasi` — confirmed it needs no special CLI
-      flag to work, just produces a harmless `ExperimentalWarning`) and
-      checks the output names the `alsVersion` it's configured under,
-      printing `MISMATCH: ...` and failing `npm run setup` if not.
-      Motivation: `deploy-assets/als/<version>/`'s directory name was
-      already documented as needing to exactly match `alsVersion` (see
-      bullet above this one and "What to place" in
-      deploy-assets/README.md), but nothing actually checked that the
-      *wasm file itself* placed there really is that build — a
-      deployer could place the wrong wasm in a correctly-named directory
-      and nothing would catch it. Implementation note: Node's WASI
-      writes directly to the real stdout file descriptor, bypassing
-      `process.stdout.write`, so in-process monkey-patching can't capture
-      it (confirmed empirically) — `run-als-version.mjs` is always
-      invoked as a child process instead, whose real stdout the parent
-      pipes normally. Verified by temporarily placing the 2.8.0 wasm
-      under a deliberately-mismatched alsVersion's directory and
-      confirming `print-required-files.mjs` reports the expected
-      `MISMATCH:` and fails — and that it still passes cleanly against
-      the project's own real (correct) data afterward.
-
-- [x] Replaced the manual `Everything.agda`/`.dot`/`dot-to-manifest.mjs`
-      dependency-graph workflow with `deploy-assets/generate-manifest.mjs`:
-      for every file under a library's own `include:`, spawns
-      `agda --interaction-json` and asks for `Cmd_tokenHighlighting` — a
-      real Agda interaction command that returns purely lexical token
-      highlighting for one file without loading, resolving, or
-      type-checking any of its imports (confirmed: works even when an
-      import target doesn't exist). Replacing every highlighted range
-      that isn't a `keyword` with a single space and matching
-      `\bimport\b\s*(\S+)\s` against the result correctly extracts that
-      file's own direct import targets — verified against every edge case
-      found while developing this (multi-line `import`, a comment with
-      zero surrounding whitespace between `import` and the module name —
-      including nested comments, confirmed correctly handled since
-      nesting can't be matched by a regular expression and Agda's own
-      lexer tracks it with a depth counter — semicolon-glued declarations,
-      literate `.lagda.md`/`.lagda.org` prose and code-fence markup).
-      No more hand-written `Everything.agda` (and no more splitting a
-      library across multiple `everything/` files to dodge
-      `InfectiveImport`/`CoInfectiveImport` errors from mutually exclusive
-      `{-# OPTIONS #-}`, the reason `agda-categories` needed one before —
-      each file is scanned on its own, never combined into one synthetic
-      entry point) and no shared library-file (`Cmd_tokenHighlighting`
-      never resolves imports, so nothing needs to be found).
-      Verified against all three of this project's real libraries:
-      regenerated each library's `agdai-manifest.json` with the new
-      script and confirmed applying standard transitive reduction to the
-      result reproduces the previously-shipped manifest exactly
-      (1153/1153 stdlib modules, 1091/1091 cubical, 502/502
-      agda-categories once cross-library reachability through stdlib's
-      own graph is accounted for) — proving the *old* manifest had been
-      silently dropping real direct edges all along, because
-      `agda --dependency-graph`'s Dot backend applies
-      `Graph.transitiveReduction` twice (confirmed in `agda`'s own source)
-      for graph-visualization purposes, and the old pipeline took that
-      visualization-optimized graph as the manifest's source of truth.
-      `prefetch.js`'s `collectDeps` only does a transitive-closure walk
-      (invariant under transitive reduction), so this is a strict
-      accuracy improvement with no prefetch behavior change. Also much
-      faster: regenerating all of stdlib (1153 files) takes about 10
-      seconds at `os.cpus().length`-way parallelism, versus minutes for
-      the old `--dependency-graph`-based approaches explored along the
-      way (a single combined `Everything.agda` took ~27s but still
-      required hand-writing it and resolving option conflicts; per-module
-      `--dependency-graph` or a greedy covering algorithm both took
-      14–17 minutes even parallelized).
-- [x] Added `deploy-assets/build-agdai-cache.mjs`: a fallback for
-      producing a library's `_build/` `.agdai` cache on a native `agda`
-      older than 2.8.0 (no `--build-library`). Drives one
-      `agda --interaction-json` session and sends a `Cmd_load` for each
-      "source vertex" of the dependency graph (a module nothing else in
-      the library imports, read from the already-generated
-      `agdai-manifest.json`) — provably both necessary (nothing else can
-      ever reach a source vertex) and sufficient (the graph is a DAG, so
-      every module is reachable from some source vertex) to cover every
-      module, with everything else cached as a side effect of whichever
-      source vertex imports it. Confirmed empirically real
-      `agda --build-library` was the wrong baseline to beat with a
-      cleverer covering algorithm first: tried prioritizing "source
-      vertices" (no incoming edge) for the unrelated
-      `--dependency-graph`-generation problem earlier in this section and
-      found zero improvement over arbitrary order (91% of stdlib modules
-      qualify, no discriminating power there) — but for *this* problem
-      the same set is the *exact*, provably-optimal minimum covering set,
-      confirmed by computing it from the real graph (333 source vertices
-      for stdlib, closure union covers all 1153 modules) and finding an
-      independently-implemented exact greedy (repeatedly pick the
-      largest-closure uncovered module) converges on the identical 333.
-      Also confirmed empirically: two modules with mutually exclusive
-      `{-# OPTIONS #-}`, loaded via separate `Cmd_load` calls with no
-      combining import edge between them, both load cleanly — sidestepping
-      the `InfectiveImport`/`CoInfectiveImport` problem a hand-written
-      combined `Everything.agda` hits. Real run on stdlib: 333 `Cmd_load`
-      calls, ~480s, all 1153 `.agdai` produced — within noise of
-      `--build-library`'s own ~456s. Separately confirmed *naive*
-      per-file invocation (looping plain `agda <file>.agda`, even at
-      16-way parallelism) is **not** a viable alternative to either of
-      these despite `.agdai` persisting across separate processes:
-      measured ~19.8 minutes total for stdlib from a clean `_build/`,
-      ~2.6x slower than `--build-library`, because `.agdai` writes are
-      not atomic (confirmed in `agda`'s own source,
-      `Agda/TypeChecking/Serialise.hs`'s `encodeFile` is a plain
-      `writeFile`, no temp-file-then-rename) — concurrent processes
-      racing to build the same not-yet-cached shared dependency can read
-      a partially-written file, safely fail to decode it (no crash,
-      `decodeInterface` runs in `MaybeT`), and silently redo the work,
-      and even a *single* separate process loading an already-fully-cached
-      deep dependency chain still pays a real, non-trivial deserialization
-      cost every time (measured ~2.5s to reload a real stdlib chain from
-      cache, regardless of whether anything was actually re-type-checked)
-      since nothing is shared in memory across separate processes the way
-      it is within one `agda --interaction-json` session
-      (`Cmd_load`'s `resetState` preserves `stDecodedModules` but not
-      `stVisitedModules`, confirmed in `Agda/TypeChecking/Monad/Base.hs`).
-      Checked whether this combination of techniques is documented
-      practice elsewhere first: `agda/cubical`'s own `GNUmakefile`
-      confirms the historical (pre-2.8.0) standard approach really was
-      generating an `Everything.agda`-style combined file and running one
-      `agda` invocation on it (switched straight to `--build-library`
-      once it shipped) — no evidence found of the source-vertex/
-      multi-`Cmd_load` combination being prior art anywhere.
 - [ ] Add specs for plfa, agda-unimath, 1lab to `deploy.config.json`
       (confirm each library's actual `.agda-lib` name/include path/required
-      OPTIONS first), and add corresponding profile(s) to `deploy.config.json`.
-- [ ] A `deploy.config.json` validation step, run before `npm run setup`
-      (or as part of `print-required-files.mjs`), checking the kinds of
-      mistakes a deployer could otherwise only discover from a thrown
-      error deep in the browser (e.g. `resolveProfileLibraries()`'s
-      folderName/libraryName uniqueness checks in
-      `src/lib/runtime/interface.ts`) — surfacing them up front instead,
-      with a clear message, before any build/zip work happens. Explicit
-      deferred follow-up from converting `deploy.config.mjs` to plain JSON
-      above (no more inline comments to warn a deployer at edit time).
+      OPTIONS first), and add corresponding profile(s).
+- [ ] A `deploy.config.json` validation step, run before `npm run setup`,
+      checking the kinds of mistakes a deployer could otherwise only
+      discover from a thrown error deep in the browser (e.g.
+      `resolveProfileLibraries()`'s folderName/libraryName uniqueness
+      checks in `src/lib/runtime/interface.ts`) — surfacing them up front
+      instead, with a clear message, before any build/zip work happens.
 
 Considered and rejected: having `npm run setup` skip libraries outside some
 "default" profile. The runtime is already lazy where it matters — a browser
@@ -740,32 +187,6 @@ fetched per-file on demand via the prefetch manifest, never as a bulk zip.
 `npm run setup` downloading every configured profile's libraries is a
 one-time, deployer-side build cost (CI time / disk), not something any end
 user pays for — not worth the added complexity.
-
-Done (fixed stale browser-test selectors — `npm run test:browser` now passes
-all 18 scripts cleanly):
-
-- [x] `scripts/browser-common.sh`'s `click_button`/`wait_for_button` looked
-      up buttons by text content only; the Settings toggle is icon-only
-      (`aria-label="Settings"`, no text), so any test opening Settings had
-      likely never passed against the current UI. Both helpers now also
-      match by `aria-label`.
-- [x] `scripts/browser-test-settings-dialog.sh` and
-      `scripts/browser-test-shortcut-overrides.sh` had their own inline
-      Settings-button lookups (same text-only bug, bypassing the helper) —
-      fixed the same way. `settings-dialog.sh` also asserted the Settings
-      button lives in a `.als-buttons` container with a `Restart` button
-      found via `button[class*="restart"]` — neither class exists in the
-      current markup (button text is `Restart`, container is
-      `.control-card-row`); updated to match.
-- [x] `scripts/browser-test-error-display.sh` looked up a `.messages-view-select
-      select` to switch to the errors view; the messages panel now uses a
-      `.messages-tab-group` of buttons (Log/Queries/Errors), not a select.
-      Updated to click the Errors tab button.
-- [x] `scripts/browser-test-example-picker.sh` looked up a `#scratchpad-example`
-      `<select>`; the example picker is now a button + dropdown menu
-      (`.header-examples-btn` / `.header-examples-menu` /
-      `.header-examples-item`). Updated to open the menu and click the
-      target item by its label.
 
 ## Goal Lifecycle and Editor State
 

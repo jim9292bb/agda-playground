@@ -11,10 +11,15 @@ runtime).
 
 ## Agda compiler
 
-**Used as:** The ALS WASM binaries (`static/als/als-*.wasm`, downloaded by `npm run setup`
-from [agda-web/agda-language-server](https://github.com/agda-web/agda-language-server))
-are built from the Agda compiler. The binaries are served to every visitor of the
-deployed site.
+**Used as:** The ALS WASM binaries (`static/als/<version>/als-<version>.wasm`,
+downloaded by `npm run setup` from this project's own
+[`als-runtime` release](https://github.com/jim9292bb/agda-playground/releases/tag/als-runtime),
+one per supported Agda/ALS version — see `DEPLOYMENT.md`'s supported-versions
+table) are built from the Agda compiler. Provenance traces back to
+[agda-web/agda-language-server](https://github.com/agda-web/agda-language-server);
+this project re-publishes the same binaries under its own release so
+`npm run setup` has a single, versioned download source. The binaries are
+served to every visitor of the deployed site.
 
 **Source:** [agda/agda](https://github.com/agda/agda)
 
@@ -52,8 +57,8 @@ SOFTWARE.
 
 ## Agda Language Server (ALS)
 
-**Used as:** The ALS WASM binaries (`static/als/als-*.wasm`) are built from this project
-and served to every visitor of the deployed site.
+**Used as:** The ALS WASM binaries (`static/als/<version>/als-<version>.wasm`)
+are built from this project and served to every visitor of the deployed site.
 
 **Source:** [banacorn/agda-language-server](https://github.com/banacorn/agda-language-server)
 (distributed via [agda-web/agda-language-server](https://github.com/agda-web/agda-language-server) releases)
@@ -88,8 +93,10 @@ SOFTWARE.
 
 ## Agda standard library
 
-**Used as:** `static/library/stdlib-2.3.zip` (source archive) and the `.agdai` cache
-derived from it. Both are downloaded by `npm run setup` and fetched into the
+**Used as:** Source archives (one per shipped version — 2.1, 2.2, 2.3, matching
+this project's three supported ALS versions; see `DEPLOYMENT.md`'s
+supported-versions table) and the `.agdai` caches derived from them. Both are
+downloaded by `npm run auto-configure`/`npm run setup` and fetched into the
 browser at runtime for every visitor of the deployed site.
 
 **Source:** [agda/agda-stdlib](https://github.com/agda/agda-stdlib)
@@ -129,8 +136,10 @@ SOFTWARE.
 
 ## Cubical Agda library
 
-**Used as:** `static/library/cubical-0.9.zip` (source archive) and the `.agdai` cache
-derived from it. Both are downloaded by `npm run setup` and fetched into the
+**Used as:** Source archives (one per shipped version — 0.7, 0.8, 0.9, matching
+this project's three supported ALS versions; see `DEPLOYMENT.md`'s
+supported-versions table) and the `.agdai` caches derived from them. Both are
+downloaded by `npm run auto-configure`/`npm run setup` and fetched into the
 browser at runtime for every visitor of the deployed site.
 
 **Source:** [agda/cubical](https://github.com/agda/cubical)
