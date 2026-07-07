@@ -186,6 +186,44 @@ BSD-3-Clause license: https://opensource.org/license/bsd-3-clause/
 
 ---
 
+## agda-categories
+
+**Used as:** Source archive (version 0.3.0, shipped only for the ALS 2.8.0
+profile — see `DEPLOYMENT.md`'s supported-versions table) and the `.agdai`
+cache derived from it. Both are downloaded by `npm run auto-configure`/
+`npm run setup` and fetched into the browser at runtime for every visitor of
+the deployed site.
+
+**Source:** [agda/agda-categories](https://github.com/agda/agda-categories)
+
+**License:** MIT
+
+```
+MIT License
+
+Copyright (c) 2019 Agda Github Community
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+---
+
 ## browser_wasi_shim
 
 **Used as:** npm dependency (`@agda-web/browser_wasi_shim`), bundled into the
