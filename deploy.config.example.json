@@ -8,13 +8,13 @@
           "agdaLibPath": "/absolute/path/to/agda-stdlib/standard-library.agda-lib",
           "label": "stdlib",
           "version": "2.3",
-          "agdaiDir": ".deploy-assets/auto/agdai/standard-library-2.3"
+          "agdaiDir": "/absolute/path/to/agdai-cache/standard-library-2.3"
         },
         {
           "agdaLibPath": "/absolute/path/to/cubical/cubical.agda-lib",
           "label": "cubical",
           "version": "0.9",
-          "agdaiDir": ".deploy-assets/auto/agdai/cubical-0.9"
+          "agdaiDir": "/absolute/path/to/agdai-cache/cubical-0.9"
         }
       ]
     },
@@ -26,13 +26,13 @@
           "agdaLibPath": "/absolute/path/to/agda-stdlib/standard-library.agda-lib",
           "label": "stdlib",
           "version": "2.3",
-          "agdaiDir": ".deploy-assets/auto/agdai/standard-library-2.3"
+          "agdaiDir": "/absolute/path/to/agdai-cache/standard-library-2.3"
         },
         {
           "agdaLibPath": "/absolute/path/to/agda-categories/agda-categories.agda-lib",
           "label": "agda-categories",
           "version": "0.3.0",
-          "agdaiDir": ".deploy-assets/auto/agdai/agda-categories"
+          "agdaiDir": "/absolute/path/to/agdai-cache/agda-categories"
         }
       ]
     }

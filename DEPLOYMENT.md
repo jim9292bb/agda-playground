@@ -39,7 +39,7 @@ npm install
 
 `build-agdai` is standalone — it never reads or writes `deploy.config.json`.
 Pick an output directory for the library's compiled `.agdai` files and
-manifest (e.g. `.deploy-assets/auto/agdai/<name>`); you'll set this same
+manifest (e.g. `/path/to/agdai-cache/<name>`); you'll set this same
 path as `agdaiDir` in the next step.
 
 ```sh
@@ -146,13 +146,13 @@ Example:
           "agdaLibPath": "/path/to/agda-stdlib/standard-library.agda-lib",
           "label": "stdlib",
           "version": "2.3",
-          "agdaiDir": ".deploy-assets/auto/agdai/standard-library-2.3"
+          "agdaiDir": "/path/to/agdai-cache/standard-library-2.3"
         },
         {
           "agdaLibPath": "/path/to/cubical/cubical.agda-lib",
           "label": "cubical",
           "version": "0.9",
-          "agdaiDir": ".deploy-assets/auto/agdai/cubical-0.9"
+          "agdaiDir": "/path/to/agdai-cache/cubical-0.9"
         }
       ]
     }
