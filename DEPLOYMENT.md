@@ -2,8 +2,13 @@
 
 ## Quick start
 
-To deploy using this project's own shipped defaults (stdlib 2.3, Cubical 0.9,
-agda-categories 0.3.0, ALS 2.8.0):
+To deploy using this project's own shipped defaults — three ready-to-use
+profiles, each pairing one ALS version with a compatible stdlib + Cubical
+version:
+
+- ALS 2.8.0 + stdlib 2.3 + Cubical 0.9 + agda-categories 0.3.0
+- ALS 2.7.0.1 + stdlib 2.2 + Cubical 0.8
+- ALS 2.6.4.3 + stdlib 2.1 + Cubical 0.7
 
 ```sh
 git clone https://github.com/jim9292bb/agda-playground.git
@@ -99,7 +104,7 @@ published as assets of this project's
 
 | `als` value | Agda / ALS version | Suggested libraries |
 |---|---|---|
-| `"2.8.0"` | Agda 2.8.0 (shipped default) | stdlib 2.3, cubical 0.9, agda-categories 0.3.0 |
+| `"2.8.0"` | Agda 2.8.0 | stdlib 2.3, cubical 0.9, agda-categories 0.3.0 |
 | `"2.7.0.1"` | Agda 2.7.0.1 | stdlib 2.1.1–2.3, cubical 0.8 |
 | `"2.6.4.3"` | Agda 2.6.4.3 | stdlib 2.1, cubical 0.7 |
 
@@ -161,7 +166,10 @@ Example:
 ```
 
 **`profiles`** — a flat list of ALS/library combinations. Each option is
-valid by construction, so the UI only needs a single profile selector.
+valid by construction, so the UI only needs a single profile selector. The
+list order matters: the first entry is the profile every visitor sees
+selected by default until they pick a different one (persisted afterward in
+their browser's local storage).
 
 | Field | Required | Description |
 |---|---|---|
