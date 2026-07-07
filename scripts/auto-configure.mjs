@@ -2,7 +2,7 @@
  * Fetches this project's own shipped default library files, places library
  * sources into .deploy-assets/library/<name>/, creates deploy.config.json
  * to point at them, and populates each library's agdaiDir with prebuilt
- * .agdai files from the cache release.
+ * .agdai files from that library's cache release.
  *
  * ALS runtime assets are NOT handled here: `npm run setup` downloads them
  * from the als-runtime release straight into static/als/ per the versions
@@ -10,9 +10,9 @@
  * graph tool is installed by npm install (scripts/ensure-graph-als.mjs).
  *
  * This is NOT a generic, deploy.config.json-driven downloader — the library
- * set is hardcoded to this project's shipped defaults (stdlib 2.3, cubical
- * 0.9, agda-categories 0.3.0). If you add a library of your own, place
- * files by hand instead; see DEPLOYMENT.md.
+ * set is hardcoded to this project's shipped defaults across all three
+ * supported ALS versions (see SHIPPED_PROFILES below). If you add a library
+ * of your own, place files by hand instead; see DEPLOYMENT.md.
  *
  * Safe to run repeatedly: each step is skipped if its output already exists.
  *
@@ -31,7 +31,14 @@ import { getLocalLibraries } from './resolve-deploy-config.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const DEPLOY_ASSETS = resolve(REPO_ROOT, '.deploy-assets')
-const RELEASE = 'https://github.com/jim9292bb/agda-playground/releases/download/cache-2.8.0'
+
+// Each shipped library's prebuilt .agdai cache release. Keyed by Agda
+// version since .agdai is a version-specific binary format — the same
+// library source built with two different Agda versions needs two
+// separate cache releases.
+const CACHE_RELEASE_2_8_0 = 'https://github.com/jim9292bb/agda-playground/releases/download/cache-2.8.0'
+const CACHE_RELEASE_2_7_0_1 = 'https://github.com/jim9292bb/agda-playground/releases/download/cache-2.7.0.1'
+const CACHE_RELEASE_2_6_4_3 = 'https://github.com/jim9292bb/agda-playground/releases/download/cache-2.6.4.3'
 
 // Hardcoded metadata for this project's shipped defaults.
 const SHIPPED_LIBRARIES = [
@@ -39,6 +46,7 @@ const SHIPPED_LIBRARIES = [
     name: 'standard-library-2.3',
     agdaLibFile: 'standard-library.agda-lib',
     sourceUrl: 'https://github.com/agda/agda-stdlib/archive/refs/tags/v2.3.zip',
+    cacheRelease: CACHE_RELEASE_2_8_0,
     releaseAssetPrefix: 'stdlib',
     label: 'stdlib',
     version: '2.3',
@@ -47,6 +55,7 @@ const SHIPPED_LIBRARIES = [
     name: 'cubical-0.9',
     agdaLibFile: 'cubical.agda-lib',
     sourceUrl: 'https://github.com/agda/cubical/archive/refs/tags/v0.9.zip',
+    cacheRelease: CACHE_RELEASE_2_8_0,
     releaseAssetPrefix: 'cubical',
     label: 'cubical',
     version: '0.9',
@@ -55,22 +64,74 @@ const SHIPPED_LIBRARIES = [
     name: 'agda-categories',
     agdaLibFile: 'agda-categories.agda-lib',
     sourceUrl: 'https://github.com/agda/agda-categories/archive/refs/tags/v0.3.0.zip',
+    cacheRelease: CACHE_RELEASE_2_8_0,
     releaseAssetPrefix: 'agda-categories',
     label: 'agda-categories',
     version: '0.3.0',
+  },
+  {
+    name: 'standard-library-2.2',
+    agdaLibFile: 'standard-library.agda-lib',
+    sourceUrl: 'https://github.com/agda/agda-stdlib/archive/refs/tags/v2.2.zip',
+    cacheRelease: CACHE_RELEASE_2_7_0_1,
+    releaseAssetPrefix: 'stdlib',
+    label: 'stdlib',
+    version: '2.2',
+  },
+  {
+    name: 'cubical-0.8',
+    agdaLibFile: 'cubical.agda-lib',
+    sourceUrl: 'https://github.com/agda/cubical/archive/refs/tags/v0.8.zip',
+    cacheRelease: CACHE_RELEASE_2_7_0_1,
+    releaseAssetPrefix: 'cubical',
+    label: 'cubical',
+    version: '0.8',
+    // Cubical.README and Cubical.Talks.EPA2020 both import Everything.agda
+    // aggregator modules that don't exist in the raw source tree — cubical's
+    // build only generates them via a Haskell script (Everythings.hs /
+    // generate-everything.sh) that this project's tooling doesn't run.
+    // Both are pure documentation/demo files that nothing else in the
+    // library imports (README: a module index + upstream CI "compile
+    // everything" target; EPA2020: conference-talk slides), so they're
+    // simply removed rather than reproducing cubical's own generation step.
+    removeAfterFetch: ['Cubical/README.agda', 'Cubical/Talks/EPA2020.agda'],
+  },
+  {
+    name: 'standard-library-2.1',
+    agdaLibFile: 'standard-library.agda-lib',
+    sourceUrl: 'https://github.com/agda/agda-stdlib/archive/refs/tags/v2.1.zip',
+    cacheRelease: CACHE_RELEASE_2_6_4_3,
+    releaseAssetPrefix: 'stdlib',
+    label: 'stdlib',
+    version: '2.1',
+  },
+  {
+    name: 'cubical-0.7',
+    agdaLibFile: 'cubical.agda-lib',
+    sourceUrl: 'https://github.com/agda/cubical/archive/refs/tags/v0.7.zip',
+    cacheRelease: CACHE_RELEASE_2_6_4_3,
+    releaseAssetPrefix: 'cubical',
+    label: 'cubical',
+    version: '0.7',
+    removeAfterFetch: ['Cubical/README.agda', 'Cubical/Talks/EPA2020.agda'], // see cubical-0.8's comment above
   },
 ]
 
 const SHIPPED_PROFILES = [
   {
-    label: 'Standard Library v2.3 + Cubical v0.9 (ALS 2.8.0)',
+    label: 'Standard Library v2.3 + Cubical v0.9 + agda-categories v0.3.0 (ALS 2.8.0)',
     als: '2.8.0',
-    libraries: ['standard-library-2.3', 'cubical-0.9'],
+    libraries: ['standard-library-2.3', 'cubical-0.9', 'agda-categories'],
   },
   {
-    label: 'Standard Library v2.3 + agda-categories v0.3.0 (ALS 2.8.0)',
-    als: '2.8.0',
-    libraries: ['standard-library-2.3', 'agda-categories'],
+    label: 'Standard Library v2.2 + Cubical v0.8 (ALS 2.7.0.1)',
+    als: '2.7.0.1',
+    libraries: ['standard-library-2.2', 'cubical-0.8'],
+  },
+  {
+    label: 'Standard Library v2.1 + Cubical v0.7 (ALS 2.6.4.3)',
+    als: '2.6.4.3',
+    libraries: ['standard-library-2.1', 'cubical-0.7'],
   },
 ]
 
@@ -94,8 +155,14 @@ async function findSoleSubdir(dir) {
   return join(dir, dirs[0].name)
 }
 
-/** Downloads a source archive (GitHub tag zip with a wrapper folder) and extracts into destDir, stripping the wrapper. */
-async function fetchSource(url, destDir, workDir) {
+/**
+ * Downloads a source archive (GitHub tag zip with a wrapper folder) and
+ * extracts into destDir, stripping the wrapper. removeAfterFetch paths
+ * (relative to destDir) are deleted once, right after a fresh extraction —
+ * for files this project's tooling can't use as-is (see cubical-0.7/0.8's
+ * removeAfterFetch in SHIPPED_LIBRARIES).
+ */
+async function fetchSource(url, destDir, workDir, removeAfterFetch = []) {
   if (await exists(destDir)) {
     console.log(`  already present: ${destDir}`)
     return
@@ -107,6 +174,9 @@ async function fetchSource(url, destDir, workDir) {
   const wrapped = await findSoleSubdir(tmp)
   await mkdir(destDir, { recursive: true })
   await cp(wrapped, destDir, { recursive: true })
+  for (const relPath of removeAfterFetch) {
+    await rm(join(destDir, relPath), { force: true })
+  }
 }
 
 /** Downloads a flat zip (paths already relative to destDir) and extracts into destDir. */
@@ -159,8 +229,13 @@ async function main() {
     const libsWithPaths = []
     for (const lib of SHIPPED_LIBRARIES) {
       const destDir = join(DEPLOY_ASSETS, 'library', lib.name)
-      await fetchSource(lib.sourceUrl, destDir, workDir)
-      libsWithPaths.push({ name: lib.name, agdaLibPath: join(destDir, lib.agdaLibFile), releaseAssetPrefix: lib.releaseAssetPrefix })
+      await fetchSource(lib.sourceUrl, destDir, workDir, lib.removeAfterFetch)
+      libsWithPaths.push({
+        name: lib.name,
+        agdaLibPath: join(destDir, lib.agdaLibFile),
+        cacheRelease: lib.cacheRelease,
+        releaseAssetPrefix: lib.releaseAssetPrefix,
+      })
     }
 
     // 2. Create deploy.config.json if absent (points at the downloaded sources)
@@ -180,7 +255,7 @@ async function main() {
       await mkdir(resolved.agdaiDir, { recursive: true })
 
       await fetchFlatZip(
-        `${RELEASE}/${lib.releaseAssetPrefix}-agdai.zip`,
+        `${lib.cacheRelease}/${lib.releaseAssetPrefix}-agdai.zip`,
         resolved.agdaiDir,
         workDir,
         join(resolved.agdaiDir, '_build'),
