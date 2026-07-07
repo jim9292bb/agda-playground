@@ -239,7 +239,7 @@ function runAgdaShortcut(label, view, command) {
     try {
       textboxContent += `${label}...\n`
       await agdaController.syncSourceFileToDrive()
-      const context = getAgdaShortcutContext(view, agdaController.currentFilePath, goalInfos)
+      const context = getAgdaShortcutContext(view, agdaController.currentFilePath, goalInfos, agdaController.receivedNumericAgdaVersion)
       const interaction = await command(context)
       if (interaction) await agdaController.runAgdaInteraction(interaction)
       textboxContent += `${label} finished.\n`
@@ -268,7 +268,7 @@ function runAgdaShortcutWithInputPrompt(label, view, command) {
 
     try {
       await agdaController.syncSourceFileToDrive()
-      const context = getAgdaShortcutContext(view, agdaController.currentFilePath, goalInfos)
+      const context = getAgdaShortcutContext(view, agdaController.currentFilePath, goalInfos, agdaController.receivedNumericAgdaVersion)
       if (!context.input.trim()) {
         openCommandInputPrompt(label, view, context, command)
         return

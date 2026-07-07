@@ -43,14 +43,37 @@ export function cmOffsetToAgdaPoint(state, offset, options = {}) {
 }
 
 /**
+ * Agda's `Interval'` record gained a third field (the file, hoisted out of
+ * its two `Position'` fields) in 2.8.0 (agda/agda#7610) — the textual
+ * `Read`-instance literal is only accepted by the version it matches:
+ *   Agda < 2.8:  Interval (Pn () idx row col) (Pn () idx row col)
+ *   Agda ≥ 2.8:  Interval () (Pn () idx row col) (Pn () idx row col)
+ * A version an interaction command is sent to that doesn't match crashes
+ * with `CmdErrCannotParseCommand` and the command is silently dropped.
+ *
+ * @param {string | undefined} agdaVersion e.g. "2.7.0.1" — undefined is
+ *   treated as ≥ 2.8 (the shipped default) to preserve prior behavior.
+ */
+function isAgdaVersionAtLeast28(agdaVersion) {
+  const match = /^(\d+)\.(\d+)/.exec(agdaVersion ?? '')
+  if (!match) return true
+  const [, major, minor] = match
+  return Number(major) > 2 || (Number(major) === 2 && Number(minor) >= 8)
+}
+
+/**
  * @param {string} filepath
  * @param {ReturnType<typeof cmOffsetToAgdaPoint>} start
  * @param {ReturnType<typeof cmOffsetToAgdaPoint>} end
+ * @param {string} [agdaVersion]
  */
-export function formatAgdaRange(filepath, start, end) {
-  return `(intervalsToRange (Just (mkAbsolute ${JSON.stringify(filepath)})) ` +
-    `[Interval () (Pn () ${start.index} ${start.row} ${start.column}) ` +
-    `(Pn () ${end.index} ${end.row} ${end.column})])`
+export function formatAgdaRange(filepath, start, end, agdaVersion) {
+  const startPn = `(Pn () ${start.index} ${start.row} ${start.column})`
+  const endPn = `(Pn () ${end.index} ${end.row} ${end.column})`
+  const interval = isAgdaVersionAtLeast28(agdaVersion)
+    ? `Interval () ${startPn} ${endPn}`
+    : `Interval ${startPn} ${endPn}`
+  return `(intervalsToRange (Just (mkAbsolute ${JSON.stringify(filepath)})) [${interval}])`
 }
 
 /**
@@ -59,29 +82,33 @@ export function formatAgdaRange(filepath, start, end) {
  * @param {number} from
  * @param {number} to
  * @param {{start?: AgdaPointOptions, end?: AgdaPointOptions}} [options]
+ * @param {string} [agdaVersion]
  */
-export function cmOffsetsToAgdaRange(state, filepath, from, to, options = {}) {
+export function cmOffsetsToAgdaRange(state, filepath, from, to, options = {}, agdaVersion) {
   return formatAgdaRange(
     filepath,
     cmOffsetToAgdaPoint(state, from, options.start),
     cmOffsetToAgdaPoint(state, to, options.end),
+    agdaVersion,
   )
 }
 
 /**
- * Mirrors banacorn/agda-mode-vscode's Goal.makeHaskellRange for Agda 2.8.
+ * Mirrors banacorn/agda-mode-vscode's Goal.makeHaskellRange for Agda 2.8;
+ * see formatAgdaRange for how the wire format is adjusted for older versions.
  * The range covers only the content inside `{!` and `!}`.
  *
  * @param {EditorState} state
  * @param {string} filepath
  * @param {{outerFrom: number, outerTo: number} | {from: number, to: number}} goal
+ * @param {string} [agdaVersion]
  */
-export function goalContentToAgdaRange(state, filepath, goal) {
+export function goalContentToAgdaRange(state, filepath, goal, agdaVersion) {
   const from = 'outerFrom' in goal ? goal.outerFrom : goal.from
   const to = 'outerTo' in goal ? goal.outerTo : goal.to
   return cmOffsetsToAgdaRange(state, filepath, from, to, {
     start: { utf8Delta: 3, columnDelta: 3 },
     end: { utf8Delta: -3, columnDelta: -1 },
-  })
+  }, agdaVersion)
 }
 

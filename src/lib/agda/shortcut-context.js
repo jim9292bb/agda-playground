@@ -123,9 +123,12 @@ function getGoalInfoFallback(state, pos, goalInfos, allowOnlyGoalFallback = fals
  * @param {EditorView} view
  * @param {string} currentFilePath
  * @param {GoalInfo[]} goalInfos
+ * @param {string} [agdaVersion] the running ALS's numeric Agda version
+ *   (e.g. "2.7.0.1") — determines the Interval wire format; see
+ *   formatAgdaRange in ranges.js.
  * @returns {AgdaShortcutContext}
  */
-export function getAgdaShortcutContext(view, currentFilePath, goalInfos) {
+export function getAgdaShortcutContext(view, currentFilePath, goalInfos, agdaVersion) {
   const selection = view.state.selection.main
   const selectedText = selection.empty ? '' : view.state.sliceDoc(selection.from, selection.to)
   const docLength = view.state.doc.length
@@ -143,6 +146,6 @@ export function getAgdaShortcutContext(view, currentFilePath, goalInfos) {
   return {
     goal,
     input: selectedText || (goal ? extractGoalInput(goal.text) : ''),
-    range: goal ? goalContentToAgdaRange(view.state, currentFilePath, goal) : noAgdaRange,
+    range: goal ? goalContentToAgdaRange(view.state, currentFilePath, goal, agdaVersion) : noAgdaRange,
   }
 }
