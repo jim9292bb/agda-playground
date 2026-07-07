@@ -4,6 +4,7 @@ import type { WASMLoadingProgress, PerformanceEntry, DriveProxyStats } from '$li
 import { asset } from '$app/paths'
 import DEPLOY_CONFIG from '../../../deploy.config.json'
 import { GENERATED_LIBRARY_INFO } from '../../../scripts/generated-libraries.mjs'
+import { GENERATED_AGDAI_KEYS } from '../../../scripts/generated-agdai-keys.mjs'
 import { GENERATED_ALS_INFO } from '../../../scripts/generated-als-info.mjs'
 
 // Also referenced (independently, must match) by scripts/build-static-assets.mjs.
@@ -30,7 +31,10 @@ export type DeployProfile = (typeof deployProfiles)[number]
  */
 export interface ResolvedLibrary {
   /** The .agda-lib `name:` value — this library's identity for every
-   *  internal purpose (cache key, static-asset paths, VFS folder name). */
+   *  internal purpose EXCEPT the static/agdai/ cache location (see
+   *  agdaiKey): prefetch cache key, static-asset paths under
+   *  static/library/, and VFS folder name (tied to Agda's own
+   *  ~/.config/agda/libraries registration, must stay human-readable). */
   name: string
   /** Cosmetic only (shown in the UI). */
   label?: string
@@ -41,6 +45,13 @@ export interface ResolvedLibrary {
   sourceZipAsset: string
   /** This library's own dependency-graph manifest. */
   manifestAsset: string
+  /** Content-hash key of this library's agdaiDir (scripts/hash-dir.mjs via
+   *  scripts/generated-agdai-keys.mjs) — what static/agdai/ is actually
+   *  keyed by, since two profiles can point the same library at two
+   *  different agdaiDir values and each needs its own isolated cache.
+   *  Undefined when no agdaiDir is configured or it hasn't been built yet
+   *  (prefetching is then simply unavailable for this library). */
+  agdaiKey?: string
   archiveRootPrefix: string
   includeSubpath: string
   agdaLibFile: string
@@ -63,13 +74,22 @@ export function resolveProfileLibraries(profile: DeployProfile): ResolvedLibrary
     if (!info) {
       throw new Error(`deploy.config.json profile "${profile.label}" references agdaLibPath "${lib.agdaLibPath}" with no matching entry in scripts/generated-libraries.mjs — run \`npm run setup\` after configuring deploy.config.json.`)
     }
+    // Looked up by the raw agdaiDir string as written in deploy.config.json
+    // (not by agdaLibPath) — see scripts/resolve-deploy-config.mjs's
+    // getAllAgdaiDirs() for why. Absent when no agdaiDir is configured or
+    // it hasn't been built/hashed yet; manifestAsset then just 404s and
+    // prefetch.js degrades gracefully, same as an absent manifest today.
+    const agdaiKey = lib.agdaiDir
+      ? GENERATED_AGDAI_KEYS[lib.agdaiDir as keyof typeof GENERATED_AGDAI_KEYS]
+      : undefined
     resolved.push({
       name: info.name,
       label: lib.label,
       version: lib.version,
       libKey: info.name,
       sourceZipAsset: asset(`/library/${info.name}.zip`),
-      manifestAsset: asset(`/agdai/${info.name}/agdai-manifest.json`),
+      manifestAsset: asset(`/agdai/${agdaiKey ?? 'unknown'}/agdai-manifest.json`),
+      agdaiKey,
       archiveRootPrefix: info.name,
       includeSubpath: info.includeSubpath,
       agdaLibFile: info.agdaLibFilename,

@@ -32,6 +32,9 @@ vite.config.js.timestamp-*
 /scripts/generated-libraries.mjs
 /scripts/generated-als-info.mjs
 
+# Generated content-hash keys for static/agdai/ (see scripts/generate-agdai-keys.mjs).
+/scripts/generated-agdai-keys.mjs
+
 /experiments/build-library/results/*.zip
 
 # Extracted .agdai files for on-demand serving (copied by npm run setup from

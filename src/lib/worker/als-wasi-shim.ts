@@ -235,7 +235,11 @@ class LiveSourcePreopenDirectory extends PreopenDirectory {
     if (!path_str.endsWith('.agdai')) return
     if (this._agdaiFetched.has(path_str)) return
     // Only fetch paths under a library's _build/ interface-cache tree (the
-    // layout produced by `--build-library`, served from static/agdai/<lib>/).
+    // layout produced by `--build-library`). path_str here is always the
+    // VFS-space path (<lib.name>/_build/...) — the main thread's fetch
+    // listener translates the leading <lib.name>/ segment into the actual
+    // static/agdai/<content-hash>/ URL (see browser-wasi-shim.ts's
+    // _toFetchUrl); this path string itself is unaffected by that.
     // Any other library folder's path is checked the same way — lib/prim,
     // source.agdai, and short-path probes (e.g. stdlib/src/...) never match
     // and would just 404 the network fetch.
@@ -407,8 +411,10 @@ async function init({
     getALSVersion: getALSVersionString,
 
     /** Bare numeric Agda version (e.g. "2.8.0") — used to locate the
-     *  matching static/agdai/<folderName>/_build/<this>/ prebuilt .agdai
-     *  cache, if any (see src/lib/agda/prefetch.js). Parsed out of
+     *  matching <lib.name>/_build/<this>/ prebuilt .agdai cache in VFS
+     *  space, if any (see src/lib/agda/prefetch.js; the actual
+     *  static/agdai/<content-hash>/ URL is resolved separately, see
+     *  browser-wasi-shim.ts's _toFetchUrl). Parsed out of
      *  getALSVersion()'s "Agda vX.Y.Z Language Server vN..." string
      *  instead of its own `--numeric-version` spawn — confirmed `als` has
      *  no such flag of its own (agda-language-server's Options.hs only

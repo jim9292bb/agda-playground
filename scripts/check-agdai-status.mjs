@@ -1,6 +1,8 @@
 /**
  * Shows which libraries in deploy.config.json have prebuilt .agdai cache
- * and/or a manifest in their configured agdaiDir.
+ * and/or a manifest in their configured agdaiDir, and — when both are
+ * present — the content-hash key (scripts/hash-dir.mjs) that agdaiDir will
+ * become under static/agdai/ (see scripts/build-static-assets.mjs).
  *
  * Useful before running `npm run setup` to know what is ready.
  *
@@ -10,6 +12,7 @@
 import { access } from 'node:fs/promises'
 import { join, relative } from 'node:path'
 import { getLocalLibraries, REPO_ROOT } from './resolve-deploy-config.mjs'
+import { hashDir } from './hash-dir.mjs'
 
 async function exists(path) {
   try { await access(path); return true } catch { return false }
@@ -24,12 +27,15 @@ async function main() {
   }
 
   const rows = await Promise.all(libs.map(async lib => {
-    if (!lib.agdaiDir) return { name: lib.name, agdaiDir: null, hasManifest: false, hasCache: false }
+    if (!lib.agdaiDir) return { name: lib.name, agdaiDir: null, hasManifest: false, hasCache: false, agdaiKey: null }
+    const hasManifest = await exists(join(lib.agdaiDir, 'agdai-manifest.json'))
+    const hasCache = await exists(join(lib.agdaiDir, '_build'))
     return {
       name: lib.name,
       agdaiDir: relative(REPO_ROOT, lib.agdaiDir),
-      hasManifest: await exists(join(lib.agdaiDir, 'agdai-manifest.json')),
-      hasCache: await exists(join(lib.agdaiDir, '_build')),
+      hasManifest,
+      hasCache,
+      agdaiKey: (hasManifest && hasCache) ? await hashDir(lib.agdaiDir) : null,
     }
   }))
 
@@ -42,7 +48,8 @@ async function main() {
     }
     const manifest = r.hasManifest ? '✓ manifest' : '✗ manifest'
     const cache = r.hasCache ? '✓ cache' : '✗ cache'
-    console.log(`${name}  ${manifest}  ${cache}  (${r.agdaiDir})`)
+    const key = r.agdaiKey ? `  -> static/agdai/${r.agdaiKey}/` : ''
+    console.log(`${name}  ${manifest}  ${cache}  (${r.agdaiDir})${key}`)
   }
 }
 

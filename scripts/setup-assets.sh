@@ -25,6 +25,9 @@ node "$SCRIPT_DIR/print-required-files.mjs"
 echo "Generating scripts/generated-libraries.mjs from placed .agda-lib files..."
 node "$SCRIPT_DIR/generate-library-info.mjs"
 
+echo "Generating scripts/generated-agdai-keys.mjs from agdaiDir contents..."
+node "$SCRIPT_DIR/generate-agdai-keys.mjs"
+
 echo "Generating scripts/generated-als-info.mjs..."
 node "$SCRIPT_DIR/generate-als-info.mjs"
 

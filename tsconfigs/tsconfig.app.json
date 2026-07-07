@@ -27,6 +27,7 @@
     // predev/precheck/prebuild package.json hooks) generate them — gitignored.
     "../deploy.config.json",
     "../scripts/generated-libraries.mjs",
+    "../scripts/generated-agdai-keys.mjs",
     "../scripts/generated-als-info.mjs"
   ],
   "exclude": [

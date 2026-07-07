@@ -53,6 +53,13 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
   private _agdaiFetchSab: SharedArrayBuffer | undefined
   private _agdaiFetchAbort = false
   private _agdaiFetchCache = new Map<string, Uint8Array>()
+  /** VFS library name -> static/agdai/ content-hash key (see interface.ts's
+   *  ResolvedLibrary.agdaiKey). Built once in init() from the active
+   *  profile's libraries; used only to translate the leading path segment
+   *  when constructing a fetch URL — the VFS path itself (cache key +
+   *  what's written into the WASM filesystem) always keeps using the
+   *  human-readable library name, untouched. */
+  private _nameToAgdaiKey = new Map<string, string | undefined>()
 
   constructor(
     agdaBuffers: { stdin: SharedArrayBuffer; stdout: SharedArrayBuffer },
@@ -92,6 +99,8 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
   async init(options: BackendInitOptions): Promise<MessagePort> {
     const { agdaVersion, libraries, callbacks } = options
     const trace = createPerformanceTrace()
+
+    this._nameToAgdaiKey = new Map(libraries.map(lib => [lib.name, lib.agdaiKey]))
 
     const wasmAndData = await trace.measure(
       'Fetch ALS WASM response',
@@ -232,6 +241,21 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
     return { ...emptyDriveProxyStats }
   }
 
+  /** Translates a VFS-space .agdai path (`<lib.name>/_build/...`) into the
+   *  actual static/agdai/<agdaiKey>/... fetch URL. Only the leading
+   *  `<lib.name>/` segment is substituted — the rest of the path, and the
+   *  original `<lib.name>/...` string used as-is everywhere else (VFS
+   *  writes, the prefetch cache key), are untouched. Falls back to the
+   *  literal name if it's not in the map (e.g. a library with no agdaiKey
+   *  at all — the resulting URL just 404s, same as today's behavior for a
+   *  library with no agdaiDir configured). */
+  private _toFetchUrl(vfsPath: string): string {
+    const slash = vfsPath.indexOf('/')
+    const name = slash === -1 ? vfsPath : vfsPath.slice(0, slash)
+    const key = this._nameToAgdaiKey.get(name) ?? name
+    return asset(`/agdai/${key}${slash === -1 ? '' : vfsPath.slice(slash)}`)
+  }
+
   private async _runAgdaiFetchListener(): Promise<void> {
     const sab = this._agdaiFetchSab!
     const ctrl = new Int32Array(sab)
@@ -250,7 +274,7 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
       let ok = false
       try {
         const cached = this._agdaiFetchCache.get(path)
-        const bytes = cached ?? await fetch(asset(`/agdai/${path}`))
+        const bytes = cached ?? await fetch(this._toFetchUrl(path))
           .then(r => r.ok ? r.arrayBuffer().then(b => new Uint8Array(b)) : null)
           .catch(() => null)
         if (bytes) {
@@ -272,7 +296,7 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
   prefetchAgdai(paths: string[]): void {
     for (const path of paths) {
       if (this._agdaiFetchCache.has(path)) continue
-      fetch(asset(`/agdai/${path}`))
+      fetch(this._toFetchUrl(path))
         .then(r => r.ok ? r.arrayBuffer() : null)
         .then(buf => { if (buf) this._agdaiFetchCache.set(path, new Uint8Array(buf)) })
         .catch(() => {})
