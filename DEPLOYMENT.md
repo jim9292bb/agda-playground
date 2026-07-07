@@ -184,7 +184,7 @@ Each entry in `libraries`:
 | `agdaLibPath` | yes | Absolute path to the library's `.agda-lib` file. The library `name` is parsed from its `name:` line |
 | `label` | no | UI display name. Falls back to the parsed `name:` value if absent |
 | `version` | no | Version string shown in the UI. Cosmetic only |
-| `agdaiDir` | no | When present, enables `.agdai` prefetching for this library. Path to the directory containing `.agdai` files and `agdai-manifest.json`. Accepts an absolute path or a path relative to repo root. Paths outside the repo must be gitignored manually |
+| `agdaiDir` | no | When present, enables `.agdai` prefetching for this library. Path to the directory containing `.agdai` files built via `build-agdai`. Accepts an absolute path or a path relative to repo root. Check status any time with `agdai-status` |
 
 ### Scripts
 
