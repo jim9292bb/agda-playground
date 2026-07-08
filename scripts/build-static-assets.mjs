@@ -24,14 +24,15 @@
  *
  * ALS runtime assets (static/als/<version>/) are not built here — they are
  * downloaded ready-to-serve from the als-runtime release by
- * scripts/ensure-als-static.mjs.
+ * scripts/ensure-als-static.mjs (which wipes static/als/ itself before
+ * downloading, for the same reason as below).
  *
- * static/agdai/ is wiped and rebuilt from scratch on every run (unlike
- * static/library/, whose <name>.zip filenames are stable, and static/als/,
- * which is deliberately skip-if-present to avoid re-downloading large wasm
- * files): since agdaiKey is a content hash, a rebuilt agdaiDir produces a
- * new key and leaves its old static/agdai/<oldKey>/ directory permanently
- * orphaned — nothing else would ever clean it up otherwise.
+ * Both static/library/ and static/agdai/ are wiped and rebuilt from scratch
+ * on every run, so neither ever accumulates a directory or zip file that no
+ * longer corresponds to anything in the current deploy.config.json (e.g. a
+ * library removed from the config, or — since agdaiKey is a content hash —
+ * an old agdaiKey left behind after an agdaiDir was rebuilt with different
+ * content). Nothing else in the pipeline would otherwise ever clean these up.
  *
  * Run via `npm run setup` (scripts/setup-assets.sh), after
  * scripts/print-required-files.mjs has confirmed everything needed
@@ -55,6 +56,7 @@ async function exists(path) {
 }
 
 async function main() {
+  await rm(join(STATIC, 'library'), { recursive: true, force: true })
   await mkdir(join(STATIC, 'library'), { recursive: true })
   await rm(join(STATIC, 'agdai'), { recursive: true, force: true })
   await mkdir(join(STATIC, 'agdai'), { recursive: true })
