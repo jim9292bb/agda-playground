@@ -46,16 +46,19 @@ npm install
 npm run build-agdai -- <path/to/lib.agda-lib> <agdai-dir> [--libraries-file <path>] [--agda-bin <path>]
 ```
 
-`<path/to/lib.agda-lib>` and `<agdai-dir>` are positional and both required.  
+`<path/to/lib.agda-lib>` and `<agdai-dir>` are positional and both required.
+
 `<agdai-dir>` (e.g. `/path/to/agdai-cache/<name>`): the exact value you'll
 set as `agdaiDir` in [Step 3](#step-3-configure-deployconfigjson). `build-agdai` creates it and populates
 it with a `_build/` subdirectory — `.agdai` files don't land directly in
 `<agdai-dir>`, they're one level deeper, at
-`<agdai-dir>/_build/<version>/agda/...`.  
+`<agdai-dir>/_build/<version>/agda/...`.
+
 `--libraries-file`: a file listing one `.agda-lib` path per line, for
 resolving the library's own dependencies (needed if it has a `depend:` on
 another library, e.g. agda-categories on the standard library); omit to let
-agda fall back to `~/.agda/libraries`.  
+agda fall back to `~/.agda/libraries`.
+
 `--agda-bin`: path to the `agda` binary (default: `agda` on `PATH`).
 
 Run once per library — there's no batch mode. First-time builds take ~8 min
