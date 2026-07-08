@@ -114,7 +114,13 @@ async function buildWithCmdLoad(lib, agdaBin, graph, includeDir, libraryFile) {
     buf = lines.pop()
     for (const line of lines) {
       if (!pending) continue
-      if (line.includes('"kind":"Error"')) pending.failed = true
+      if (line.includes('"kind":"Error"')) {
+        pending.failed = true
+        try {
+          const message = JSON.parse(line.slice(line.indexOf('{'))).info?.error?.message
+          if (message) pending.errors.push(message)
+        } catch { /* fall back to no extracted message below */ }
+      }
       if (line.includes('"kind":"Status"')) {
         pending.statusCount++
         if (pending.statusCount >= 2) {
@@ -127,8 +133,10 @@ async function buildWithCmdLoad(lib, agdaBin, graph, includeDir, libraryFile) {
 
   function loadOne(mod) {
     return new Promise((resolve, reject) => {
-      const entry = { failed: false, statusCount: 0 }
-      entry.done = () => (entry.failed ? reject(new Error(`Cmd_load reported an error for ${mod}`)) : resolve())
+      const entry = { failed: false, statusCount: 0, errors: [] }
+      entry.done = () => (entry.failed
+        ? reject(new Error(`Cmd_load reported an error for ${mod}:\n${entry.errors.length > 0 ? entry.errors.join('\n') : '(no error message captured — check the raw --interaction-json output)'}`))
+        : resolve())
       pending = entry
       const path = join(includeDir, moduleNameToPath(mod))
       proc.stdin.write(`IOTCM "${path}" NonInteractive Direct (Cmd_load "${path}" [])\n`)
