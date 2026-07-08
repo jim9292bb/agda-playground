@@ -1,55 +1,58 @@
 /**
- * Shows which libraries in deploy.config.json have prebuilt .agdai cache
- * and/or a manifest in their configured agdaiDir, and — when both are
- * present — the content-hash key (scripts/hash-dir.mjs) that agdaiDir will
- * become under static/agdai/ (see scripts/build-static-assets.mjs).
+ * Shows, per profile, whether each library's configured agdaiDir has a
+ * prebuilt .agdai cache ready.
+ *
+ * Reads deploy.config.json's profiles directly (not getLocalLibraries(),
+ * which deduplicates by agdaLibPath) so that two profiles sharing a
+ * library but pointing at two different agdaiDir values are each shown
+ * against their own configured directory, not silently collapsed to one.
  *
  * Useful before running `npm run setup` to know what is ready.
  *
  * Usage: node scripts/check-agdai-status.mjs
  */
 
+import { readFileSync } from 'node:fs'
 import { access } from 'node:fs/promises'
-import { join, relative } from 'node:path'
-import { getLocalLibraries, REPO_ROOT } from './resolve-deploy-config.mjs'
-import { hashDir } from './hash-dir.mjs'
+import { join, resolve } from 'node:path'
+import { REPO_ROOT, readDeployConfig } from './resolve-deploy-config.mjs'
+import { parseAgdaLibName } from './agda-lib-utils.mjs'
 
 async function exists(path) {
   try { await access(path); return true } catch { return false }
 }
 
-async function main() {
-  const libs = getLocalLibraries()
+function libraryName(lib) {
+  try {
+    return parseAgdaLibName(readFileSync(lib.agdaLibPath, 'utf8'))
+  } catch {
+    return lib.label ?? lib.agdaLibPath
+  }
+}
 
-  if (libs.length === 0) {
-    console.log('No libraries configured in deploy.config.json.')
+async function main() {
+  const { profiles } = readDeployConfig()
+
+  if (profiles.length === 0) {
+    console.log('No profiles configured in deploy.config.json.')
     return
   }
 
-  const rows = await Promise.all(libs.map(async lib => {
-    if (!lib.agdaiDir) return { name: lib.name, agdaiDir: null, hasManifest: false, hasCache: false, agdaiKey: null }
-    const hasManifest = await exists(join(lib.agdaiDir, 'agdai-manifest.json'))
-    const hasCache = await exists(join(lib.agdaiDir, '_build'))
-    return {
-      name: lib.name,
-      agdaiDir: relative(REPO_ROOT, lib.agdaiDir),
-      hasManifest,
-      hasCache,
-      agdaiKey: (hasManifest && hasCache) ? await hashDir(lib.agdaiDir) : null,
+  for (const [i, profile] of profiles.entries()) {
+    if (i > 0) console.log()
+    console.log(profile.label)
+    const names = profile.libraries.map(libraryName)
+    const nameWidth = Math.max(...names.map(n => n.length))
+    for (const [j, lib] of profile.libraries.entries()) {
+      const name = names[j].padEnd(nameWidth)
+      if (!lib.agdaiDir) {
+        console.log(`  ${name}  (no agdaiDir configured)`)
+        continue
+      }
+      const hasCache = await exists(join(resolve(REPO_ROOT, lib.agdaiDir), '_build'))
+      const cache = hasCache ? '✓ cache' : '✗ cache (run `npm run build-agdai`)'
+      console.log(`  ${name}  ${cache}`)
     }
-  }))
-
-  const nameWidth = Math.max(...rows.map(r => r.name.length))
-  for (const r of rows) {
-    const name = r.name.padEnd(nameWidth)
-    if (!r.agdaiDir) {
-      console.log(`${name}  (no agdaiDir configured)`)
-      continue
-    }
-    const manifest = r.hasManifest ? '✓ manifest' : '✗ manifest (run `npm run setup`)'
-    const cache = r.hasCache ? '✓ cache' : '✗ cache (run `npm run build-agdai`)'
-    const key = r.agdaiKey ? `  -> static/agdai/${r.agdaiKey}/` : ''
-    console.log(`${name}  ${manifest}  ${cache}  (${r.agdaiDir})${key}`)
   }
 }
 

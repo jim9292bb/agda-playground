@@ -21,7 +21,7 @@ export const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 // ── deploy.config.json ────────────────────────────────────────────────────────
 
-function readDeployConfig() {
+export function readDeployConfig() {
   try {
     return JSON.parse(readFileSync(join(REPO_ROOT, 'deploy.config.json'), 'utf8'))
   } catch {
@@ -117,8 +117,9 @@ async function exists(path) {
  * values and each get their own correctly isolated static/agdai/<key>/
  * (getLocalLibraries() intentionally keeps its own, unrelated "first
  * agdaiDir wins per agdaLibPath" behavior for build-agdai/generate-manifest/
- * auto-configure/check-agdai-status, which only ever need one agdaiDir per
- * library and shouldn't change).
+ * auto-configure, which only ever need one agdaiDir per library and
+ * shouldn't change. check-agdai-status reads deploy.config.json's profiles
+ * directly instead, for the same per-profile-visibility reason as here).
  *
  * Returns { agdaiDirRaw, agdaiDirAbs, agdaiKey }[] — agdaiDirRaw is the
  * literal string from deploy.config.json (used as the lookup key in
