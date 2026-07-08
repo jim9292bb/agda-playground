@@ -12,7 +12,7 @@ version:
 
 ```sh
 git clone https://github.com/jim9292bb/agda-playground.git
-cd agda-playground/als-demo
+cd agda-playground
 npm install
 npm run auto-configure
 npm run setup
@@ -36,7 +36,7 @@ Use this path to deploy with different libraries or a different ALS version.
 
 ```sh
 git clone https://github.com/jim9292bb/agda-playground.git
-cd agda-playground/als-demo
+cd agda-playground
 npm install
 ```
 
