@@ -46,8 +46,8 @@ async function main() {
       console.log(`${name}  (no agdaiDir configured)`)
       continue
     }
-    const manifest = r.hasManifest ? '✓ manifest' : '✗ manifest'
-    const cache = r.hasCache ? '✓ cache' : '✗ cache'
+    const manifest = r.hasManifest ? '✓ manifest' : '✗ manifest (run `npm run setup`)'
+    const cache = r.hasCache ? '✓ cache' : '✗ cache (run `npm run build-agdai`)'
     const key = r.agdaiKey ? `  -> static/agdai/${r.agdaiKey}/` : ''
     console.log(`${name}  ${manifest}  ${cache}  (${r.agdaiDir})${key}`)
   }
