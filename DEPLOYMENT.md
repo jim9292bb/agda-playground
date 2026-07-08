@@ -32,7 +32,7 @@ deploying, use `npm run dev` — the app will be available at `http://localhost:
 
 Use this path to deploy with different libraries or a different ALS version.
 
-**Step 1: Clone and install**
+### Step 1: Clone and install
 
 ```sh
 git clone https://github.com/jim9292bb/agda-playground.git
@@ -40,7 +40,7 @@ cd agda-playground/als-demo
 npm install
 ```
 
-**Step 2 (Optional): Build `.agdai` cache**
+### Step 2 (Optional): Build `.agdai` cache
 
 ```sh
 npm run build-agdai -- <path/to/lib.agda-lib> <agdai-dir> [--libraries-file <path>] [--agda-bin <path>]
@@ -48,7 +48,7 @@ npm run build-agdai -- <path/to/lib.agda-lib> <agdai-dir> [--libraries-file <pat
 
 `<path/to/lib.agda-lib>` and `<agdai-dir>` are positional and both required.  
 `<agdai-dir>` (e.g. `/path/to/agdai-cache/<name>`): the exact value you'll
-set as `agdaiDir` in Step 3. `build-agdai` creates it and populates
+set as `agdaiDir` in [Step 3](#step-3-configure-deployconfigjson). `build-agdai` creates it and populates
 it with a `_build/` subdirectory — `.agdai` files don't land directly in
 `<agdai-dir>`, they're one level deeper, at
 `<agdai-dir>/_build/<version>/agda/...`.  
@@ -65,14 +65,14 @@ Since it's standalone, `build-agdai` is also handy for one-off builds or
 testing a library against a different Agda version without touching
 `deploy.config.json` at all — just point `<agdai-dir>` at a scratch directory.
 
-**Step 3: Configure `deploy.config.json`**
+### Step 3: Configure `deploy.config.json`
 
 ```sh
 cp deploy.config.example.json deploy.config.json
 ```
 
 Set `"als"` to one of the [supported ALS versions](#supported-als-versions),
-set `agdaLibPath` for each library, and — if you built a cache in Step 2 —
+set `agdaLibPath` for each library, and — if you built a cache in [Step 2](#step-2-optional-build-agdai-cache) —
 set `agdaiDir` to the same output directory you used there.
 See [`deploy.config.json` schema](#deployconfigjson-schema) below.
 
@@ -84,7 +84,7 @@ install step. Once `agdaiDir` is set, check the cache status at any time with:
 npm run agdai-status
 ```
 
-**Step 4: Build**
+### Step 4: Build
 
 ```sh
 npm run setup
