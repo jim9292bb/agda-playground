@@ -7,7 +7,13 @@
  *
  * Libraries with agdaiDir configured that are missing their cache (.agdai files
  * or manifest) get a non-fatal warning — the library still works, just
- * without prefetching.
+ * without prefetching. This includes a version check: .agdai is a
+ * version-specific binary format (agdaiDir/_build/<numeric agda version>/),
+ * so a cache built for a different Agda version than the profile's own
+ * `als` is silently unusable there (not an error — Agda just falls back
+ * to recompiling from source) unless flagged here. Checked per profile
+ * (not deduplicated by agdaLibPath) since two profiles can share a
+ * library but need different `als` versions of its cache.
  *
  * Exits non-zero if any required file is missing.
  *
@@ -15,8 +21,8 @@
  */
 
 import { access } from 'node:fs/promises'
-import { join, relative } from 'node:path'
-import { REPO_ROOT, getLocalLibraries, getSelectedAlsVersions } from './resolve-deploy-config.mjs'
+import { join, relative, resolve } from 'node:path'
+import { REPO_ROOT, getLocalLibraries, getSelectedAlsVersions, readDeployConfig } from './resolve-deploy-config.mjs'
 
 async function exists(path) {
   try {
@@ -43,11 +49,18 @@ async function main() {
     }
 
     if (lib.agdaiDir) {
-      if (!(await exists(join(lib.agdaiDir, '_build')))) {
-        console.log(`(optional, not found) ${relative(REPO_ROOT, lib.agdaiDir)}/_build/ for "${lib.name}" — no prebuilt .agdai, run \`npm run build-agdai -- ${lib.agdaLibPath} ${lib.agdaiDir}\``)
-      }
       if (!(await exists(join(lib.agdaiDir, 'agdai-manifest.json')))) {
         console.log(`(optional, not found) ${relative(REPO_ROOT, lib.agdaiDir)}/agdai-manifest.json for "${lib.name}" — prefetch disabled, run \`npm run generate-manifest\``)
+      }
+    }
+  }
+
+  for (const profile of readDeployConfig().profiles) {
+    for (const plib of profile.libraries) {
+      if (!plib.agdaiDir) continue
+      const agdaiDirAbs = resolve(REPO_ROOT, plib.agdaiDir)
+      if (!(await exists(join(agdaiDirAbs, '_build', profile.als)))) {
+        console.log(`(optional, not found) ${relative(REPO_ROOT, agdaiDirAbs)}/_build/${profile.als}/ for profile "${profile.label}" — no prebuilt .agdai for als ${profile.als}, run \`npm run build-agdai -- ${plib.agdaLibPath} ${plib.agdaiDir}\` with an agda ${profile.als} binary`)
       }
     }
   }
