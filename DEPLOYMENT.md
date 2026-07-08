@@ -32,7 +32,7 @@ deploying, use `npm run dev` — the app will be available at `http://localhost:
 
 Use this path to deploy with different libraries or a different ALS version.
 
-**1. Clone and install:**
+**Step 1: Clone and install**
 
 ```sh
 git clone https://github.com/jim9292bb/agda-playground.git
@@ -40,20 +40,18 @@ cd agda-playground/als-demo
 npm install
 ```
 
-**2. (Optional) Build `.agdai` cache:**
-
-`build-agdai` is standalone — it never reads or writes `deploy.config.json`.
-Pick a path (e.g. `/path/to/agdai-cache/<name>`) — this is the exact value
-you'll set as `agdaiDir` in the next step. `build-agdai` creates it and
-populates it with a `_build/` subdirectory — the `.agdai` files don't land
-directly in the directory you pick, they're one level deeper, at
-`<agdai-dir>/_build/<version>/agda/...`.
+**Step 2 (Optional): Build `.agdai` cache**
 
 ```sh
 npm run build-agdai -- <path/to/lib.agda-lib> <agdai-dir> [--libraries-file <path>] [--agda-bin <path>]
 ```
 
 `<path/to/lib.agda-lib>` and `<agdai-dir>` are positional and both required.  
+`<agdai-dir>` (e.g. `/path/to/agdai-cache/<name>`): the exact value you'll
+set as `agdaiDir` in Step 3. `build-agdai` creates it and populates
+it with a `_build/` subdirectory — `.agdai` files don't land directly in
+`<agdai-dir>`, they're one level deeper, at
+`<agdai-dir>/_build/<version>/agda/...`.  
 `--libraries-file`: a file listing one `.agda-lib` path per line, for
 resolving the library's own dependencies (needed if it has a `depend:` on
 another library, e.g. agda-categories on the standard library); omit to let
@@ -67,14 +65,14 @@ Since it's standalone, `build-agdai` is also handy for one-off builds or
 testing a library against a different Agda version without touching
 `deploy.config.json` at all — just point `<agdai-dir>` at a scratch directory.
 
-**3. Configure `deploy.config.json`:**
+**Step 3: Configure `deploy.config.json`**
 
 ```sh
 cp deploy.config.example.json deploy.config.json
 ```
 
 Set `"als"` to one of the [supported ALS versions](#supported-als-versions),
-set `agdaLibPath` for each library, and — if you built a cache in step 2 —
+set `agdaLibPath` for each library, and — if you built a cache in Step 2 —
 set `agdaiDir` to the same output directory you used there.
 See [`deploy.config.json` schema](#deployconfigjson-schema) below.
 
@@ -86,7 +84,7 @@ install step. Once `agdaiDir` is set, check the cache status at any time with:
 npm run agdai-status
 ```
 
-**4. Build:**
+**Step 4: Build**
 
 ```sh
 npm run setup
