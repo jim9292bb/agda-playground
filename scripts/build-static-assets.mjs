@@ -26,12 +26,19 @@
  * downloaded ready-to-serve from the als-runtime release by
  * scripts/ensure-als-static.mjs.
  *
+ * static/agdai/ is wiped and rebuilt from scratch on every run (unlike
+ * static/library/, whose <name>.zip filenames are stable, and static/als/,
+ * which is deliberately skip-if-present to avoid re-downloading large wasm
+ * files): since agdaiKey is a content hash, a rebuilt agdaiDir produces a
+ * new key and leaves its old static/agdai/<oldKey>/ directory permanently
+ * orphaned — nothing else would ever clean it up otherwise.
+ *
  * Run via `npm run setup` (scripts/setup-assets.sh), after
  * scripts/print-required-files.mjs has confirmed everything needed
  * is present.
  */
 
-import { cp, mkdir, access } from 'node:fs/promises'
+import { cp, mkdir, rm, access } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { zipDirectory } from './zip-utils.mjs'
 import { REPO_ROOT, getLocalLibraries, getAllAgdaiDirs } from './resolve-deploy-config.mjs'
@@ -49,6 +56,7 @@ async function exists(path) {
 
 async function main() {
   await mkdir(join(STATIC, 'library'), { recursive: true })
+  await rm(join(STATIC, 'agdai'), { recursive: true, force: true })
   await mkdir(join(STATIC, 'agdai'), { recursive: true })
 
   for (const lib of getLocalLibraries()) {
