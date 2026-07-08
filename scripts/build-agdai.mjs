@@ -1,13 +1,13 @@
 /**
- * Compiles .agdai files for a library and generates its dependency-graph
- * manifest. Standalone: does not read or write deploy.config.json.
+ * Compiles .agdai files for a library. Standalone: does not read or write
+ * deploy.config.json.
  *
  *   node scripts/build-agdai.mjs <lib-file> <output-dir> [--libraries-file <path>] [--agda-bin <path>]
  *
  * <lib-file>: path to the library's .agda-lib file.
- * <output-dir>: directory to write .agdai files and the manifest into. If
- *   this is meant to serve a deploy.config.json library entry, pass its
- *   agdaiDir here so the output lands where the app will look for it.
+ * <output-dir>: directory to write .agdai files into. If this is meant to
+ *   serve a deploy.config.json library entry, pass its agdaiDir here so the
+ *   output lands where the app will look for it.
  * --libraries-file: a file listing one .agda-lib path per line, passed to
  *   agda as --library-file (for resolving the library's own dependencies).
  *   Omit to let agda fall back to ~/.agda/libraries.
@@ -18,8 +18,11 @@
  *   agda < 2.8.0 — agda --interaction-json + Cmd_load per source vertex;
  *                  dependency graph is computed in memory, not written to file
  *
- * After building, copies the library's _build/ into the output dir and
- * regenerates the dependency-graph manifest there.
+ * After building, copies the library's _build/ into the output dir. Does
+ * NOT generate agdai-manifest.json — that's `npm run setup`'s job
+ * (scripts/generate-manifest.mjs, run automatically via its presetup
+ * hook), which regenerates manifests for every configured library anyway;
+ * generating one here too would just be redundant duplicate work.
  */
 
 import { readFile, mkdir, cp, rm } from 'node:fs/promises'
@@ -27,7 +30,7 @@ import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawn, spawnSync } from 'node:child_process'
 import { parseAgdaLibInclude, parseAgdaLibName } from './agda-lib-utils.mjs'
-import { buildGraph, processLibrary as generateManifest } from './generate-manifest.mjs'
+import { buildGraph } from './generate-manifest.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -189,8 +192,7 @@ async function main() {
   const libraryFile = args.librariesFile ? resolve(args.librariesFile) : null
 
   await buildAgdai(lib, args.agdaBin, libraryFile)
-  await generateManifest(lib, args.agdaBin)
-  console.log('Run `npm run setup` to package .agdai files into static/.')
+  console.log('Run `npm run setup` to generate agdai-manifest.json and package .agdai files into static/.')
 }
 
 main().catch(err => { console.error(err); process.exit(1) })

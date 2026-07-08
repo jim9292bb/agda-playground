@@ -184,7 +184,7 @@ Each entry in `libraries`:
 | `agdaLibPath` | yes | Absolute path to the library's `.agda-lib` file. The library `name` is parsed from its `name:` line |
 | `label` | no | UI display name. Falls back to the parsed `name:` value if absent |
 | `version` | no | Version string shown in the UI. Cosmetic only |
-| `agdaiDir` | no | When present, enables `.agdai` prefetching for this library. Path to the directory containing `.agdai` files built via `build-agdai`. Accepts an absolute path or a path relative to repo root. Check status any time with `agdai-status` |
+| `agdaiDir` | no | When present, enables `.agdai` prefetching for this library. The directory `build-agdai` writes its `_build/` output to — not `_build/` itself, one level up from it (if you ran `agda --build-library` by hand instead of `build-agdai`, point this at the directory containing agda's own `_build/`). `npm run setup` separately generates `agdai-manifest.json` directly inside this same directory. Accepts an absolute path or a path relative to repo root. Check status any time with `agdai-status` |
 
 ### Scripts
 
