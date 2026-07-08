@@ -157,10 +157,13 @@ async function buildWithCmdLoad(lib, agdaBin, graph, includeDir, libraryFile) {
 /** libraryFile: path to a libraries listing file for agda's --library-file,
  *  or null to omit the flag (agda falls back to ~/.agda/libraries). */
 async function buildAgdai(lib, agdaBin, libraryFile) {
-  const versionStr = spawnSync(agdaBin, ['--numeric-version'], { encoding: 'utf8' }).stdout
+  const versionStr = spawnSync(agdaBin, ['--numeric-version'], { encoding: 'utf8' }).stdout?.trim()
   const agdaVersion = parseAgdaVersion(versionStr)
   if (!agdaVersion) throw new Error(`could not determine agda version from "${agdaBin} --numeric-version": ${versionStr}`)
-  console.log(`[${lib.name}] agda version: ${agdaVersion.join('.')}`)
+  // Log the real --numeric-version output, not agdaVersion.join('.') — parseAgdaVersion only
+  // captures major.minor.patch (all versionGte() below needs), so a 4-component version like
+  // "2.7.0.1" would otherwise be silently displayed as the wrong, truncated "2.7.0".
+  console.log(`[${lib.name}] agda version: ${versionStr}`)
 
   const agdaLibSrc = await readFile(lib.agdaLibPath, 'utf8')
   const include = parseAgdaLibInclude(agdaLibSrc)
