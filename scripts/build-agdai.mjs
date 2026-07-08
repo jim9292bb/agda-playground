@@ -192,8 +192,17 @@ async function main() {
   const lib = { name, agdaLibPath, agdaiDir }
 
   const libraryFile = args.librariesFile ? resolve(args.librariesFile) : null
+  // Resolve to absolute now, before it reaches any spawn() call — several
+  // steps (buildWithBuildLibrary, buildWithCmdLoad) run agda with cwd set
+  // to the library's own directory (required for --build-library/module
+  // resolution to work), and a relative --agda-bin would then resolve
+  // against THAT cwd instead of the one this script was invoked from.
+  // Left untouched when it's the bare "agda" default so PATH lookup at
+  // spawn time still works (resolve('agda') would wrongly turn it into
+  // an absolute path under the current cwd).
+  const agdaBin = args.agdaBin.includes('/') ? resolve(args.agdaBin) : args.agdaBin
 
-  await buildAgdai(lib, args.agdaBin, libraryFile)
+  await buildAgdai(lib, agdaBin, libraryFile)
   console.log('Run `npm run setup` to generate agdai-manifest.json and package .agdai files into static/.')
 }
 
