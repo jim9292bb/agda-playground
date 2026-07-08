@@ -2,12 +2,14 @@
  * Compiles .agdai files for a library. Standalone: does not read or write
  * deploy.config.json.
  *
- *   node scripts/build-agdai.mjs <lib-file> <output-dir> [--libraries-file <path>] [--agda-bin <path>]
+ *   node scripts/build-agdai.mjs <lib-file> <agdai-dir> [--libraries-file <path>] [--agda-bin <path>]
  *
  * <lib-file>: path to the library's .agda-lib file.
- * <output-dir>: directory to write .agdai files into. If this is meant to
- *   serve a deploy.config.json library entry, pass its agdaiDir here so the
- *   output lands where the app will look for it.
+ * <agdai-dir>: created if missing, then populated with a _build/
+ *   subdirectory (agda's own build output, copied in as-is) — .agdai files
+ *   do NOT land directly in <agdai-dir> itself, they're one level deeper
+ *   at <agdai-dir>/_build/<version>/agda/.... This is the exact path meant
+ *   to be set as a deploy.config.json library entry's own agdaiDir.
  * --libraries-file: a file listing one .agda-lib path per line, passed to
  *   agda as --library-file (for resolving the library's own dependencies).
  *   Omit to let agda fall back to ~/.agda/libraries.
@@ -18,8 +20,8 @@
  *   agda < 2.8.0 — agda --interaction-json + Cmd_load per source vertex;
  *                  dependency graph is computed in memory, not written to file
  *
- * After building, copies the library's _build/ into the output dir. Does
- * NOT generate agdai-manifest.json — that's `npm run setup`'s job
+ * After building, copies the library's _build/ into agdai-dir. Does NOT
+ * generate agdai-manifest.json — that's `npm run setup`'s job
  * (scripts/generate-manifest.mjs, run automatically via its presetup
  * hook), which regenerates manifests for every configured library anyway;
  * generating one here too would just be redundant duplicate work.
@@ -178,13 +180,13 @@ async function main() {
   const args = parseArgs(process.argv.slice(2))
 
   if (args.positional.length !== 2) {
-    console.error('Usage: node scripts/build-agdai.mjs <lib-file> <output-dir> [--libraries-file <path>] [--agda-bin <path>]')
+    console.error('Usage: node scripts/build-agdai.mjs <lib-file> <agdai-dir> [--libraries-file <path>] [--agda-bin <path>]')
     process.exit(1)
   }
 
-  const [libFileArg, outputDirArg] = args.positional
+  const [libFileArg, agdaiDirArg] = args.positional
   const agdaLibPath = resolve(libFileArg)
-  const agdaiDir = resolve(outputDirArg)
+  const agdaiDir = resolve(agdaiDirArg)
   const agdaLibSrc = await readFile(agdaLibPath, 'utf8')
   const name = parseAgdaLibName(agdaLibSrc) ?? agdaLibPath
   const lib = { name, agdaLibPath, agdaiDir }
