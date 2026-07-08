@@ -1,6 +1,14 @@
 /**
  * Shows, per profile, whether each library's configured agdaiDir has a
- * prebuilt .agdai cache ready.
+ * prebuilt .agdai cache ready FOR THAT PROFILE'S OWN als VERSION.
+ *
+ * .agdai is a version-specific binary format — build-agdai writes its
+ * output to agdaiDir/_build/<numeric agda version>/agda/..., matching
+ * exactly the `als` value in deploy.config.json (e.g. "2.8.0"). A cache
+ * built for one Agda version is silently unusable (not wrong, just
+ * ignored — Agda falls back to recompiling from source) for a profile
+ * configured with a different `als`, so this checks
+ * agdaiDir/_build/<profile.als>/ specifically, not just bare _build/.
  *
  * Reads deploy.config.json's profiles directly (not getLocalLibraries(),
  * which deduplicates by agdaLibPath) so that two profiles sharing a
@@ -49,8 +57,11 @@ async function main() {
         console.log(`  ${name}  (no agdaiDir configured)`)
         continue
       }
-      const hasCache = await exists(join(resolve(REPO_ROOT, lib.agdaiDir), '_build'))
-      const cache = hasCache ? '✓ cache' : '✗ cache (run `npm run build-agdai`)'
+      const versionDir = join(resolve(REPO_ROOT, lib.agdaiDir), '_build', profile.als)
+      const hasCache = await exists(versionDir)
+      const cache = hasCache
+        ? `✓ cache (${profile.als})`
+        : `✗ cache for als ${profile.als} (run \`npm run build-agdai\` with that Agda version)`
       console.log(`  ${name}  ${cache}`)
     }
   }
