@@ -102,6 +102,7 @@ const settingsSegments = [
 
 const defaultSource = '{-# OPTIONS --cubical --guardedness #-}\n\nopen import Cubical.Foundations.Prelude\n'
 const LS_SHORTCUT_OVERRIDES_KEY = 'agda-playground.shortcut-overrides.v1'
+const LS_GOALS_PANEL_POSITION_KEY = 'agda-playground.goals-panel-position.v1'
 const agdaShortcutIds = new Set(agdaShortcutRegistry.map(shortcut => shortcut.id))
 
 /** @returns {Record<string, string>} */
@@ -119,6 +120,12 @@ function loadShortcutOverrides() {
   } catch {
     return {}
   }
+}
+
+/** @returns {'bottom' | 'right'} */
+function loadGoalsPanelPosition() {
+  if (typeof localStorage === 'undefined') return 'bottom'
+  return localStorage.getItem(LS_GOALS_PANEL_POSITION_KEY) === 'right' ? 'right' : 'bottom'
 }
 
 /**
@@ -208,6 +215,24 @@ test = true
 
 let width = $state(0)
 let isMobile = $derived(width < 540)
+
+let goalsPanelPosition = $state(loadGoalsPanelPosition())
+// Mobile always stacks the editor above the right column regardless of this
+// setting (see the editor snippet's orientation), so honoring 'right' there
+// would be meaningless — force 'bottom' whenever the viewport is narrow,
+// and restore the saved preference automatically once it widens again.
+const effectiveGoalsPosition = $derived(isMobile ? 'bottom' : goalsPanelPosition)
+
+/** @param {'bottom' | 'right'} pos */
+function setGoalsPanelPosition(pos) {
+  goalsPanelPosition = pos
+  if (typeof localStorage !== 'undefined') localStorage.setItem(LS_GOALS_PANEL_POSITION_KEY, pos)
+  // Avoid stale height math carrying across a position switch.
+  if (commandsPanelVisible) {
+    commandsPanelVisible = false
+    savedGoalsSplitRatio = null
+  }
+}
 
 onDestroy(() => {
   agdaController.terminateALSWASM()
@@ -1012,29 +1037,43 @@ let activeGoalDetailStatus = $state(/** @type {'idle' | 'loading' | 'ready' | 'e
 let activeGoalDetailError = $state('')
 let selectedMessageTab = $state(/** @type {'log' | 'queries' | 'errors'} */('log'))
 let commandsPanelVisible = $state(false)
-let editorGoalsSplit = $state(0.65)
-let savedEditorGoalsSplit = $state(/** @type {number | null} */(null))
+// Only the 'bottom' position (editor-goals-splitter) still drag-resizes —
+// 'right' now stacks Commands/Goals/Messages as fixed-size cards with no
+// draggable split at all.
+let goalsSplitRatio = $state(0.65)
+let savedGoalsSplitRatio = $state(/** @type {number | null} */(null))
 /** @type {HTMLElement | undefined} */
 let editorPaneSectionEl = $state()
+/** @type {HTMLElement | undefined} */
+let goalsSectionEl = $state()
 /** @type {HTMLElement | undefined} */
 let commandsPanelEl = $state()
 
 async function toggleCommandsPanel() {
+  // Goals docked to the right: Commands is a fixed-size card and its
+  // dropdown overlays (CSS position: absolute) instead of squeezing
+  // anything, so there's no ratio to adjust — just toggle visibility.
+  if (effectiveGoalsPosition === 'right') {
+    commandsPanelVisible = !commandsPanelVisible
+    return
+  }
   if (!commandsPanelVisible) {
     commandsPanelVisible = true
     await tick()
-    if (editorPaneSectionEl && commandsPanelEl) {
-      const editorH = editorPaneSectionEl.clientHeight
+    if (goalsSectionEl && commandsPanelEl) {
+      const goalsH = goalsSectionEl.clientHeight
       const panelH = commandsPanelEl.clientHeight
-      const totalH = editorH / editorGoalsSplit
-      savedEditorGoalsSplit = editorGoalsSplit
-      editorGoalsSplit = Math.max(0.1, editorGoalsSplit - panelH / totalH)
+      const goalsShare = 1 - goalsSplitRatio
+      const totalH = goalsH / goalsShare
+      const newGoalsShare = Math.min(0.9, goalsShare + panelH / totalH)
+      savedGoalsSplitRatio = goalsSplitRatio
+      goalsSplitRatio = 1 - newGoalsShare
     }
   } else {
     commandsPanelVisible = false
-    if (savedEditorGoalsSplit !== null) {
-      editorGoalsSplit = savedEditorGoalsSplit
-      savedEditorGoalsSplit = null
+    if (savedGoalsSplitRatio !== null) {
+      goalsSplitRatio = savedGoalsSplitRatio
+      savedGoalsSplitRatio = null
     }
   }
 }
@@ -1140,7 +1179,11 @@ $effect(() => {
         <button type="button" class="header-action-btn" onclick={exportAgdaFile}>Export</button>
       </div>
     </header>
-    <SplitPane class="editor-goals-splitter" orientation="vertical" bind:ratio={editorGoalsSplit} style="--divider-min-position: 35%; --divider-max-position: 92%;">
+    <SplitPane
+      class={effectiveGoalsPosition === 'bottom' ? 'editor-goals-splitter' : 'editor-goals-splitter goals-collapsed'}
+      orientation="vertical"
+      bind:ratio={goalsSplitRatio}
+      style="--divider-min-position: 35%; --divider-max-position: 92%;">
       {#snippet start()}
       <section class="editor-pane" bind:this={editorPaneSectionEl}>
         <div class="editor-wrap">
@@ -1154,108 +1197,131 @@ $effect(() => {
       </section>
       {/snippet}
       {#snippet end()}
-      <section class="goals-section">
-        <section class="commands-panel-shell">
-          <button
-            type="button"
-            class="commands-panel-toggle"
-            aria-expanded={commandsPanelVisible}
-            aria-controls="commands-panel"
-            onclick={toggleCommandsPanel}>
-            <span class="commands-panel-arrow" class:open={commandsPanelVisible}>▶</span>
-            Commands
-          </button>
-          {#if commandsPanelVisible}
-            <div id="commands-panel" class="commands-panel" aria-label="Agda commands" bind:this={commandsPanelEl}>
-              {#each activeAgdaShortcutRegistry as shortcut}
-                <button
-                  type="button"
-                  class="command-button"
-                  onclick={() => {
-                    if (agdaController.editorView) {
-                      runAgdaShortcutDefinition(shortcut, agdaController.editorView)
-                      agdaController.editorView.focus()
-                    }
-                  }}>
-                  {formatAgdaShortcutHelpBinding(shortcut)}
-                </button>
-              {/each}
-            </div>
-          {/if}
-        </section>
-        <header class="panel-header">Goals</header>
-        {#if commandInputPrompt}
-          <form class="command-input-panel" onsubmit={(event) => { event.preventDefault(); submitCommandInputPrompt() }}>
-            <label for="command-input">Input for {commandInputPrompt.label}</label>
-            <div class="command-input-row">
-              <input
-                id="command-input"
-                use:agdaInputAction
-                bind:this={commandInputElement}
-                bind:value={commandInputPrompt.value}
-                autocomplete="off"
-                spellcheck="false"
-                placeholder="Agda expression or name" />
-              <button type="submit">Run</button>
-              <button type="button" onclick={cancelCommandInputPrompt}>Cancel</button>
-            </div>
-            {#if commandInputError}
-              <div class="command-input-error">{commandInputError}</div>
-            {/if}
-          </form>
-        {/if}
-        <div class="goals-list">
-          {#if panelGoalInfos.length === 0}
-            <div class="goals-empty">No goals.</div>
-          {:else}
-            {#each panelGoalInfos as goal (`${goal.id}-${goal.range ?? ''}`)}
-              <button
-                type="button"
-                class:active={goal.id === activeGoalId}
-                class="goal-entry"
-                aria-label={`Focus goal ${goal.id}`}
-                onclick={() => focusGoal(goal.id)}>
-                <div class="goal-head">?{goal.id} : {#if goal.type}{goal.type}{:else if goal.id === activeGoalId && activeGoalDetailStatus === 'loading'}<span class="goal-type-muted">…</span>{:else}<span class="goal-type-muted">?</span>{/if}</div>
-                {#if goal.id === activeGoalId}
-                  {#if goal.context}
-                    <div class="goal-separator"></div>
-                    <pre class="goal-context">{goal.context}</pre>
-                  {:else if activeGoalDetailStatus === 'loading'}
-                    <div class="goal-separator"></div>
-                    <div class="goal-context-empty">Loading…</div>
-                  {:else if activeGoalDetailStatus === 'error'}
-                    <div class="goal-separator"></div>
-                    <div class="goal-context-empty">{activeGoalDetailError}</div>
-                  {/if}
-                {/if}
-              </button>
-            {/each}
-          {/if}
-        </div>
-      </section>
+        {#if effectiveGoalsPosition === 'bottom'}{@render goalsPanel()}{/if}
       {/snippet}
     </SplitPane>
   </section>
   {/snippet}
   {#snippet end()}
   <section class="right-column">
-    <SplitPane class="right-column-splitter" orientation="vertical" position={.65}>
-      {#snippet start()}
-      <section class="info-section">
-        {@render alsButtons()}
-      </section>
-      {/snippet}
-      {#snippet end()}
-      <section class="output-section">
-        {@render messagesPanel()}
-      </section>
-      {/snippet}
-    </SplitPane>
+    {#if effectiveGoalsPosition === 'right'}
+      <div class="right-column-fixed">
+        <section class="info-section">
+          {@render alsButtons()}
+        </section>
+        <section class="output-section">
+          <div class="right-goals-stack">
+            {@render goalsPanel()}
+            {@render commandsPanel()}
+            {@render messagesPanel()}
+          </div>
+        </section>
+      </div>
+    {:else}
+      <SplitPane class="right-column-splitter" orientation="vertical" position={.65}>
+        {#snippet start()}
+        <section class="info-section">
+          {@render alsButtons()}
+        </section>
+        {/snippet}
+        {#snippet end()}
+        <section class="output-section">
+          {@render messagesPanel()}
+        </section>
+        {/snippet}
+      </SplitPane>
+    {/if}
   </section>
   {/snippet}
 </SplitPane>
 {@render settingsPanel()}
 {@render aboutPanel()}
+{/snippet}
+
+{#snippet commandsPanel()}
+  <section class="commands-panel-shell">
+    <button
+      type="button"
+      class="commands-panel-toggle"
+      aria-expanded={commandsPanelVisible}
+      aria-controls="commands-panel"
+      onclick={toggleCommandsPanel}>
+      <span class="commands-panel-arrow" class:open={commandsPanelVisible}>▶</span>
+      Commands
+    </button>
+    {#if commandsPanelVisible}
+      <div id="commands-panel" class="commands-panel" aria-label="Agda commands" bind:this={commandsPanelEl}>
+        {#each activeAgdaShortcutRegistry as shortcut}
+          <button
+            type="button"
+            class="command-button"
+            onclick={() => {
+              if (agdaController.editorView) {
+                runAgdaShortcutDefinition(shortcut, agdaController.editorView)
+                agdaController.editorView.focus()
+              }
+            }}>
+            {formatAgdaShortcutHelpBinding(shortcut)}
+          </button>
+        {/each}
+      </div>
+    {/if}
+  </section>
+{/snippet}
+
+{#snippet goalsPanel()}
+  <section class="goals-section" bind:this={goalsSectionEl}>
+    {#if effectiveGoalsPosition !== 'right'}{@render commandsPanel()}{/if}
+    <header class="panel-header">Goals</header>
+    {#if commandInputPrompt}
+      <form class="command-input-panel" onsubmit={(event) => { event.preventDefault(); submitCommandInputPrompt() }}>
+        <label for="command-input">Input for {commandInputPrompt.label}</label>
+        <div class="command-input-row">
+          <input
+            id="command-input"
+            use:agdaInputAction
+            bind:this={commandInputElement}
+            bind:value={commandInputPrompt.value}
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="Agda expression or name" />
+          <button type="submit">Run</button>
+          <button type="button" onclick={cancelCommandInputPrompt}>Cancel</button>
+        </div>
+        {#if commandInputError}
+          <div class="command-input-error">{commandInputError}</div>
+        {/if}
+      </form>
+    {/if}
+    <div class="goals-list">
+      {#if panelGoalInfos.length === 0}
+        <div class="goals-empty">No goals.</div>
+      {:else}
+        {#each panelGoalInfos as goal (`${goal.id}-${goal.range ?? ''}`)}
+          <button
+            type="button"
+            class:active={goal.id === activeGoalId}
+            class="goal-entry"
+            aria-label={`Focus goal ${goal.id}`}
+            onclick={() => focusGoal(goal.id)}>
+            <div class="goal-head">?{goal.id} : {#if goal.type}{goal.type}{:else if goal.id === activeGoalId && activeGoalDetailStatus === 'loading'}<span class="goal-type-muted">…</span>{:else}<span class="goal-type-muted">?</span>{/if}</div>
+            {#if goal.id === activeGoalId}
+              {#if goal.context}
+                <div class="goal-separator"></div>
+                <pre class="goal-context">{goal.context}</pre>
+              {:else if activeGoalDetailStatus === 'loading'}
+                <div class="goal-separator"></div>
+                <div class="goal-context-empty">Loading…</div>
+              {:else if activeGoalDetailStatus === 'error'}
+                <div class="goal-separator"></div>
+                <div class="goal-context-empty">{activeGoalDetailError}</div>
+              {/if}
+            {/if}
+          </button>
+        {/each}
+      {/if}
+    </div>
+  </section>
 {/snippet}
 
 {#snippet messagesPanel()}
@@ -1504,6 +1570,15 @@ $effect(() => {
                   <input type="checkbox" disabled />
                   <span>Agda Unicode input method</span>
                 </label>
+                {#if !isMobile}
+                  <label class="settings-field">
+                    <span>Goals panel position</span>
+                    <select value={goalsPanelPosition} onchange={(event) => setGoalsPanelPosition(/** @type {'bottom' | 'right'} */(event.currentTarget.value))}>
+                      <option value="bottom">Bottom (below editor)</option>
+                      <option value="right">Right (with Messages)</option>
+                    </select>
+                  </label>
+                {/if}
               </div>
             </div>
           {:else if selectedSettingsSegment === 'runtime'}
@@ -2021,6 +2096,25 @@ $effect(() => {
   min-height: 0;
 }
 
+/* editor-goals-splitter stays mounted in both Goals positions (so
+   .container/{@attach codeMirror} never moves between template branches —
+   see LS_GOALS_PANEL_POSITION_KEY) and just collapses visually instead of
+   being conditionally removed. Goals always lives in end(), the editor in
+   start() — collapsing hides end(), expands start(). Unlike the editor,
+   the right column has no CodeMirror-style state to lose, so its own
+   Goals/Commands/Messages arrangement is just plain conditional markup
+   (see the right-goals-stack block below) rather than needing this
+   mount-and-collapse trick. */
+:global(.editor-goals-splitter.goals-collapsed .split-divider),
+:global(.editor-goals-splitter.goals-collapsed .split-end) {
+  display: none;
+}
+:global(.editor-goals-splitter.goals-collapsed .split-start) {
+  /* SplitPane.svelte sets an inline height on .split-start, so a plain
+     class rule alone wouldn't win. */
+  height: 100% !important;
+}
+
 .editor-pane {
   display: flex;
   flex-direction: column;
@@ -2051,10 +2145,9 @@ $effect(() => {
   padding: 6px 8px;
   background: var(--quiet-neutral-fill-softer);
   border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
-  color: #777;
-  font-family: monospace;
-  font-size: .75rem;
-  letter-spacing: .08em;
+  font-size: .9rem;
+  font-weight: 500;
+  letter-spacing: .02em;
   text-transform: uppercase;
 }
 
@@ -2192,7 +2285,56 @@ $effect(() => {
   min-height: 0;
 }
 
-:global(.right-column-splitter .split-end) {
+/* Goals docked to 'right': the whole right column becomes a fixed,
+   non-resizable stack (control-card, then Commands/Goals/Messages) instead
+   of the draggable right-column-splitter used for 'bottom' — no divider
+   between info-section and output-section here. */
+.right-column-fixed {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.right-column-fixed > .info-section {
+  flex: none;
+}
+.right-column-fixed > .output-section {
+  flex: 1 1;
+  min-height: 0;
+}
+
+/* Goals docked to 'right': Commands, Goals, and Messages stack as three
+   fixed-size cards (no drag-resizing between them, unlike editor-goals-splitter)
+   — Commands sizes to its own content, Goals and Messages split the
+   remaining space roughly 6:4. */
+.right-goals-stack {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+.right-goals-stack > .goals-section {
+  flex: 6 6 0;
+  min-height: 0;
+  /* overflow: hidden set by the shared card-chrome rule below; .goals-list's
+     own overflow: auto handles internal scrolling once this cap kicks in. */
+}
+.right-goals-stack > .messages-panel {
+  flex: 4 4 0;
+  min-height: 0;
+}
+
+/* Card chrome lives on Commands/Goals/Messages individually (not a shared
+   outer wrapper) so they read as separate panels with a gap between them,
+   not one box glued together — applies whether Messages is alone (Goals
+   docked to 'bottom') or all three are stacked (Goals docked to 'right').
+   commands-panel-shell is NOT included here: it needs to stay unclipped
+   (no overflow: hidden) so its dropdown can escape past its own bottom
+   edge as an overlay — see the dedicated rules below instead, which give
+   the toggle button and the dropdown their own chrome individually. */
+.right-goals-stack > .goals-section,
+.right-goals-stack > .messages-panel,
+.output-section > .messages-panel {
   margin: 0 12px 12px 12px;
   border-radius: 10px;
   border: 1px solid #d0d2d8;
@@ -2806,6 +2948,35 @@ $effect(() => {
 
 .commands-panel-shell {
   flex-shrink: 0;
+}
+
+/* Goals docked to the right: Commands is its own card above Goals
+   (.right-goals-stack), and expanding it overlays downward over whatever's
+   below instead of resizing anything (see toggleCommandsPanel(), which
+   skips the ratio-adjustment entirely for this position). The shell itself
+   stays unclipped (no overflow: hidden, no border/shadow of its own) so
+   the dropdown can extend past its bottom edge — the toggle button and the
+   dropdown each carry their own card chrome instead. */
+.right-goals-stack > .commands-panel-shell {
+  position: relative;
+  margin: 0 12px 12px 12px;
+}
+.right-goals-stack > .commands-panel-shell .commands-panel-toggle {
+  border-radius: 10px;
+  border: 1px solid #d0d2d8;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+.right-goals-stack > .commands-panel-shell .commands-panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  margin-top: 4px;
+  border-radius: 10px;
+  border: 1px solid #d0d2d8;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
 }
 
 .commands-panel-toggle,
