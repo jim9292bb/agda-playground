@@ -227,11 +227,7 @@ const effectiveGoalsPosition = $derived(isMobile ? 'bottom' : goalsPanelPosition
 function setGoalsPanelPosition(pos) {
   goalsPanelPosition = pos
   if (typeof localStorage !== 'undefined') localStorage.setItem(LS_GOALS_PANEL_POSITION_KEY, pos)
-  // Avoid stale height math carrying across a position switch.
-  if (commandsPanelVisible) {
-    commandsPanelVisible = false
-    savedGoalsSplitRatio = null
-  }
+  commandsPanelVisible = false
 }
 
 onDestroy(() => {
@@ -1037,45 +1033,15 @@ let activeGoalDetailStatus = $state(/** @type {'idle' | 'loading' | 'ready' | 'e
 let activeGoalDetailError = $state('')
 let selectedMessageTab = $state(/** @type {'log' | 'queries' | 'errors'} */('log'))
 let commandsPanelVisible = $state(false)
-// Only the 'bottom' position (editor-goals-splitter) still drag-resizes —
-// 'right' now stacks Commands/Goals/Messages as fixed-size cards with no
-// draggable split at all.
 let goalsSplitRatio = $state(0.65)
-let savedGoalsSplitRatio = $state(/** @type {number | null} */(null))
 /** @type {HTMLElement | undefined} */
 let editorPaneSectionEl = $state()
-/** @type {HTMLElement | undefined} */
-let goalsSectionEl = $state()
-/** @type {HTMLElement | undefined} */
-let commandsPanelEl = $state()
 
-async function toggleCommandsPanel() {
-  // Goals docked to the right: Commands is a fixed-size card and its
-  // dropdown overlays (CSS position: absolute) instead of squeezing
-  // anything, so there's no ratio to adjust — just toggle visibility.
-  if (effectiveGoalsPosition === 'right') {
-    commandsPanelVisible = !commandsPanelVisible
-    return
-  }
-  if (!commandsPanelVisible) {
-    commandsPanelVisible = true
-    await tick()
-    if (goalsSectionEl && commandsPanelEl) {
-      const goalsH = goalsSectionEl.clientHeight
-      const panelH = commandsPanelEl.clientHeight
-      const goalsShare = 1 - goalsSplitRatio
-      const totalH = goalsH / goalsShare
-      const newGoalsShare = Math.min(0.9, goalsShare + panelH / totalH)
-      savedGoalsSplitRatio = goalsSplitRatio
-      goalsSplitRatio = 1 - newGoalsShare
-    }
-  } else {
-    commandsPanelVisible = false
-    if (savedGoalsSplitRatio !== null) {
-      goalsSplitRatio = savedGoalsSplitRatio
-      savedGoalsSplitRatio = null
-    }
-  }
+// Commands lives in the header (above the editor) regardless of Goals
+// position, and its dropdown always overlays (CSS position: absolute)
+// rather than squeezing the editor or Goals — just toggle visibility.
+function toggleCommandsPanel() {
+  commandsPanelVisible = !commandsPanelVisible
 }
 let settingsPanelVisible = $state(false)
 let examplesMenuOpen = $state(false)
@@ -1174,6 +1140,36 @@ $effect(() => {
         {@render headerExamplePicker()}
       </div>
       <div class="header-actions">
+        <div class="header-commands-wrap">
+          <button
+            type="button"
+            class="header-action-btn commands-panel-toggle"
+            aria-expanded={commandsPanelVisible}
+            aria-controls="commands-panel"
+            onclick={toggleCommandsPanel}>
+            Commands
+            <svg class="header-dropdown-arrow" class:open={commandsPanelVisible} viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+            </svg>
+          </button>
+          {#if commandsPanelVisible}
+            <div id="commands-panel" class="commands-panel" aria-label="Agda commands">
+              {#each activeAgdaShortcutRegistry as shortcut}
+                <button
+                  type="button"
+                  class="command-button"
+                  onclick={() => {
+                    if (agdaController.editorView) {
+                      runAgdaShortcutDefinition(shortcut, agdaController.editorView)
+                      agdaController.editorView.focus()
+                    }
+                  }}>
+                  {formatAgdaShortcutHelpBinding(shortcut)}
+                </button>
+              {/each}
+            </div>
+          {/if}
+        </div>
         <button type="button" class="header-action-btn" onclick={copyEditorCode}>Copy</button>
         <button type="button" class="header-action-btn" onclick={() => fileInput.click()}>Open</button>
         <button type="button" class="header-action-btn" onclick={exportAgdaFile}>Export</button>
@@ -1212,7 +1208,6 @@ $effect(() => {
         <section class="output-section">
           <div class="right-goals-stack">
             {@render goalsPanel()}
-            {@render commandsPanel()}
             {@render messagesPanel()}
           </div>
         </section>
@@ -1238,40 +1233,8 @@ $effect(() => {
 {@render aboutPanel()}
 {/snippet}
 
-{#snippet commandsPanel()}
-  <section class="commands-panel-shell">
-    <button
-      type="button"
-      class="commands-panel-toggle"
-      aria-expanded={commandsPanelVisible}
-      aria-controls="commands-panel"
-      onclick={toggleCommandsPanel}>
-      <span class="commands-panel-arrow" class:open={commandsPanelVisible}>▶</span>
-      Commands
-    </button>
-    {#if commandsPanelVisible}
-      <div id="commands-panel" class="commands-panel" aria-label="Agda commands" bind:this={commandsPanelEl}>
-        {#each activeAgdaShortcutRegistry as shortcut}
-          <button
-            type="button"
-            class="command-button"
-            onclick={() => {
-              if (agdaController.editorView) {
-                runAgdaShortcutDefinition(shortcut, agdaController.editorView)
-                agdaController.editorView.focus()
-              }
-            }}>
-            {formatAgdaShortcutHelpBinding(shortcut)}
-          </button>
-        {/each}
-      </div>
-    {/if}
-  </section>
-{/snippet}
-
 {#snippet goalsPanel()}
-  <section class="goals-section" bind:this={goalsSectionEl}>
-    {#if effectiveGoalsPosition !== 'right'}{@render commandsPanel()}{/if}
+  <section class="goals-section">
     <header class="panel-header">Goals</header>
     {#if commandInputPrompt}
       <form class="command-input-panel" onsubmit={(event) => { event.preventDefault(); submitCommandInputPrompt() }}>
@@ -1658,7 +1621,9 @@ $effect(() => {
       aria-expanded={examplesMenuOpen}
       onclick={() => { examplesMenuOpen = !examplesMenuOpen }}>
       Examples
-      <span class="header-examples-arrow" class:open={examplesMenuOpen}>▾</span>
+      <svg class="header-dropdown-arrow" class:open={examplesMenuOpen} viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden="true">
+        <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+      </svg>
     </button>
     {#if examplesMenuOpen}
       <div class="header-examples-menu" role="menu">
@@ -1776,13 +1741,19 @@ $effect(() => {
   color: var(--quiet-primary-text, #3b3aab);
 }
 
-.header-examples-arrow {
-  font-size: .7rem;
-  transition: transform 0.15s;
-  display: inline-block;
+.commands-panel-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.header-examples-arrow.open {
+.header-dropdown-arrow {
+  display: inline-block;
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+
+.header-dropdown-arrow.open {
   transform: rotate(180deg);
 }
 
@@ -1858,7 +1829,7 @@ $effect(() => {
 
 .control-card {
   margin: 12px;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border: 1px solid #b0b4bd;
   border-radius: 6px;
   background: var(--quiet-neutral-fill);
   overflow: hidden;
@@ -2303,10 +2274,10 @@ $effect(() => {
   min-height: 0;
 }
 
-/* Goals docked to 'right': Commands, Goals, and Messages stack as three
-   fixed-size cards (no drag-resizing between them, unlike editor-goals-splitter)
-   — Commands sizes to its own content, Goals and Messages split the
-   remaining space roughly 6:4. */
+/* Goals docked to 'right': Goals and Messages stack as two fixed-size
+   cards (no drag-resizing between them, unlike editor-goals-splitter),
+   splitting the available height roughly 5.5:4.5. Commands lives in the
+   header above the editor regardless of Goals position. */
 .right-goals-stack {
   display: flex;
   flex-direction: column;
@@ -2314,28 +2285,50 @@ $effect(() => {
   height: 100%;
 }
 .right-goals-stack > .goals-section {
-  flex: 6 6 0;
+  flex: 5.5 5.5 0;
   min-height: 0;
   /* overflow: hidden set by the shared card-chrome rule below; .goals-list's
      own overflow: auto handles internal scrolling once this cap kicks in. */
 }
 .right-goals-stack > .messages-panel {
-  flex: 4 4 0;
+  flex: 4.5 4.5 0;
   min-height: 0;
 }
 
-/* Card chrome lives on Commands/Goals/Messages individually (not a shared
-   outer wrapper) so they read as separate panels with a gap between them,
-   not one box glued together — applies whether Messages is alone (Goals
-   docked to 'bottom') or all three are stacked (Goals docked to 'right').
-   commands-panel-shell is NOT included here: it needs to stay unclipped
-   (no overflow: hidden) so its dropdown can escape past its own bottom
-   edge as an overlay — see the dedicated rules below instead, which give
-   the toggle button and the dropdown their own chrome individually. */
+/* Goals docked to 'right': Goals and Messages are outlined boxes — a
+   plain border, square corners, no shadow — flatter than the rounded/
+   shadowed card chrome used for 'bottom'. */
 .right-goals-stack > .goals-section,
-.right-goals-stack > .messages-panel,
+.right-goals-stack > .messages-panel {
+  margin: 0;
+  border: 1px solid #e6e9ee;
+  overflow: hidden;
+  background: var(--quiet-neutral-fill);
+}
+.right-goals-stack > .goals-section {
+  border-top-width: 2px;
+}
+
+/* Goals docked to 'right' only — 'bottom' keeps the original neutral
+   header color for both panels. */
+.right-goals-stack .panel-header,
+.right-goals-stack .messages-header {
+  background: #ffffff;
+}
+.right-goals-stack .panel-header,
+.right-goals-stack .messages-header {
+  border-bottom-width: 2px;
+  border-bottom-color: #e6e9ee;
+}
+
+/* Goals docked to 'bottom': Messages (alone in the right column) keeps
+   its card chrome, since there it's the only block and needs to read as
+   its own panel against the page background. margin-top compensates for
+   .output-section's own -1px margin-top (which overlaps the SplitPane
+   divider above it) — without this, that -1px shift clips off the top
+   pixel of this card's own border. */
 .output-section > .messages-panel {
-  margin: 0 12px 12px 12px;
+  margin: 1px 12px 12px 12px;
   border-radius: 10px;
   border: 1px solid #d0d2d8;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
@@ -2418,7 +2411,7 @@ $effect(() => {
   display: flex;
   flex: 1 1;
   min-height: 0;
-  padding: 8px;
+  padding: 0;
 }
 
 .queries-panel {
@@ -2946,97 +2939,48 @@ $effect(() => {
   font-size: .78em;
 }
 
-.commands-panel-shell {
-  flex-shrink: 0;
-}
-
-/* Goals docked to the right: Commands is its own card above Goals
-   (.right-goals-stack), and expanding it overlays downward over whatever's
-   below instead of resizing anything (see toggleCommandsPanel(), which
-   skips the ratio-adjustment entirely for this position). The shell itself
-   stays unclipped (no overflow: hidden, no border/shadow of its own) so
-   the dropdown can extend past its bottom edge — the toggle button and the
-   dropdown each carry their own card chrome instead. */
-.right-goals-stack > .commands-panel-shell {
+/* Commands lives in the header above the editor regardless of Goals
+   position — its dropdown always overlays (anchored under the header
+   button) instead of squeezing the editor or Goals. */
+.header-commands-wrap {
   position: relative;
-  margin: 0 12px 12px 12px;
-}
-.right-goals-stack > .commands-panel-shell .commands-panel-toggle {
-  border-radius: 10px;
-  border: 1px solid #d0d2d8;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-.right-goals-stack > .commands-panel-shell .commands-panel {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 5;
-  margin-top: 4px;
-  border-radius: 10px;
-  border: 1px solid #d0d2d8;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-  overflow: hidden;
-}
-
-.commands-panel-toggle,
-.command-button {
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  font: inherit;
-}
-
-.commands-panel-toggle {
-  border: none;
-  border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  padding: 6px 8px;
-  text-align: start;
-  font-size: .82rem;
-  background: var(--quiet-neutral-fill-softer);
-}
-
-.commands-panel-arrow {
-  display: inline-block;
-  font-size: .6rem;
-  transition: transform 0.15s;
-}
-
-.commands-panel-arrow.open {
-  transform: rotate(90deg);
-}
-
-.commands-panel-toggle:hover,
-.commands-panel-toggle:focus-visible,
-.command-button:hover,
-.command-button:focus-visible {
-  outline: none;
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, transparent);
 }
 
 .commands-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 200;
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  max-height: 200px;
+  width: min(420px, calc(100vw - 24px));
+  max-height: 260px;
   overflow-y: auto;
-  padding: 6px 8px;
+  padding: 8px;
   background: var(--quiet-neutral-fill-softer);
-  border-top: 1px solid var(--quiet-neutral-stroke-softer);
+  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .1);
 }
 
 .command-button {
+  background: var(--quiet-neutral-fill);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
   padding: 3px 8px;
   text-align: center;
   font-family: JuliaMono, monospace;
   font-size: .82rem;
-  background: var(--quiet-neutral-fill-softer);
   border: 1px solid var(--quiet-neutral-stroke-softer);
   border-radius: 3px;
+}
+
+.command-button:hover,
+.command-button:focus-visible {
+  outline: none;
+  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, transparent);
 }
 
 
