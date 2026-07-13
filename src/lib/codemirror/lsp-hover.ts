@@ -9,7 +9,7 @@ import {highlightCode} from "@lezer/highlight"
 import {Text} from "@codemirror/state"
 
 export function fromPosition(doc: Text, pos: lsp.Position): number {
-  let line = doc.line(pos.line + 1)
+  const line = doc.line(pos.line + 1)
   return line.from + pos.character
 }
 
@@ -59,7 +59,7 @@ function isAgdaInternalError(result: lsp.Hover | null) {
     text.includes('__IMPOSSIBLE_VERBOSE__')
 }
 
-function lspTooltipSource(view: EditorView, pos: number, side: -1 | 1): Promise<Tooltip | null> {
+function lspTooltipSource(view: EditorView, pos: number, _side: -1 | 1): Promise<Tooltip | null> {
   const plugin = LSPPlugin.get(view)
   if (!plugin) return Promise.resolve(null)
 
@@ -87,7 +87,7 @@ function lspTooltipSource(view: EditorView, pos: number, side: -1 | 1): Promise<
         // XXX: these values are updated after the hover promise is resolved
         pos, end: pos,
         create() {
-          let elt = document.createElement("div")
+          const elt = document.createElement("div")
           elt.className = "cm-lsp-hover-tooltip cm-lsp-documentation cm-lsp-hover-tooltip--loading"
           elt.innerHTML = "Loading..."
 
@@ -117,7 +117,7 @@ function lspTooltipSource(view: EditorView, pos: number, side: -1 | 1): Promise<
           pos: result.range ? fromPosition(view.state.doc, result.range.start) : pos,
           end: result.range ? fromPosition(view.state.doc, result.range.end) : pos,
           create() {
-            let elt = document.createElement("div")
+            const elt = document.createElement("div")
             elt.className = "cm-lsp-hover-tooltip cm-lsp-documentation"
             elt.innerHTML = renderTooltipContent(plugin as LSPPluginPriv, result.contents)
             return {dom: elt}
@@ -140,10 +140,10 @@ function renderTooltipContent(
 
 function renderCode(plugin: LSPPluginPriv, code: lsp.MarkedString) {
   if (typeof code == "string") return plugin.docToHTML(code, "markdown")
-  let {language, value} = code
+  const {language, value} = code
   let lang = plugin.client.config.highlightLanguage && plugin.client.config.highlightLanguage(language || "")
   if (!lang) {
-    let viewLang = plugin.view.state.facet(languageFacet)
+    const viewLang = plugin.view.state.facet(languageFacet)
     if (viewLang && (!language || viewLang.name == language)) lang = viewLang
   }
   if (!lang) return escHTML(value)

@@ -209,16 +209,16 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       // controller.showIrrelevantArgs = showIrrelevantArgs
     },
     ResponseClearHighlightingTokenBased() {
-      // @ts-ignore
+      // @ts-expect-error: synthetic response object omits the schema's `kind` discriminant
       return rawJsonHandlers.ClearHighlighting({ tokenBased: 'TokenBased' })
     },
     ResponseClearHighlightingNotOnlyTokenBased() {
-      // @ts-ignore
+      // @ts-expect-error: synthetic response object omits the schema's `kind` discriminant
       return rawJsonHandlers.ClearHighlighting({ tokenBased: 'NotOnlyTokenBased' })
     },
     ResponseHighlightingInfoDirect(contents) {
       const infos = alsHighlightingInfosDirectSchema.decode(contents)
-      // @ts-ignore
+      // @ts-expect-error: synthetic response object omits the schema's `kind` discriminant
       return rawJsonHandlers.HighlightingInfo(infos)
     },
     ResponseInteractionPoints(contents) {

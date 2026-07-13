@@ -111,7 +111,7 @@ async function runPool(tasks, limit) {
 
 // ── WASM pool for Cmd_tokenHighlighting ──────────────────────────────────────
 
-async function makeWasmWorkerScript(srcDir, agdaDataDir, wasmPath) {
+async function makeWasmWorkerScript() {
   const path = join(DEPLOY_ASSETS, '.wasm-worker-' + randomBytes(4).toString('hex') + '.mjs')
   await writeFile(path, `
 import { readFile } from 'node:fs/promises'
@@ -216,7 +216,7 @@ async function createWasmPool(alsName, srcDir) {
   }
   const wasmPath = join(alsDir, info.wasmFilename)
   const agdaDataDir = join(alsDir, 'agda-data')
-  const workerScript = await makeWasmWorkerScript(srcDir, agdaDataDir, wasmPath)
+  const workerScript = await makeWasmWorkerScript()
   const size = cpus().length
   const clients = Array.from({ length: size }, () =>
     createHighlightingClient(workerScript, srcDir, agdaDataDir, wasmPath)

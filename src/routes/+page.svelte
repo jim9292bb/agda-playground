@@ -336,12 +336,6 @@ function requireInput(context) {
   return context.input
 }
 
-/** @param {ReturnType<typeof getAgdaShortcutContext>} context */
-function requireGoalOrSelectedInput(context) {
-  const input = requireInput(context)
-  return { goal: context.goal, input }
-}
-
 /** @param {string} label */
 function clearPendingAgdaGoal(label) {
   if (label === 'Case split' && agdaController.alsRouter) {
@@ -1001,7 +995,6 @@ let textbox = $state(/** @type {HTMLDivElement | undefined} */(undefined))
 let textboxContent = $state('WIP')
 let logEntries = $derived(textboxContent.trimEnd().split(/\n+/).filter(Boolean))
 let selectedExampleId = $state('cubical-prelude')
-let selectedScratchpadExample = $derived(scratchpadExamples.find(example => example.id === selectedExampleId))
 const initialShortcutOverrides = loadShortcutOverrides()
 let goalInfos = $state(/** @type {{id: number | string, range?: string, type?: string, context?: string}[]} */([]))
 let panelGoalInfos = $state(/** @type {{id: number | string, range?: string, type?: string, context?: string}[]} */([]))

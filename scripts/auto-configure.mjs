@@ -191,14 +191,6 @@ async function fetchFlatZip(url, destDir, workDir, marker = destDir) {
   await extractZip(zipPath, destDir)
 }
 
-async function fetchFile(url, destPath) {
-  if (await exists(destPath)) {
-    console.log(`  already present: ${destPath}`)
-    return
-  }
-  await download(url, destPath)
-}
-
 async function ensureDeployConfig(libsWithPaths) {
   const configPath = join(REPO_ROOT, 'deploy.config.json')
   if (await exists(configPath)) {

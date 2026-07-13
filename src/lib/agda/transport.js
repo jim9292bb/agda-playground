@@ -210,7 +210,7 @@ export function makeLSPTransport(editorView, statusCallback) {
    */
   function msgCallback(tag, contents) {
     if (tag in handlerMap) {
-      // @ts-ignore
+      // @ts-expect-error: `tag in handlerMap` doesn't narrow tag's type for indexing
       const handler = handlerMap[tag]
       return handler.call(router, contents)
     }
