@@ -8,10 +8,15 @@ import { EditorView, keymap } from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
 
 import SplitPane from '$lib/components/SplitPane.svelte'
+import AboutPanel from '$lib/components/AboutPanel.svelte'
+import HeaderExamplePicker from '$lib/components/HeaderExamplePicker.svelte'
+import AlsControlCard from '$lib/components/AlsControlCard.svelte'
+import GoalsPanel from '$lib/components/GoalsPanel.svelte'
+import MessagesPanel from '$lib/components/MessagesPanel.svelte'
+import SettingsPanel from '$lib/components/SettingsPanel.svelte'
 import { AgdaController, LS_DOC_KEY, deployProfiles, resolveProfileLibraries } from '$lib/controller.svelte'
 import { myCodeMirrorTheme } from '$lib/codemirror/theme'
 import { agdaInputMethod } from '$lib/codemirror/agda-input'
-import { attachAgdaIM } from '$lib/codemirror/agda-input-dom'
 import { agdaSupport } from '$lib/agda'
 import { getAgdaDocumentVersion, getAgdaGoals, mergeGoalInfos } from '$lib/agda/goal-state'
 import { getGoalAtPosition, getGoalRangeById } from '$lib/agda/goals'
@@ -48,7 +53,6 @@ import {
   whyInScopeCommand,
   whyInScopeToplevelCommand,
 } from '$lib/agda/commands'
-import { diagnosticToAgdaUtf8Position, focusAgdaUtf8Position } from '$lib/agda/diagnostics'
 
 import { clearGoals, clearRunningInfo, emitRunningInfo, removeGoalInfo, setGoalInfo } from '$lib/agda/effects'
 import { triggerPrefetch } from '$lib/agda/prefetch'
@@ -94,14 +98,6 @@ async function onDeploymentProfileChange(profileLabel) {
     textboxContent += `Failed to switch environment: ${err instanceof Error ? err.message : String(err)}\n`
   }
 }
-
-const settingsSegments = [
-  { id: 'general', label: 'General' },
-  { id: 'editor', label: 'Editor' },
-  { id: 'runtime', label: 'Runtime' },
-  { id: 'commands', label: 'Commands' },
-  { id: 'planned', label: 'Planned' },
-]
 
 const defaultSource = '{-# OPTIONS --cubical --guardedness #-}\n\nopen import Cubical.Foundations.Prelude\n'
 const LS_SHORTCUT_OVERRIDES_KEY = 'agda-playground.shortcut-overrides.v1'
@@ -818,7 +814,6 @@ function selectScratchpadExample(exampleId) {
 }
 
 function openSettingsPanel() {
-  selectedSettingsSegment = 'general'
   shortcutDrafts = { ...shortcutOverrides }
   shortcutOverrideMessage = ''
   settingsPanelVisible = true
@@ -966,34 +961,7 @@ function syncAgdaDiagnostics() {
   agdaDiagnostics = [...(agdaController.alsRouter?.lastAgdaDiagnostics ?? [])]
 }
 
-/** @param {import('$lib/agda/diagnostics').AgdaDiagnostic} diagnostic */
-function formatDiagnosticLocation(diagnostic) {
-  const start = `${diagnostic.filepath}:${diagnostic.line}.${diagnostic.column}`
-  if (diagnostic.endLine == null || diagnostic.endColumn == null) return start
-  if (diagnostic.endLine === diagnostic.line) return `${start}-${diagnostic.endColumn}`
-  return `${start}-${diagnostic.endLine}.${diagnostic.endColumn}`
-}
-
-/** @param {import('$lib/agda/diagnostics').AgdaDiagnostic} diagnostic */
-function canFocusDiagnostic(diagnostic) {
-  return diagnostic.filepath === '/source.agda' &&
-    Number.isFinite(diagnostic.line) &&
-    Number.isFinite(diagnostic.column)
-}
-
-/** @param {import('$lib/agda/diagnostics').AgdaDiagnostic} diagnostic */
-function focusDiagnostic(diagnostic) {
-  const editorView = agdaController.editorView
-  if (!editorView || !canFocusDiagnostic(diagnostic)) return
-  const position = diagnosticToAgdaUtf8Position(editorView.state, diagnostic)
-  focusAgdaUtf8Position(editorView, position)
-}
-
-/** @type {HTMLDivElement | undefined} */
-let textbox = $state(/** @type {HTMLDivElement | undefined} */(undefined))
-
 let textboxContent = $state('WIP')
-let logEntries = $derived(textboxContent.trimEnd().split(/\n+/).filter(Boolean))
 let selectedExampleId = $state('cubical-prelude')
 const initialShortcutOverrides = loadShortcutOverrides()
 let goalInfos = $state(/** @type {{id: number | string, range?: string, type?: string, context?: string}[]} */([]))
@@ -1016,11 +984,9 @@ function toggleCommandsPanel() {
   commandsPanelVisible = !commandsPanelVisible
 }
 let settingsPanelVisible = $state(false)
-let examplesMenuOpen = $state(false)
 let aboutPanelVisible = $state(false)
 /** @type {HTMLInputElement} */
 let fileInput
-let selectedSettingsSegment = $state('general')
 let shortcutOverrides = $state(initialShortcutOverrides)
 let shortcutDrafts = $state({ ...initialShortcutOverrides })
 let shortcutOverrideMessage = $state('')
@@ -1043,35 +1009,6 @@ let commandInputPrompt = $state(/** @type {null | {
 let commandInputError = $state('')
 /** @type {HTMLInputElement | undefined} */
 let commandInputElement = $state(/** @type {HTMLInputElement | undefined} */(undefined))
-
-/** @param {HTMLInputElement} el */
-function agdaInputAction(el) {
-  const cleanup = attachAgdaIM(el)
-  return { destroy: cleanup }
-}
-
-/** @type {number | undefined} */
-let raf
-let needScroll = false
-
-$effect.pre(() => {
-  textboxContent
-  if (textbox && textbox.scrollHeight - textbox.clientHeight - textbox.scrollTop < 50) {
-    needScroll = true
-  }
-})
-
-$effect(() => {
-  textboxContent
-  untrack(() => raf)
-  if (needScroll && !raf) {
-    raf = requestAnimationFrame(() => {
-      if (textbox) textbox.scrollTop = textbox.scrollHeight
-      raf = undefined
-      needScroll = false
-    })
-  }
-})
 
 $effect(() => {
   const view = agdaController.editorView
@@ -1116,7 +1053,7 @@ $effect(() => {
     <header class="header">
       <div class="header-left">
         <span class="header-title">Agda Playground</span>
-        {@render headerExamplePicker()}
+        <HeaderExamplePicker examples={scratchpadExamples} {selectedExampleId} onSelect={selectScratchpadExample} />
       </div>
       <div class="header-actions">
         <div class="header-commands-wrap">
@@ -1173,7 +1110,21 @@ $effect(() => {
       </section>
       {/snippet}
       {#snippet end()}
-        {#if effectiveGoalsPosition === 'bottom'}{@render goalsPanel()}{/if}
+        {#if effectiveGoalsPosition === 'bottom'}
+          <GoalsPanel
+            position={effectiveGoalsPosition}
+            {commandInputPrompt}
+            {commandInputError}
+            {panelGoalInfos}
+            {activeGoalId}
+            {activeGoalDetailStatus}
+            {activeGoalDetailError}
+            bind:commandInputElement
+            onSubmitCommandInput={submitCommandInputPrompt}
+            onCancelCommandInput={cancelCommandInputPrompt}
+            onFocusGoal={focusGoal}
+          />
+        {/if}
       {/snippet}
     </SplitPane>
   </section>
@@ -1183,12 +1134,24 @@ $effect(() => {
     {#if effectiveGoalsPosition === 'right'}
       <div class="right-column-fixed">
         <section class="info-section">
-          {@render alsButtons()}
+          <AlsControlCard {agdaController} {deployProfiles} {onDeploymentProfileChange} onToggleCommands={toggleCommandsPanel} onOpenAbout={() => { aboutPanelVisible = true }} onOpenSettings={openSettingsPanel} />
         </section>
         <section class="output-section">
           <div class="right-goals-stack">
-            {@render goalsPanel()}
-            {@render messagesPanel()}
+            <GoalsPanel
+              position={effectiveGoalsPosition}
+              {commandInputPrompt}
+              {commandInputError}
+              {panelGoalInfos}
+              {activeGoalId}
+              {activeGoalDetailStatus}
+              {activeGoalDetailError}
+              bind:commandInputElement
+              onSubmitCommandInput={submitCommandInputPrompt}
+              onCancelCommandInput={cancelCommandInputPrompt}
+              onFocusGoal={focusGoal}
+            />
+            <MessagesPanel position={effectiveGoalsPosition} {agdaController} {textboxContent} {agdaDiagnostics} bind:selectedMessageTab />
           </div>
         </section>
       </div>
@@ -1196,12 +1159,12 @@ $effect(() => {
       <SplitPane class="right-column-splitter" orientation="vertical" position={.65}>
         {#snippet start()}
         <section class="info-section">
-          {@render alsButtons()}
+          <AlsControlCard {agdaController} {deployProfiles} {onDeploymentProfileChange} onToggleCommands={toggleCommandsPanel} onOpenAbout={() => { aboutPanelVisible = true }} onOpenSettings={openSettingsPanel} />
         </section>
         {/snippet}
         {#snippet end()}
         <section class="output-section">
-          {@render messagesPanel()}
+          <MessagesPanel position={effectiveGoalsPosition} {agdaController} {textboxContent} {agdaDiagnostics} bind:selectedMessageTab />
         </section>
         {/snippet}
       </SplitPane>
@@ -1209,420 +1172,29 @@ $effect(() => {
   </section>
   {/snippet}
 </SplitPane>
-{@render settingsPanel()}
-{@render aboutPanel()}
-{/snippet}
-
-{#snippet goalsPanel()}
-  <section class="goals-section">
-    <header class="panel-header">Goals</header>
-    {#if commandInputPrompt}
-      <form class="command-input-panel" onsubmit={(event) => { event.preventDefault(); submitCommandInputPrompt() }}>
-        <label for="command-input">Input for {commandInputPrompt.label}</label>
-        <div class="command-input-row">
-          <input
-            id="command-input"
-            use:agdaInputAction
-            bind:this={commandInputElement}
-            bind:value={commandInputPrompt.value}
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="Agda expression or name" />
-          <button type="submit">Run</button>
-          <button type="button" onclick={cancelCommandInputPrompt}>Cancel</button>
-        </div>
-        {#if commandInputError}
-          <div class="command-input-error">{commandInputError}</div>
-        {/if}
-      </form>
-    {/if}
-    <div class="goals-list">
-      {#if panelGoalInfos.length === 0}
-        <div class="goals-empty">No goals.</div>
-      {:else}
-        {#each panelGoalInfos as goal (`${goal.id}-${goal.range ?? ''}`)}
-          <button
-            type="button"
-            class:active={goal.id === activeGoalId}
-            class="goal-entry"
-            aria-label={`Focus goal ${goal.id}`}
-            onclick={() => focusGoal(goal.id)}>
-            <div class="goal-head">?{goal.id} : {#if goal.type}{goal.type}{:else if goal.id === activeGoalId && activeGoalDetailStatus === 'loading'}<span class="goal-type-muted">…</span>{:else}<span class="goal-type-muted">?</span>{/if}</div>
-            {#if goal.id === activeGoalId}
-              {#if goal.context}
-                <div class="goal-separator"></div>
-                <pre class="goal-context">{goal.context}</pre>
-              {:else if activeGoalDetailStatus === 'loading'}
-                <div class="goal-separator"></div>
-                <div class="goal-context-empty">Loading…</div>
-              {:else if activeGoalDetailStatus === 'error'}
-                <div class="goal-separator"></div>
-                <div class="goal-context-empty">{activeGoalDetailError}</div>
-              {/if}
-            {/if}
-          </button>
-        {/each}
-      {/if}
-    </div>
-  </section>
-{/snippet}
-
-{#snippet messagesPanel()}
-  <section class="messages-panel" data-log-content={textboxContent} data-performance-entries={JSON.stringify(agdaController.performanceEntries)} data-query-results={agdaController.queryResults.map(r => r.content).join('\n---\n')} aria-label="Messages">
-    <header class="messages-header">
-      <div class="messages-header-info">
-        <strong>Messages</strong>
-        <span>{selectedMessageTab === 'log' ? 'Agda interaction log' : selectedMessageTab === 'queries' ? `${agdaController.queryResults.length} results` : `${agdaDiagnostics.length} diagnostics`}</span>
-      </div>
-      <div class="messages-tab-group" role="group" aria-label="Message view">
-        <button type="button" class="messages-tab" class:active={selectedMessageTab === 'log'}
-          onclick={() => { selectedMessageTab = 'log' }}>Log</button>
-        <button type="button" class="messages-tab" class:active={selectedMessageTab === 'queries'}
-          onclick={() => { selectedMessageTab = 'queries' }}>Queries{agdaController.queryResults.length ? ` (${agdaController.queryResults.length})` : ''}</button>
-        <button type="button" class="messages-tab" class:active={selectedMessageTab === 'errors'}
-          onclick={() => { selectedMessageTab = 'errors' }}>Errors{agdaDiagnostics.length ? ` (${agdaDiagnostics.length})` : ''}</button>
-      </div>
-    </header>
-
-    <div class="messages-body">
-      {#if selectedMessageTab === 'log'}
-        <div bind:this={textbox} class="messages-log" aria-label="Agda log" role="log">
-          {#if logEntries.length}
-            {#each logEntries as entry}
-              <pre class="messages-log-entry">{entry}</pre>
-            {/each}
-          {:else}
-            <div class="messages-log-empty">(log area is empty)</div>
-          {/if}
-        </div>
-      {:else if selectedMessageTab === 'queries'}
-        {@render queriesPanel()}
-      {:else}
-        {@render diagnosticsPanel()}
-      {/if}
-    </div>
-  </section>
-{/snippet}
-
-{#snippet queriesPanel()}
-  <section class="queries-panel" aria-label="Agda query results">
-    <header class="queries-panel-header">
-      <span>Query results</span>
-      {#if agdaController.queryResults.length}
-        <button type="button" class="queries-clear-btn" onclick={() => agdaController.clearQueryResults()}>Clear</button>
-      {/if}
-    </header>
-    {#if agdaController.queryResults.length}
-      <div class="queries-list">
-        {#each agdaController.queryResults as result (result.id)}
-          <div class="query-result">
-            <div class="query-result-label">{result.label}</div>
-            <pre class="query-result-content">{result.content}</pre>
-          </div>
-        {/each}
-      </div>
-    {:else}
-      <div class="queries-empty">No query results yet. Use C-c C-t, C-c C-,, C-c C-e, etc.</div>
-    {/if}
-  </section>
-{/snippet}
-
-{#snippet diagnosticsPanel()}
-  <section class="diagnostics-panel" aria-label="Agda diagnostics">
-    <header class="diagnostics-panel-title">Diagnostics</header>
-    {#if agdaDiagnostics.length}
-      <div class="diagnostics-list">
-          {#each agdaDiagnostics as diagnostic}
-            <button
-              class:clickable={canFocusDiagnostic(diagnostic)}
-              class:error={diagnostic.severity === 'error'}
-              class:warning={diagnostic.severity === 'warning'}
-              class="diagnostic-card"
-              type="button"
-              disabled={!canFocusDiagnostic(diagnostic)}
-              aria-label={`Jump to ${formatDiagnosticLocation(diagnostic)}`}
-              onclick={() => focusDiagnostic(diagnostic)}
-            >
-              <div class="diagnostic-meta">
-                <strong>{diagnostic.severity}</strong>
-                {#if diagnostic.code}
-                  <code>{diagnostic.code}</code>
-                {/if}
-              </div>
-              <div class="diagnostic-location">{formatDiagnosticLocation(diagnostic)}</div>
-              <pre>{diagnostic.message}</pre>
-            </button>
-          {/each}
-      </div>
-    {:else}
-      <div class="diagnostics-empty">No diagnostics.</div>
-    {/if}
-  </section>
-{/snippet}
-
-{#snippet alsButtons()}
-  {@const statusMeta = {
-    initial:      { color: '#888',    label: 'Starting...' },
-    loading:      { color: '#f59e0b', label: 'Loading...' },
-    loaded:       { color: '#f59e0b', label: agdaController.driveIsCreated ? 'Setting up...' : 'Fetching libraries...' },
-    active:       { color: '#22c55e', label: 'Active' },
-    deactivating: { color: '#888',    label: 'Stopping...' },
-    errored:      { color: '#ef4444', label: 'Error' },
-    exited:       { color: '#888',    label: 'Exited' },
-    terminated:   { color: '#888',    label: 'Terminated' },
-  }[agdaController.alsWorkerStatus] ?? { color: '#888', label: agdaController.alsWorkerStatus }}
-  <div class="control-card">
-    <div class="control-card-row">
-      <span class="als-status-dot" style="--dot-color: {statusMeta.color}"></span>
-      <span class="als-status-label" style="color: {statusMeta.color}">{statusMeta.label}{#if agdaController.alsWorkerStatus === 'loading' && agdaController.wasmLoadingProgress}{@const p = agdaController.wasmLoadingProgress}{@const loaded = (p.bytesLoaded / 1048576).toFixed(1)}{@const total = p.bytesTotal && p.bytesTotal >= p.bytesLoaded ? ` / ${(p.bytesTotal / 1048576).toFixed(1)}` : ''} {loaded}{total} MB{:else if agdaController.alsWorkerStatus === 'loaded' && !agdaController.driveIsCreated && agdaController.wasmLibraryFetchProgress}{@const lp = agdaController.wasmLibraryFetchProgress} {lp.fetched} / {lp.total}{/if}</span>
-      <button type="button" class="btn btn-primary" onclick={() => agdaController.restartALSWASM()} disabled={agdaController.alsWorkerStatus !== 'active'}>Restart</button>
-      <div class="control-card-actions">
-      <button type="button" class="control-btn control-icon-btn" aria-label="Help" onclick={toggleCommandsPanel}>
-        <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
-          <path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286zm1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94z"/>
-          <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0-1a8 8 0 1 1 0 16A8 8 0 0 1 8 0z"/>
-        </svg>
-      </button>
-      <button type="button" class="control-btn control-icon-btn" aria-label="About" onclick={() => { aboutPanelVisible = true }}>
-        <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
-          <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-          <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
-        </svg>
-      </button>
-      <a class="control-btn control-icon-btn" href="https://github.com/jim9292bb/agda-playground" target="_blank" rel="noopener noreferrer" aria-label="Source code on GitHub">
-        <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
-          <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
-        </svg>
-      </a>
-      <button type="button" class="control-btn control-icon-btn" aria-label="Settings" onclick={openSettingsPanel}>
-        <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
-          <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/>
-          <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.42 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.42-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.475l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.115l.094-.319z"/>
-        </svg>
-      </button>
-      </div>
-    </div>
-    {#if deployProfiles.length > 1}
-      <div class="control-card-profile-row">
-        <label for="control-card-profile-select">Environment</label>
-        <select
-          id="control-card-profile-select"
-          value={agdaController.selectedProfileLabel}
-          disabled={agdaController.alsWorkerStatus === 'loading' || agdaController.alsWorkerStatus === 'deactivating'}
-          onchange={(e) => onDeploymentProfileChange(e.currentTarget.value)}>
-          {#each deployProfiles as profile}
-            <option value={profile.label}>{profile.label}</option>
-          {/each}
-        </select>
-      </div>
-    {/if}
-  </div>
-{/snippet}
-
-{#snippet aboutPanel()}
-  {#if aboutPanelVisible}
-    <div class="about-backdrop" role="presentation" onclick={() => { aboutPanelVisible = false }}></div>
-    <div class="about-panel" role="dialog" aria-modal="true" aria-label="About Agda Playground">
-      <div class="about-header">
-        <h2 class="about-title">Agda Playground</h2>
-        <button type="button" class="about-close" aria-label="Close" onclick={() => { aboutPanelVisible = false }}>✕</button>
-      </div>
-      <p class="about-desc">A browser-hosted single-file Agda playground for demonstrations, learning, and practice.</p>
-      <dl class="about-meta">
-        {#each runtimeSummary() as item}
-          <div class="about-meta-row"><dt>{item.label}</dt><dd>{item.value}</dd></div>
-        {/each}
-        <div class="about-meta-row"><dt>Commit</dt><dd><code>{APP_COMMIT_ID}</code></dd></div>
-      </dl>
-      <a class="about-github" href="https://github.com/jim9292bb/agda-playground" target="_blank" rel="noopener noreferrer">
-        Source code on GitHub ↗
-      </a>
-    </div>
-  {/if}
-{/snippet}
-
-{#snippet settingsPanel()}
-  {#if settingsPanelVisible}
-    <div class="settings-backdrop" role="presentation" onclick={closeSettingsPanel}></div>
-    <div
-      class="settings-panel"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="settings-panel-title">
-      <header class="settings-panel-header">
-        <div>
-          <h2 id="settings-panel-title">Playground Settings</h2>
-          <p>Configure the browser IDE experience. These settings apply to the whole page.</p>
-        </div>
-        <button type="button" class="settings-close-button" aria-label="Close settings" onclick={closeSettingsPanel}>Close</button>
-      </header>
-
-      <div class="settings-panel-main">
-        <div class="settings-segmented-control" role="tablist" aria-label="Settings sections">
-          {#each settingsSegments as segment}
-            <button
-              type="button"
-              class:active={selectedSettingsSegment === segment.id}
-              role="tab"
-              aria-selected={selectedSettingsSegment === segment.id}
-              aria-controls={`settings-panel-${segment.id}`}
-              onclick={() => { selectedSettingsSegment = segment.id }}>
-              {segment.label}
-            </button>
-          {/each}
-        </div>
-
-        <div class="settings-panel-body">
-          {#if selectedSettingsSegment === 'general'}
-            <div id="settings-panel-general" class="settings-section settings-overview" role="tabpanel" aria-labelledby="general-settings-title">
-              <h3 id="general-settings-title">General</h3>
-              <p class="settings-note">Global playground behavior for demos and practice sessions.</p>
-              <div class="settings-option-grid">
-                <div class="settings-option">
-                  <strong>Source buffer</strong>
-                  <span>Single-file `/source.agda` playground</span>
-                </div>
-                <div class="settings-option">
-                  <strong>Persistence</strong>
-                  <span>Editor contents are saved in this browser</span>
-                </div>
-                <label class="settings-toggle-row">
-                  <input type="checkbox" checked disabled />
-                  <span>Restore last source on reload</span>
-                </label>
-              </div>
-            </div>
-          {:else if selectedSettingsSegment === 'editor'}
-            <div id="settings-panel-editor" class="settings-section" role="tabpanel" aria-labelledby="editor-settings-title">
-              <h3 id="editor-settings-title">Editor</h3>
-              <p class="settings-note">Display and input options for the editor.</p>
-              <div class="settings-option-grid">
-                <label class="settings-field">
-                  <span>Font</span>
-                  <select disabled>
-                    <option>JuliaMono</option>
-                  </select>
-                </label>
-                <label class="settings-field">
-                  <span>Theme</span>
-                  <select disabled>
-                    <option>Follow browser preference</option>
-                  </select>
-                </label>
-                <label class="settings-toggle-row">
-                  <input type="checkbox" disabled />
-                  <span>Agda Unicode input method</span>
-                </label>
-                {#if !isMobile}
-                  <label class="settings-field">
-                    <span>Goals panel position</span>
-                    <select value={goalsPanelPosition} onchange={(event) => setGoalsPanelPosition(/** @type {'bottom' | 'right'} */(event.currentTarget.value))}>
-                      <option value="bottom">Bottom (below editor)</option>
-                      <option value="right">Right (with Messages)</option>
-                    </select>
-                  </label>
-                {/if}
-              </div>
-            </div>
-          {:else if selectedSettingsSegment === 'runtime'}
-            <div id="settings-panel-runtime" class="settings-section" role="tabpanel" aria-labelledby="runtime-settings-title">
-              <h3 id="runtime-settings-title">Runtime and libraries</h3>
-              <p class="settings-note">
-                {#if deployProfiles.length > 1}
-                  Switch the Agda environment from the "Environment" selector below the Agda status card. Switching restarts the worker.
-                {:else}
-                  This deployment has a single configured environment.
-                {/if}
-              </p>
-              <p class="settings-note">Active environment: <strong>{agdaController.activeProfile.label}</strong></p>
-              <dl class="settings-runtime-list">
-                {#each runtimeSummary() as item}
-                  <div>
-                    <dt>{item.label}</dt>
-                    <dd>{item.value}</dd>
-                  </div>
-                {/each}
-              </dl>
-            </div>
-          {:else if selectedSettingsSegment === 'commands'}
-            <div id="settings-panel-commands" class="settings-section" role="tabpanel" aria-labelledby="command-settings-title">
-              <h3 id="command-settings-title">Commands and shortcuts</h3>
-              <p class="settings-note">Replace Agda chord shortcuts with values like <code>C-c C-g</code> (<code>C-c</code> means Ctrl + c). A chord can start with any key and be any length, e.g. <code>C-x C-s</code> or <code>C-c C-x C-r</code>. Use <code>SPC</code> or <code>Space</code> for the space bar, e.g. <code>C-c C-SPC</code>. Built-in editor keyboard shortcuts such as Cmd-Enter remain available.</p>
-              <div class="shortcut-settings-actions">
-                <button type="button" class="settings-action-button primary" disabled={!shortcutDraftValidation.valid} onclick={saveShortcutOverrides}>Save shortcuts</button>
-                <button type="button" class="settings-action-button" onclick={resetShortcutOverrides}>Reset to defaults</button>
-              </div>
-              {#if shortcutOverrideMessage || !shortcutDraftValidation.valid}
-                <p class:settings-error={!shortcutDraftValidation.valid} class="settings-message">
-                  {shortcutDraftValidation.valid ? shortcutOverrideMessage : shortcutDraftValidation.errors.join(' ')}
-                </p>
-              {/if}
-              <div class="shortcut-settings-list">
-                {#each agdaShortcutRegistry as shortcut}
-                  {@const activeShortcut = activeAgdaShortcutRegistry.find(active => active.id === shortcut.id) ?? shortcut}
-                  <div class="shortcut-settings-row">
-                    <div>
-                      <strong>{shortcut.label}</strong>
-                      <span>Default: {formatAgdaShortcutHelpBinding(shortcut)}</span>
-                      <span>Effective: {formatAgdaShortcutHelpBinding(activeShortcut)}</span>
-                    </div>
-                    <label>
-                      <span>Override</span>
-                      <input
-                        type="text"
-                        placeholder="Default"
-                        value={shortcutDrafts[shortcut.id] ?? ''}
-                        oninput={event => setShortcutDraft(shortcut.id, event.currentTarget.value)} />
-                    </label>
-                    <button type="button" class="settings-action-button compact" onclick={() => clearShortcutDraft(shortcut.id)}>Clear</button>
-                  </div>
-                {/each}
-              </div>
-            </div>
-          {:else}
-            <div id="settings-panel-planned" class="settings-section" role="tabpanel" aria-labelledby="future-settings-title">
-              <h3 id="future-settings-title">Planned settings</h3>
-              <p class="settings-note">Future normalization defaults, output verbosity, layout density, and command behavior settings can be added here without changing the main page layout.</p>
-            </div>
-          {/if}
-        </div>
-      </div>
-    </div>
-  {/if}
+<SettingsPanel
+  visible={settingsPanelVisible}
+  onClose={closeSettingsPanel}
+  {isMobile}
+  {goalsPanelPosition}
+  onSetGoalsPanelPosition={setGoalsPanelPosition}
+  {agdaController}
+  {deployProfiles}
+  {runtimeSummary}
+  {shortcutDrafts}
+  {shortcutDraftValidation}
+  {shortcutOverrideMessage}
+  {activeAgdaShortcutRegistry}
+  onSaveShortcutOverrides={saveShortcutOverrides}
+  onResetShortcutOverrides={resetShortcutOverrides}
+  onSetShortcutDraft={setShortcutDraft}
+  onClearShortcutDraft={clearShortcutDraft}
+/>
+<AboutPanel bind:visible={aboutPanelVisible} {runtimeSummary} />
 {/snippet}
 
 
 
-{#snippet headerExamplePicker()}
-  <div class="header-examples-wrap">
-    <button
-      type="button"
-      class="header-examples-btn"
-      aria-expanded={examplesMenuOpen}
-      onclick={() => { examplesMenuOpen = !examplesMenuOpen }}>
-      Examples
-      <svg class="header-dropdown-arrow" class:open={examplesMenuOpen} viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden="true">
-        <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
-      </svg>
-    </button>
-    {#if examplesMenuOpen}
-      <div class="header-examples-menu" role="menu">
-        {#each scratchpadExamples as example}
-          <button
-            type="button"
-            class="header-examples-item"
-            class:active={example.id === selectedExampleId}
-            role="menuitem"
-            title={example.description}
-            onclick={() => { selectScratchpadExample(example.id); examplesMenuOpen = false }}>
-            {example.label}
-          </button>
-        {/each}
-      </div>
-      <div class="header-menu-backdrop" role="presentation" onclick={() => { examplesMenuOpen = false }}></div>
-    {/if}
-  </div>
-{/snippet}
 
 <input
   bind:this={fileInput}
@@ -1695,32 +1267,6 @@ $effect(() => {
   white-space: nowrap;
 }
 
-.header-examples-wrap {
-  position: relative;
-  flex: 0 0 auto;
-}
-
-.header-examples-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  background: var(--quiet-neutral-fill);
-  color: #374151;
-  font: inherit;
-  font-size: .82rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.header-examples-btn:hover {
-  border-color: var(--quiet-primary-stroke-soft);
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, var(--quiet-neutral-fill));
-  color: var(--quiet-primary-text, #3b3aab);
-}
-
 .commands-panel-toggle {
   display: flex;
   align-items: center;
@@ -1737,50 +1283,16 @@ $effect(() => {
   transform: rotate(180deg);
 }
 
-.header-examples-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  z-index: 200;
-  min-width: 200px;
-  background: var(--quiet-neutral-fill-softer);
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0,0,0,.1);
-  overflow: hidden;
-}
-
-/* Invisible full-viewport click-catcher so opening a header dropdown
-   (Examples, Commands) and then clicking anywhere outside it closes the
-   dropdown, not just re-clicking the toggle button. Sits below the
-   dropdown's own z-index (200) but above everything else on the page. */
+/* Invisible full-viewport click-catcher so opening the Commands dropdown
+   and then clicking anywhere outside it closes it, not just re-clicking
+   the toggle button. Sits below the dropdown's own z-index (200) but
+   above everything else on the page. HeaderExamplePicker.svelte has an
+   identical duplicate for its own dropdown. */
 .header-menu-backdrop {
   position: fixed;
   inset: 0;
   z-index: 150;
   background: transparent;
-}
-
-.header-examples-item {
-  display: block;
-  width: 100%;
-  padding: 8px 14px;
-  text-align: left;
-  font: inherit;
-  font-size: .85rem;
-  background: none;
-  border: none;
-  color: inherit;
-  cursor: pointer;
-}
-
-.header-examples-item:hover {
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 12%, transparent);
-}
-
-.header-examples-item.active {
-  font-weight: 600;
-  color: var(--quiet-primary-text);
 }
 
 .editor-wrap {
@@ -1817,214 +1329,6 @@ $effect(() => {
   --divider-width: 1px;
   --divider-draggable-area: 13px;
 }
-
-.control-card {
-  margin: 12px;
-  border: 1px solid #b0b4bdb5;
-  border-radius: 6px;
-  background: var(--quiet-neutral-fill);
-  overflow: hidden;
-}
-
-.control-card-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-}
-
-.control-card-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: auto;
-}
-
-.control-card-profile-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-top: 1px solid var(--quiet-neutral-stroke-softer);
-  font-size: 0.85em;
-}
-
-.control-card-profile-row label {
-  color: var(--quiet-neutral-text-softer, inherit);
-  flex-shrink: 0;
-}
-
-.control-card-profile-row select {
-  flex: 1;
-  min-width: 0;
-}
-
-.control-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  background: transparent;
-  color: #374151;
-  font: inherit;
-  font-size: .82rem;
-  cursor: pointer;
-  text-decoration: none;
-}
-
-.control-btn:hover {
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, transparent);
-  border-color: var(--quiet-primary-stroke-soft);
-  color: var(--quiet-primary-text, #3b3aab);
-}
-
-.control-icon-btn {
-  padding: 8px 10px;
-  line-height: 0;
-  border: none;
-  color: #374151;
-}
-
-.control-icon-btn svg {
-  width: 18px;
-  height: 18px;
-}
-
-.control-icon-btn:hover {
-  border: none;
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 22%, transparent);
-  color: var(--quiet-primary-text, #3b3aab);
-}
-
-.about-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 300;
-  background: rgba(0,0,0,.3);
-}
-
-.about-panel {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 301;
-  width: 340px;
-  background: var(--quiet-neutral-fill);
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0,0,0,.15);
-  padding: 20px;
-}
-
-.about-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-
-.about-title {
-  font-size: 1rem;
-  font-family: monospace;
-  letter-spacing: .04em;
-  margin: 0;
-}
-
-.about-close {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: .9rem;
-  color: #888;
-  padding: 2px 6px;
-}
-
-.about-close:hover { color: inherit; }
-
-.about-desc {
-  font-size: .85rem;
-  color: #666;
-  margin: 0 0 14px;
-  line-height: 1.5;
-}
-
-.about-meta {
-  margin: 0 0 14px;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 4px 12px;
-  font-size: .8rem;
-}
-
-.about-meta-row { display: contents; }
-
-.about-meta dt { color: #999; }
-
-.about-meta code {
-  font-size: .75rem;
-  background: var(--quiet-neutral-fill-softer);
-  padding: 1px 4px;
-  border-radius: 3px;
-}
-
-.about-github {
-  display: inline-block;
-  font-size: .82rem;
-  color: var(--quiet-primary-text, #3b82f6);
-}
-
-
-
-.als-status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--dot-color);
-  flex-shrink: 0;
-}
-
-.als-status-label {
-  font-size: .78rem;
-  font-weight: 500;
-}
-
-
-.btn {
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  background: var(--quiet-neutral-fill-softer);
-  color: #374151;
-  cursor: pointer;
-  font: inherit;
-  padding: 5px 12px;
-  font-size: .82rem;
-}
-.btn:hover:not(:disabled),
-.btn:focus-visible:not(:disabled) {
-  border-color: var(--quiet-primary-stroke-soft);
-  outline: none;
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, var(--quiet-neutral-fill-softer));
-  color: var(--quiet-primary-text, #3b3aab);
-}
-.btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.btn-primary {
-  background: var(--quiet-primary-fill-soft);
-  border-color: var(--quiet-primary-stroke-soft);
-  color: var(--quiet-primary-text, #3b3aab);
-}
-.btn-primary:hover:not(:disabled),
-.btn-primary:focus-visible:not(:disabled) {
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 85%, var(--quiet-neutral-fill));
-  border-color: var(--quiet-primary-stroke);
-}
-
 
 .container > :global(*) {
   flex: 1 1;
@@ -2096,144 +1400,11 @@ $effect(() => {
   z-index: 10;
 }
 
-.goals-section {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 45%, transparent);
-}
-
-.panel-header {
-  padding: 6px 8px;
-  background: var(--quiet-neutral-fill-softer);
-  border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
-  font-size: .9rem;
-  font-weight: 500;
-  letter-spacing: .02em;
-  text-transform: uppercase;
-}
-
 .output-section {
   display: flex;
   flex-direction: column;
   min-height: 0;
   margin-top: -1px;
-}
-
-.command-input-panel {
-  border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
-  padding: 8px;
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, var(--quiet-neutral-fill-softer));
-}
-
-.command-input-panel label {
-  display: block;
-  margin-bottom: 6px;
-  color: #666;
-  font-size: .8rem;
-  font-weight: 700;
-}
-
-.command-input-row {
-  display: flex;
-  gap: 6px;
-}
-
-.command-input-row input {
-  min-width: 0;
-  flex: 1 1;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  padding: 4px 6px;
-  background: var(--quiet-neutral-fill-softer);
-  color: inherit;
-  font-family: JuliaMono, monospace;
-}
-
-.command-input-row button {
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  padding: 4px 8px;
-  background: var(--quiet-neutral-fill-softer);
-  color: inherit;
-  cursor: pointer;
-}
-
-.command-input-row button:hover,
-.command-input-row button:focus-visible {
-  border-color: var(--quiet-primary-stroke-soft);
-  outline: none;
-}
-
-.command-input-error {
-  margin-top: 6px;
-  color: var(--quiet-destructive-text, #a33);
-  font-size: .8rem;
-}
-
-.goals-list {
-  flex: 1 1;
-  min-height: 0;
-  overflow: auto;
-  padding: 8px;
-}
-
-.goals-empty {
-  color: #777;
-  font-size: .8rem;
-  padding: 4px 0;
-}
-
-.goal-entry {
-  display: block;
-  width: 100%;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  padding: 3px 8px;
-  cursor: pointer;
-  color: inherit;
-  font-family: JuliaMono, monospace;
-  font-size: 12px;
-  text-align: start;
-}
-
-.goal-entry:hover,
-.goal-entry:focus-visible {
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, var(--quiet-neutral-fill-softer));
-  outline: none;
-}
-
-.goal-entry.active {
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 28%, var(--quiet-neutral-fill-softer));
-  box-shadow: inset 2px 0 0 var(--quiet-primary-stroke);
-}
-
-.goal-head {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  line-height: 1.5;
-}
-
-.goal-type-muted {
-  color: #999;
-}
-
-.goal-separator {
-  border-top: 1px solid var(--quiet-neutral-stroke-softer);
-  margin: 4px 0;
-}
-
-.goal-context {
-  margin: 0;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  color: var(--quiet-muted-text, #555);
-}
-
-.goal-context-empty {
-  color: #777;
-  font-size: .8rem;
 }
 
 .info-section {
@@ -2266,668 +1437,17 @@ $effect(() => {
 }
 
 /* Goals docked to 'right': Goals and Messages stack as two fixed-size
-   cards (no drag-resizing between them, unlike editor-goals-splitter),
-   splitting the available height roughly 5.5:4.5. Commands lives in the
-   header above the editor regardless of Goals position. */
+   cards (no drag-resizing between them, unlike editor-goals-splitter).
+   Each panel's own sizing/chrome (flex ratio, outlined-box style, header
+   color) is handled internally via its `position` prop — GoalsPanel.svelte
+   and MessagesPanel.svelte — since a parent's scoped CSS can't reach into
+   a child component's own root element. Commands lives in the header
+   above the editor regardless of Goals position. */
 .right-goals-stack {
   display: flex;
   flex-direction: column;
   min-height: 0;
   height: 100%;
-}
-.right-goals-stack > .goals-section {
-  flex: 5.5 5.5 0;
-  min-height: 0;
-  /* overflow: hidden set by the shared card-chrome rule below; .goals-list's
-     own overflow: auto handles internal scrolling once this cap kicks in. */
-}
-.right-goals-stack > .messages-panel {
-  flex: 4.5 4.5 0;
-  min-height: 0;
-}
-
-/* Goals docked to 'right': Goals and Messages are outlined boxes — a
-   plain border, square corners, no shadow — flatter than the rounded/
-   shadowed card chrome used for 'bottom'. */
-.right-goals-stack > .goals-section,
-.right-goals-stack > .messages-panel {
-  margin: 0;
-  border: 1px solid #e6e9ee;
-  overflow: hidden;
-  background: var(--quiet-neutral-fill);
-}
-.right-goals-stack > .goals-section {
-  border-top-width: 2px;
-}
-
-/* Goals docked to 'right' only — 'bottom' keeps the original neutral
-   header color for both panels. */
-.right-goals-stack .panel-header,
-.right-goals-stack .messages-header {
-  background: #ffffff;
-}
-.right-goals-stack .panel-header,
-.right-goals-stack .messages-header {
-  border-bottom-width: 2px;
-  border-bottom-color: #e6e9ee;
-}
-
-/* Goals docked to 'bottom': Messages (alone in the right column) keeps
-   its card chrome, since there it's the only block and needs to read as
-   its own panel against the page background. margin-top compensates for
-   .output-section's own -1px margin-top (which overlaps the SplitPane
-   divider above it) — without this, that -1px shift clips off the top
-   pixel of this card's own border. */
-.output-section > .messages-panel {
-  margin: 1px 12px 12px 12px;
-  border-radius: 10px;
-  border: 1px solid #d0d2d8;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
-  overflow: hidden;
-  background: var(--quiet-neutral-fill);
-}
-
-.messages-panel {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  height: 100%;
-  background: var(--quiet-neutral-fill);
-}
-
-.messages-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 7px 8px;
-  background: var(--quiet-neutral-fill-softer);
-  border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
-}
-
-.messages-header-info {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  min-width: 0;
-}
-
-.messages-header strong {
-  font-size: .9rem;
-  font-weight: 500;
-  letter-spacing: .02em;
-  text-transform: uppercase;
-}
-
-.messages-header span {
-  color: #666;
-  font-size: .72rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.messages-tab-group {
-  display: flex;
-  gap: 1px;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 5px;
-  background: var(--quiet-neutral-stroke-softer);
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.messages-tab {
-  border: none;
-  background: var(--quiet-neutral-fill-softer);
-  color: #374151;
-  font: inherit;
-  font-size: .72rem;
-  padding: 3px 9px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.messages-tab.active {
-  background: var(--quiet-primary-fill-soft);
-  color: var(--quiet-primary-text, #3b3aab);
-  font-weight: 500;
-}
-
-.messages-tab:hover:not(.active) {
-  background: color-mix(in srgb, var(--quiet-neutral-stroke-softer) 60%, var(--quiet-neutral-fill-softer));
-}
-
-.messages-body {
-  display: flex;
-  flex: 1 1;
-  min-height: 0;
-  padding: 0;
-}
-
-.queries-panel {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  min-height: 0;
-  overflow: auto;
-  gap: 0;
-}
-
-.queries-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-  color: #374151;
-  font-size: .78rem;
-  font-weight: 700;
-  letter-spacing: .02em;
-  text-transform: uppercase;
-}
-
-.queries-clear-btn {
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  padding: 1px 7px;
-  background: transparent;
-  color: #777;
-  font-size: .75rem;
-  cursor: pointer;
-}
-
-.queries-clear-btn:hover {
-  border-color: var(--quiet-primary-stroke-soft);
-  color: inherit;
-}
-
-.queries-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.queries-empty {
-  color: #777;
-  font-size: .8rem;
-}
-
-.query-result {
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  background: var(--quiet-neutral-fill-softer);
-  overflow: hidden;
-}
-
-.query-result-label {
-  padding: 3px 8px;
-  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 60%, transparent);
-  border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
-  color: #666;
-  font-size: .75rem;
-  font-weight: 700;
-  letter-spacing: .02em;
-  text-transform: uppercase;
-}
-
-.query-result-content {
-  margin: 0;
-  padding: 6px 8px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-family: JuliaMono, monospace;
-  font-size: 12px;
-}
-
-.diagnostics-panel {
-  display: grid;
-  gap: 8px;
-  width: 100%;
-  min-height: 0;
-  overflow: auto;
-}
-
-.diagnostics-panel-title {
-  color: #374151;
-  font-size: .78rem;
-  font-weight: 700;
-  letter-spacing: .02em;
-  text-transform: uppercase;
-}
-
-.diagnostics-list {
-  display: grid;
-  gap: 8px;
-}
-
-.diagnostics-empty {
-  color: #777;
-  font-size: .8rem;
-}
-
-.diagnostic-card {
-  display: grid;
-  gap: 6px;
-  width: 100%;
-  padding: 8px;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-left-width: 4px;
-  border-radius: 6px;
-  background: var(--quiet-neutral-fill-softer);
-  color: inherit;
-  text-align: left;
-  appearance: none;
-  font: inherit;
-}
-
-.diagnostic-card.error {
-  border-left-color: #c2410c;
-}
-
-.diagnostic-card.warning {
-  border-left-color: #ca8a04;
-}
-
-.diagnostic-card.clickable {
-  cursor: pointer;
-}
-
-.diagnostic-card.clickable:hover,
-.diagnostic-card.clickable:focus-visible {
-  border-color: #777;
-  border-left-color: currentColor;
-  background: var(--quiet-neutral-fill);
-  outline: none;
-}
-
-.diagnostic-card:disabled {
-  opacity: 1;
-}
-
-.diagnostic-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  font-size: .76rem;
-  text-transform: capitalize;
-}
-
-.diagnostic-meta code {
-  color: #666;
-  font-family: JuliaMono, monospace;
-  font-size: .72rem;
-  text-transform: none;
-}
-
-.diagnostic-location {
-  color: #444;
-  font-family: JuliaMono, monospace;
-  font-size: .76rem;
-}
-
-.diagnostic-card pre {
-  margin: 0;
-  color: #374151;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-family: JuliaMono, monospace;
-  font-size: .72rem;
-}
-
-.messages-log {
-  flex: 1 1;
-  min-height: 0;
-  width: 100%;
-  overflow: auto;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 78%, white);
-}
-
-.messages-log-entry {
-  margin: 0;
-  padding: 7px 8px;
-  color: #444;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-family: JuliaMono, monospace;
-  font-size: 11px;
-  line-height: 1.45;
-}
-
-.messages-log-entry + .messages-log-entry {
-  border-top: 1px solid var(--quiet-neutral-stroke-softer);
-}
-
-.messages-log-empty {
-  padding: 8px;
-  color: #777;
-  font-size: .8rem;
-}
-
-
-.settings-close-button {
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  background: var(--quiet-neutral-fill-softer);
-  color: inherit;
-  cursor: pointer;
-  font: inherit;
-  padding: 6px 10px;
-}
-
-.settings-close-button:hover,
-.settings-close-button:focus-visible {
-  border-color: var(--quiet-primary-stroke-soft);
-  outline: none;
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, var(--quiet-neutral-fill-softer));
-}
-
-.settings-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  background: rgb(0 0 0 / .2);
-}
-
-.settings-panel {
-  position: fixed;
-  z-index: 41;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  display: flex;
-  flex-direction: column;
-  width: min(920px, calc(100vw - 24px));
-  height: min(680px, calc(100vh - 48px));
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 10px;
-  background: var(--quiet-neutral-fill, #fff);
-  box-shadow: 0 18px 60px rgb(0 0 0 / .25);
-  overflow: hidden;
-}
-
-.settings-panel-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 16px;
-  border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
-}
-
-.settings-panel-header h2,
-.settings-section h3 {
-  margin: 0;
-}
-
-.settings-panel-header p {
-  margin: 4px 0 0;
-  color: #666;
-  font-size: .82rem;
-}
-
-.settings-panel-main {
-  display: grid;
-  grid-template-columns: 168px minmax(0, 1fr);
-  min-height: 0;
-  flex: 1 1;
-}
-
-.settings-segmented-control {
-  display: grid;
-  align-content: start;
-  gap: 4px;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 12px;
-  border-right: 1px solid var(--quiet-neutral-stroke-softer);
-  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 84%, transparent);
-}
-
-.settings-segmented-control button {
-  min-width: 0;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: transparent;
-  color: #666;
-  cursor: pointer;
-  font: inherit;
-  font-size: .78rem;
-  padding: 8px 10px;
-  text-align: start;
-}
-
-.settings-segmented-control button:hover,
-.settings-segmented-control button:focus-visible {
-  border-color: var(--quiet-primary-stroke-soft);
-  outline: none;
-}
-
-.settings-segmented-control button.active {
-  border-color: var(--quiet-primary-stroke-soft);
-  background: var(--quiet-primary-fill-soft);
-  color: inherit;
-  font-weight: 700;
-}
-
-.settings-panel-body {
-  display: grid;
-  gap: 14px;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 16px;
-}
-
-@media (max-width: 620px) {
-  .settings-panel {
-    height: min(620px, calc(100vh - 24px));
-  }
-
-  .settings-panel-main {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr);
-  }
-
-  .settings-segmented-control {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    max-height: 140px;
-    border-right: 0;
-    border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
-  }
-}
-
-.settings-section {
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 8px;
-  padding: 12px;
-  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 72%, transparent);
-}
-
-.settings-overview {
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 12%, var(--quiet-neutral-fill-softer));
-}
-
-.settings-note {
-  margin: 6px 0 12px;
-  color: #666;
-  font-size: .8rem;
-}
-
-.settings-option-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 8px;
-}
-
-.settings-option,
-.settings-toggle-row,
-.settings-field {
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 6px;
-  background: var(--quiet-neutral-fill-softer);
-  padding: 8px;
-}
-
-.settings-option,
-.settings-field {
-  display: grid;
-  gap: 4px;
-}
-
-.settings-option span,
-.settings-field span,
-.settings-toggle-row span {
-  color: #666;
-  font-size: .78rem;
-}
-
-.settings-toggle-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.settings-field select {
-  min-width: 0;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  padding: 4px 6px;
-  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 70%, white);
-  color: inherit;
-}
-
-.settings-runtime-list {
-  display: grid;
-  gap: 6px;
-  margin: 0;
-}
-
-.settings-runtime-list div {
-  display: grid;
-  grid-template-columns: minmax(12ch, max-content) 1fr;
-  gap: 10px;
-  padding: 7px 8px;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 6px;
-  background: var(--quiet-neutral-fill-softer);
-}
-
-.settings-runtime-list dt {
-  color: #666;
-  font-size: .78rem;
-}
-
-.settings-runtime-list dd {
-  margin: 0;
-  font-family: JuliaMono, monospace;
-  font-size: .78rem;
-}
-
-.shortcut-settings-list {
-  display: grid;
-  gap: 6px;
-}
-
-.shortcut-settings-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(160px, 220px) max-content;
-  align-items: end;
-  gap: 12px;
-  padding: 8px;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 6px;
-  background: var(--quiet-neutral-fill-softer);
-}
-
-.shortcut-settings-row div {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.shortcut-settings-row span {
-  color: #777;
-  font-size: .72rem;
-}
-
-.shortcut-settings-row label {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.shortcut-settings-row input {
-  min-width: 0;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  padding: 5px 7px;
-  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 70%, white);
-  color: inherit;
-  font: inherit;
-  font-family: JuliaMono, monospace;
-  font-size: .78rem;
-}
-
-.shortcut-settings-row input:focus {
-  border-color: var(--quiet-primary-stroke-soft);
-  outline: none;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--quiet-primary-fill-soft) 45%, transparent);
-}
-
-.settings-action-button {
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  background: var(--quiet-neutral-fill-softer);
-  color: inherit;
-  cursor: pointer;
-  font: inherit;
-  padding: 6px 8px;
-}
-
-.settings-action-button.primary {
-  border-color: var(--quiet-primary-stroke-soft);
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 42%, var(--quiet-neutral-fill-softer));
-}
-
-.settings-action-button.compact {
-  padding: 5px 7px;
-}
-
-.settings-action-button:disabled {
-  cursor: not-allowed;
-  opacity: .55;
-}
-
-.settings-action-button:hover:not(:disabled),
-.settings-action-button:focus-visible:not(:disabled) {
-  border-color: var(--quiet-primary-stroke-soft);
-  outline: none;
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 22%, var(--quiet-neutral-fill-softer));
-}
-
-.shortcut-settings-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.settings-message {
-  margin: 0 0 10px;
-  color: #4f5b36;
-  font-size: .78rem;
-}
-
-.settings-message.settings-error {
-  color: #9a3412;
-}
-
-.settings-note code {
-  color: #374151;
-  font-family: JuliaMono, monospace;
-  font-size: .78em;
 }
 
 /* Commands lives in the header above the editor regardless of Goals
