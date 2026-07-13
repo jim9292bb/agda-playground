@@ -1154,6 +1154,7 @@ $effect(() => {
                 </button>
               {/each}
             </div>
+            <div class="header-menu-backdrop" role="presentation" onclick={() => { commandsPanelVisible = false }}></div>
           {/if}
         </div>
         <button type="button" class="header-action-btn" onclick={copyEditorCode}>Copy</button>
@@ -1754,6 +1755,17 @@ $effect(() => {
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0,0,0,.1);
   overflow: hidden;
+}
+
+/* Invisible full-viewport click-catcher so opening a header dropdown
+   (Examples, Commands) and then clicking anywhere outside it closes the
+   dropdown, not just re-clicking the toggle button. Sits below the
+   dropdown's own z-index (200) but above everything else on the page. */
+.header-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  background: transparent;
 }
 
 .header-examples-item {
