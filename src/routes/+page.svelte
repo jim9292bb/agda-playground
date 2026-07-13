@@ -17,11 +17,14 @@ import { getAgdaDocumentVersion, getAgdaGoals, mergeGoalInfos } from '$lib/agda/
 import { getGoalAtPosition, getGoalRangeById } from '$lib/agda/goals'
 import { getAgdaShortcutContext } from '$lib/agda/shortcut-context'
 import {
+  advanceAgdaChord,
   agdaShortcutRegistry,
+  chordStepsOf,
   createAgdaShortcutRegistry,
-  findAgdaChordShortcut,
+  displayKey,
+  findAgdaShortcutById,
   formatAgdaShortcutHelpBinding,
-  isAgdaCtrlKey,
+  reservedChordSequences,
   validateAgdaShortcutOverrides,
 } from '$lib/agda/shortcuts'
 import { lookupChar, formatCodePoint } from '$lib/agda/input-lookup'
@@ -518,17 +521,11 @@ async function requestActiveGoalDetails(/** @type {number} */ goalId, /** @type 
   }
 }
 
-let waitingForAgdaChord = $state(false)
-let agdaChordSubPrefix = /** @type {string | undefined} */(undefined)
-let waitingForCxChord = $state(false)
+/** @type {import('$lib/agda/shortcuts').ChordStep[]} */
+let chordProgress = $state([])
 
-function clearAgdaChord() {
-  waitingForAgdaChord = false
-  agdaChordSubPrefix = undefined
-}
-
-function clearCxChord() {
-  waitingForCxChord = false
+function clearChordProgress() {
+  chordProgress = []
 }
 
 /** @param {EditorView} view */
@@ -674,8 +671,10 @@ const agdaKeymap = keymap.of(agdaShortcutRegistry.flatMap(shortcut =>
     }))))
 
 /**
- * Handles Agda/Emacs-style two-key chords before the browser can consume
- * shortcuts such as Ctrl-L.
+ * Handles Agda/Emacs-style multi-key chords (e.g. Ctrl-c Ctrl-l, or
+ * Ctrl-c Ctrl-x Ctrl-a for abort) before the browser can consume shortcuts
+ * such as Ctrl-L. Advances chordProgress by one key per call against
+ * chordTable (reserved sequences + the active shortcut registry).
  *
  * @param {KeyboardEvent} event
  * @param {EditorView} view
@@ -683,56 +682,37 @@ const agdaKeymap = keymap.of(agdaShortcutRegistry.flatMap(shortcut =>
 function handleAgdaChordKeydown(event, view) {
   if (event.isComposing || !view.hasFocus) return false
 
-  // C-x chord (e.g. C-x C-= for Unicode lookup)
-  if (isAgdaCtrlKey(event, 'x') && !waitingForAgdaChord && !waitingForCxChord) {
-    event.preventDefault()
-    event.stopPropagation()
-    waitingForCxChord = true
-    return true
-  }
-
-  if (waitingForCxChord) {
-    if (['Control', 'Alt', 'Shift', 'Meta'].includes(event.key)) return false
-    event.preventDefault()
-    event.stopPropagation()
-    clearCxChord()
-    if (event.key === '=') lookupUnicodeAtCursor(view)
-    return true
-  }
-
-  // C-c chord
-  if (isAgdaCtrlKey(event, 'c') && !waitingForAgdaChord) {
-    event.preventDefault()
-    event.stopPropagation()
-    waitingForAgdaChord = true
-    return true
-  }
-
-  if (!waitingForAgdaChord) return false
-
-  // Modifier-only keypresses are not a second chord key; the user may release
-  // and re-press Ctrl between the two chord keys without cancelling the chord.
+  // Modifier-only keypresses are not a chord key; the user may release and
+  // re-press Ctrl between chord keys without cancelling the chord.
   if (['Control', 'Alt', 'Shift', 'Meta'].includes(event.key)) return false
+
+  const result = advanceAgdaChord(chordProgress, event, chordTable)
+
+  if (result.status === 'no-match') {
+    if (chordProgress.length === 0) return false
+    clearChordProgress()
+    event.preventDefault()
+    event.stopPropagation()
+    return true
+  }
 
   event.preventDefault()
   event.stopPropagation()
 
-  // C-c C-x is a sub-prefix for three-key chords (e.g. C-c C-x C-a = abort)
-  if (!agdaChordSubPrefix && isAgdaCtrlKey(event, 'x')) {
-    agdaChordSubPrefix = 'x'
+  if (result.status === 'partial') {
+    chordProgress = result.progress
     return true
   }
 
-  const subPrefix = agdaChordSubPrefix
-  clearAgdaChord()
-
-  if (subPrefix === 'x') {
-    if (isAgdaCtrlKey(event, 'a')) sendAbort()
-    return true
+  clearChordProgress()
+  if (result.id === '__unicode-lookup') {
+    lookupUnicodeAtCursor(view)
+  } else if (result.id === '__abort') {
+    sendAbort()
+  } else {
+    const shortcut = findAgdaShortcutById(result.id, activeAgdaShortcutRegistry)
+    if (shortcut) runAgdaShortcutDefinition(shortcut, view)
   }
-
-  const shortcut = findAgdaChordShortcut(event, activeAgdaShortcutRegistry)
-  if (shortcut) runAgdaShortcutDefinition(shortcut, view)
 
   return true
 }
@@ -803,8 +783,7 @@ function codeMirror(el) {
   return () => {
     window.removeEventListener('keydown', captureAgdaChord, { capture: true })
     ev.dom.removeEventListener('agda-reload-needed', reloadAfterAgdaEdit)
-    clearAgdaChord()
-    clearCxChord()
+    clearChordProgress()
     ev.destroy()
   }
 }
@@ -1054,6 +1033,13 @@ let shortcutDrafts = $state({ ...initialShortcutOverrides })
 let shortcutOverrideMessage = $state('')
 let activeAgdaShortcutRegistry = $derived(createAgdaShortcutRegistry(shortcutOverrides))
 let shortcutDraftValidation = $derived(validateAgdaShortcutOverrides(cleanShortcutOverrides(shortcutDrafts)))
+let chordTable = $derived([
+  ...reservedChordSequences,
+  ...activeAgdaShortcutRegistry.flatMap(shortcut =>
+    shortcut.bindings
+      .filter(binding => binding.kind === 'chord')
+      .map(binding => ({ id: shortcut.id, steps: chordStepsOf(binding) }))),
+])
 let commandInputPrompt = $state(/** @type {null | {
   label: string,
   value: string,
@@ -1184,10 +1170,10 @@ $effect(() => {
       <section class="editor-pane" bind:this={editorPaneSectionEl}>
         <div class="editor-wrap">
           <div class="container" {@attach codeMirror}></div>
-          {#if waitingForAgdaChord}
-            <div class="chord-hint" aria-live="polite" aria-label="Waiting for second chord key">C-c</div>
-          {:else if waitingForCxChord}
-            <div class="chord-hint" aria-live="polite" aria-label="Waiting for second chord key">C-x</div>
+          {#if chordProgress.length > 0}
+            <div class="chord-hint" aria-live="polite" aria-label="Waiting for next chord key">
+              {chordProgress.map(step => `C-${displayKey(step.key)}`).join(' ')}
+            </div>
           {/if}
         </div>
       </section>
@@ -1567,7 +1553,7 @@ $effect(() => {
           {:else if selectedSettingsSegment === 'commands'}
             <div id="settings-panel-commands" class="settings-section" role="tabpanel" aria-labelledby="command-settings-title">
               <h3 id="command-settings-title">Commands and shortcuts</h3>
-              <p class="settings-note">Replace Agda chord shortcuts with values like <code>Ctrl-c Ctrl-g</code> or <code>Ctrl-c Space</code>. Built-in editor keyboard shortcuts such as Cmd-Enter remain available.</p>
+              <p class="settings-note">Replace Agda chord shortcuts with values like <code>C-c C-g</code> (<code>C-c</code> means Ctrl + c). A chord can start with any key and be any length, e.g. <code>C-x C-s</code> or <code>C-c C-x C-r</code>. Use <code>SPC</code> or <code>Space</code> for the space bar, e.g. <code>C-c C-SPC</code>. Built-in editor keyboard shortcuts such as Cmd-Enter remain available.</p>
               <div class="shortcut-settings-actions">
                 <button type="button" class="settings-action-button primary" disabled={!shortcutDraftValidation.valid} onclick={saveShortcutOverrides}>Save shortcuts</button>
                 <button type="button" class="settings-action-button" onclick={resetShortcutOverrides}>Reset to defaults</button>

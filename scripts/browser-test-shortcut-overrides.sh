@@ -140,4 +140,56 @@ ab wait 3000
 assert_log_contains "Why in scope finished." "Overridden Why in scope response"
 
 echo "PASS overridden Ctrl-c Ctrl-u triggers Why in scope"
+
+# Conflict detection: overriding Refine to duplicate Case split's default
+# chord (still untouched at this point in the script — Load/Give/Why-in-scope
+# were already moved off their defaults above) must disable Save and name
+# both shortcuts in the error message.
+ab eval "(async () => {
+  const settings = Array.from(document.querySelectorAll('button'))
+    .find(button => button.textContent.trim() === 'Settings' || (button.getAttribute('aria-label') || '').trim() === 'Settings')
+  if (!settings) throw new Error('Settings button missing')
+  settings.click()
+  await new Promise(r => setTimeout(r, 100))
+
+  const commandsTab = Array.from(document.querySelectorAll('.settings-segmented-control button'))
+    .find(button => button.textContent.trim() === 'Commands')
+  if (!commandsTab) throw new Error('Commands segment missing')
+  commandsTab.click()
+  await new Promise(r => setTimeout(r, 100))
+
+  const row = Array.from(document.querySelectorAll('.shortcut-settings-row'))
+    .find(row => row.querySelector('strong')?.textContent?.trim() === 'Refine')
+  if (!row) throw new Error('Refine shortcut row missing')
+  const input = row.querySelector('input')
+  input.value = 'Ctrl-c Ctrl-c'
+  input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: 'Ctrl-c Ctrl-c' }))
+  await new Promise(r => setTimeout(r, 100))
+
+  const save = Array.from(document.querySelectorAll('button'))
+    .find(button => button.textContent.trim() === 'Save shortcuts')
+  if (!save) throw new Error('Save shortcuts button missing')
+  if (!save.disabled) throw new Error('Save shortcuts should be disabled on a conflicting override')
+
+  const message = document.querySelector('.settings-message')?.textContent ?? ''
+  if (!message.includes('case-split') || !message.includes('refine')) {
+    throw new Error('Conflict error message did not name both shortcuts: ' + message)
+  }
+
+  // Clear the conflicting draft so it doesn't linger in localStorage.
+  const clear = Array.from(row.querySelectorAll('button'))
+    .find(button => button.textContent.trim() === 'Clear')
+  if (!clear) throw new Error('Refine clear button missing')
+  clear.click()
+  await new Promise(r => setTimeout(r, 100))
+
+  const close = Array.from(document.querySelectorAll('button'))
+    .find(button => button.textContent.trim() === 'Close')
+  if (!close) throw new Error('Settings close button missing')
+  close.click()
+  await new Promise(r => setTimeout(r, 100))
+  return { ok: true, message }
+})()"
+
+echo "PASS conflicting override (duplicate of Load) disables Save"
 echo "browser-test-shortcut-overrides: PASS"
