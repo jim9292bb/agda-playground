@@ -8,6 +8,10 @@ import { EditorView, keymap } from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
 
 import SplitPane from '$lib/components/SplitPane.svelte'
+import AboutPanel from '$lib/components/AboutPanel.svelte'
+import HeaderExamplePicker from '$lib/components/HeaderExamplePicker.svelte'
+import QueriesPanel from '$lib/components/QueriesPanel.svelte'
+import DiagnosticsPanel from '$lib/components/DiagnosticsPanel.svelte'
 import { AgdaController, LS_DOC_KEY, deployProfiles, resolveProfileLibraries } from '$lib/controller.svelte'
 import { myCodeMirrorTheme } from '$lib/codemirror/theme'
 import { agdaInputMethod } from '$lib/codemirror/agda-input'
@@ -48,7 +52,6 @@ import {
   whyInScopeCommand,
   whyInScopeToplevelCommand,
 } from '$lib/agda/commands'
-import { diagnosticToAgdaUtf8Position, focusAgdaUtf8Position } from '$lib/agda/diagnostics'
 
 import { clearGoals, clearRunningInfo, emitRunningInfo, removeGoalInfo, setGoalInfo } from '$lib/agda/effects'
 import { triggerPrefetch } from '$lib/agda/prefetch'
@@ -972,29 +975,6 @@ function syncAgdaDiagnostics() {
   agdaDiagnostics = [...(agdaController.alsRouter?.lastAgdaDiagnostics ?? [])]
 }
 
-/** @param {import('$lib/agda/diagnostics').AgdaDiagnostic} diagnostic */
-function formatDiagnosticLocation(diagnostic) {
-  const start = `${diagnostic.filepath}:${diagnostic.line}.${diagnostic.column}`
-  if (diagnostic.endLine == null || diagnostic.endColumn == null) return start
-  if (diagnostic.endLine === diagnostic.line) return `${start}-${diagnostic.endColumn}`
-  return `${start}-${diagnostic.endLine}.${diagnostic.endColumn}`
-}
-
-/** @param {import('$lib/agda/diagnostics').AgdaDiagnostic} diagnostic */
-function canFocusDiagnostic(diagnostic) {
-  return diagnostic.filepath === '/source.agda' &&
-    Number.isFinite(diagnostic.line) &&
-    Number.isFinite(diagnostic.column)
-}
-
-/** @param {import('$lib/agda/diagnostics').AgdaDiagnostic} diagnostic */
-function focusDiagnostic(diagnostic) {
-  const editorView = agdaController.editorView
-  if (!editorView || !canFocusDiagnostic(diagnostic)) return
-  const position = diagnosticToAgdaUtf8Position(editorView.state, diagnostic)
-  focusAgdaUtf8Position(editorView, position)
-}
-
 /** @type {HTMLDivElement | undefined} */
 let textbox = $state(/** @type {HTMLDivElement | undefined} */(undefined))
 
@@ -1023,7 +1003,6 @@ function toggleCommandsPanel() {
   commandsPanelVisible = !commandsPanelVisible
 }
 let settingsPanelVisible = $state(false)
-let examplesMenuOpen = $state(false)
 let aboutPanelVisible = $state(false)
 /** @type {HTMLInputElement} */
 let fileInput
@@ -1123,7 +1102,7 @@ $effect(() => {
     <header class="header">
       <div class="header-left">
         <span class="header-title">Agda Playground</span>
-        {@render headerExamplePicker()}
+        <HeaderExamplePicker examples={scratchpadExamples} {selectedExampleId} onSelect={selectScratchpadExample} />
       </div>
       <div class="header-actions">
         <div class="header-commands-wrap">
@@ -1217,7 +1196,7 @@ $effect(() => {
   {/snippet}
 </SplitPane>
 {@render settingsPanel()}
-{@render aboutPanel()}
+<AboutPanel bind:visible={aboutPanelVisible} {runtimeSummary} />
 {/snippet}
 
 {#snippet goalsPanel()}
@@ -1303,69 +1282,14 @@ $effect(() => {
           {/if}
         </div>
       {:else if selectedMessageTab === 'queries'}
-        {@render queriesPanel()}
+        <QueriesPanel {agdaController} />
       {:else}
-        {@render diagnosticsPanel()}
+        <DiagnosticsPanel diagnostics={agdaDiagnostics} {agdaController} />
       {/if}
     </div>
   </section>
 {/snippet}
 
-{#snippet queriesPanel()}
-  <section class="queries-panel" aria-label="Agda query results">
-    <header class="queries-panel-header">
-      <span>Query results</span>
-      {#if agdaController.queryResults.length}
-        <button type="button" class="queries-clear-btn" onclick={() => agdaController.clearQueryResults()}>Clear</button>
-      {/if}
-    </header>
-    {#if agdaController.queryResults.length}
-      <div class="queries-list">
-        {#each agdaController.queryResults as result (result.id)}
-          <div class="query-result">
-            <div class="query-result-label">{result.label}</div>
-            <pre class="query-result-content">{result.content}</pre>
-          </div>
-        {/each}
-      </div>
-    {:else}
-      <div class="queries-empty">No query results yet. Use C-c C-t, C-c C-,, C-c C-e, etc.</div>
-    {/if}
-  </section>
-{/snippet}
-
-{#snippet diagnosticsPanel()}
-  <section class="diagnostics-panel" aria-label="Agda diagnostics">
-    <header class="diagnostics-panel-title">Diagnostics</header>
-    {#if agdaDiagnostics.length}
-      <div class="diagnostics-list">
-          {#each agdaDiagnostics as diagnostic}
-            <button
-              class:clickable={canFocusDiagnostic(diagnostic)}
-              class:error={diagnostic.severity === 'error'}
-              class:warning={diagnostic.severity === 'warning'}
-              class="diagnostic-card"
-              type="button"
-              disabled={!canFocusDiagnostic(diagnostic)}
-              aria-label={`Jump to ${formatDiagnosticLocation(diagnostic)}`}
-              onclick={() => focusDiagnostic(diagnostic)}
-            >
-              <div class="diagnostic-meta">
-                <strong>{diagnostic.severity}</strong>
-                {#if diagnostic.code}
-                  <code>{diagnostic.code}</code>
-                {/if}
-              </div>
-              <div class="diagnostic-location">{formatDiagnosticLocation(diagnostic)}</div>
-              <pre>{diagnostic.message}</pre>
-            </button>
-          {/each}
-      </div>
-    {:else}
-      <div class="diagnostics-empty">No diagnostics.</div>
-    {/if}
-  </section>
-{/snippet}
 
 {#snippet alsButtons()}
   {@const statusMeta = {
@@ -1426,27 +1350,6 @@ $effect(() => {
   </div>
 {/snippet}
 
-{#snippet aboutPanel()}
-  {#if aboutPanelVisible}
-    <div class="about-backdrop" role="presentation" onclick={() => { aboutPanelVisible = false }}></div>
-    <div class="about-panel" role="dialog" aria-modal="true" aria-label="About Agda Playground">
-      <div class="about-header">
-        <h2 class="about-title">Agda Playground</h2>
-        <button type="button" class="about-close" aria-label="Close" onclick={() => { aboutPanelVisible = false }}>✕</button>
-      </div>
-      <p class="about-desc">A browser-hosted single-file Agda playground for demonstrations, learning, and practice.</p>
-      <dl class="about-meta">
-        {#each runtimeSummary() as item}
-          <div class="about-meta-row"><dt>{item.label}</dt><dd>{item.value}</dd></div>
-        {/each}
-        <div class="about-meta-row"><dt>Commit</dt><dd><code>{APP_COMMIT_ID}</code></dd></div>
-      </dl>
-      <a class="about-github" href="https://github.com/jim9292bb/agda-playground" target="_blank" rel="noopener noreferrer">
-        Source code on GitHub ↗
-      </a>
-    </div>
-  {/if}
-{/snippet}
 
 {#snippet settingsPanel()}
   {#if settingsPanelVisible}
@@ -1600,36 +1503,6 @@ $effect(() => {
 
 
 
-{#snippet headerExamplePicker()}
-  <div class="header-examples-wrap">
-    <button
-      type="button"
-      class="header-examples-btn"
-      aria-expanded={examplesMenuOpen}
-      onclick={() => { examplesMenuOpen = !examplesMenuOpen }}>
-      Examples
-      <svg class="header-dropdown-arrow" class:open={examplesMenuOpen} viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden="true">
-        <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
-      </svg>
-    </button>
-    {#if examplesMenuOpen}
-      <div class="header-examples-menu" role="menu">
-        {#each scratchpadExamples as example}
-          <button
-            type="button"
-            class="header-examples-item"
-            class:active={example.id === selectedExampleId}
-            role="menuitem"
-            title={example.description}
-            onclick={() => { selectScratchpadExample(example.id); examplesMenuOpen = false }}>
-            {example.label}
-          </button>
-        {/each}
-      </div>
-      <div class="header-menu-backdrop" role="presentation" onclick={() => { examplesMenuOpen = false }}></div>
-    {/if}
-  </div>
-{/snippet}
 
 <input
   bind:this={fileInput}
@@ -1702,32 +1575,6 @@ $effect(() => {
   white-space: nowrap;
 }
 
-.header-examples-wrap {
-  position: relative;
-  flex: 0 0 auto;
-}
-
-.header-examples-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  background: var(--quiet-neutral-fill);
-  color: #374151;
-  font: inherit;
-  font-size: .82rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.header-examples-btn:hover {
-  border-color: var(--quiet-primary-stroke-soft);
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, var(--quiet-neutral-fill));
-  color: var(--quiet-primary-text, #3b3aab);
-}
-
 .commands-panel-toggle {
   display: flex;
   align-items: center;
@@ -1744,50 +1591,16 @@ $effect(() => {
   transform: rotate(180deg);
 }
 
-.header-examples-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  z-index: 200;
-  min-width: 200px;
-  background: var(--quiet-neutral-fill-softer);
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0,0,0,.1);
-  overflow: hidden;
-}
-
-/* Invisible full-viewport click-catcher so opening a header dropdown
-   (Examples, Commands) and then clicking anywhere outside it closes the
-   dropdown, not just re-clicking the toggle button. Sits below the
-   dropdown's own z-index (200) but above everything else on the page. */
+/* Invisible full-viewport click-catcher so opening the Commands dropdown
+   and then clicking anywhere outside it closes it, not just re-clicking
+   the toggle button. Sits below the dropdown's own z-index (200) but
+   above everything else on the page. HeaderExamplePicker.svelte has an
+   identical duplicate for its own dropdown. */
 .header-menu-backdrop {
   position: fixed;
   inset: 0;
   z-index: 150;
   background: transparent;
-}
-
-.header-examples-item {
-  display: block;
-  width: 100%;
-  padding: 8px 14px;
-  text-align: left;
-  font: inherit;
-  font-size: .85rem;
-  background: none;
-  border: none;
-  color: inherit;
-  cursor: pointer;
-}
-
-.header-examples-item:hover {
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 12%, transparent);
-}
-
-.header-examples-item.active {
-  font-weight: 600;
-  color: var(--quiet-primary-text);
 }
 
 .editor-wrap {
@@ -1904,86 +1717,6 @@ $effect(() => {
   background: color-mix(in srgb, var(--quiet-primary-fill-soft) 22%, transparent);
   color: var(--quiet-primary-text, #3b3aab);
 }
-
-.about-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 300;
-  background: rgba(0,0,0,.3);
-}
-
-.about-panel {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 301;
-  width: 340px;
-  background: var(--quiet-neutral-fill);
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0,0,0,.15);
-  padding: 20px;
-}
-
-.about-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-
-.about-title {
-  font-size: 1rem;
-  font-family: monospace;
-  letter-spacing: .04em;
-  margin: 0;
-}
-
-.about-close {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: .9rem;
-  color: #888;
-  padding: 2px 6px;
-}
-
-.about-close:hover { color: inherit; }
-
-.about-desc {
-  font-size: .85rem;
-  color: #666;
-  margin: 0 0 14px;
-  line-height: 1.5;
-}
-
-.about-meta {
-  margin: 0 0 14px;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 4px 12px;
-  font-size: .8rem;
-}
-
-.about-meta-row { display: contents; }
-
-.about-meta dt { color: #999; }
-
-.about-meta code {
-  font-size: .75rem;
-  background: var(--quiet-neutral-fill-softer);
-  padding: 1px 4px;
-  border-radius: 3px;
-}
-
-.about-github {
-  display: inline-block;
-  font-size: .82rem;
-  color: var(--quiet-primary-text, #3b82f6);
-}
-
-
 
 .als-status-dot {
   width: 8px;
@@ -2410,176 +2143,6 @@ $effect(() => {
   flex: 1 1;
   min-height: 0;
   padding: 0;
-}
-
-.queries-panel {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  min-height: 0;
-  overflow: auto;
-  gap: 0;
-}
-
-.queries-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-  color: #374151;
-  font-size: .78rem;
-  font-weight: 700;
-  letter-spacing: .02em;
-  text-transform: uppercase;
-}
-
-.queries-clear-btn {
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  padding: 1px 7px;
-  background: transparent;
-  color: #777;
-  font-size: .75rem;
-  cursor: pointer;
-}
-
-.queries-clear-btn:hover {
-  border-color: var(--quiet-primary-stroke-soft);
-  color: inherit;
-}
-
-.queries-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.queries-empty {
-  color: #777;
-  font-size: .8rem;
-}
-
-.query-result {
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  background: var(--quiet-neutral-fill-softer);
-  overflow: hidden;
-}
-
-.query-result-label {
-  padding: 3px 8px;
-  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 60%, transparent);
-  border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
-  color: #666;
-  font-size: .75rem;
-  font-weight: 700;
-  letter-spacing: .02em;
-  text-transform: uppercase;
-}
-
-.query-result-content {
-  margin: 0;
-  padding: 6px 8px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-family: JuliaMono, monospace;
-  font-size: 12px;
-}
-
-.diagnostics-panel {
-  display: grid;
-  gap: 8px;
-  width: 100%;
-  min-height: 0;
-  overflow: auto;
-}
-
-.diagnostics-panel-title {
-  color: #374151;
-  font-size: .78rem;
-  font-weight: 700;
-  letter-spacing: .02em;
-  text-transform: uppercase;
-}
-
-.diagnostics-list {
-  display: grid;
-  gap: 8px;
-}
-
-.diagnostics-empty {
-  color: #777;
-  font-size: .8rem;
-}
-
-.diagnostic-card {
-  display: grid;
-  gap: 6px;
-  width: 100%;
-  padding: 8px;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-left-width: 4px;
-  border-radius: 6px;
-  background: var(--quiet-neutral-fill-softer);
-  color: inherit;
-  text-align: left;
-  appearance: none;
-  font: inherit;
-}
-
-.diagnostic-card.error {
-  border-left-color: #c2410c;
-}
-
-.diagnostic-card.warning {
-  border-left-color: #ca8a04;
-}
-
-.diagnostic-card.clickable {
-  cursor: pointer;
-}
-
-.diagnostic-card.clickable:hover,
-.diagnostic-card.clickable:focus-visible {
-  border-color: #777;
-  border-left-color: currentColor;
-  background: var(--quiet-neutral-fill);
-  outline: none;
-}
-
-.diagnostic-card:disabled {
-  opacity: 1;
-}
-
-.diagnostic-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  font-size: .76rem;
-  text-transform: capitalize;
-}
-
-.diagnostic-meta code {
-  color: #666;
-  font-family: JuliaMono, monospace;
-  font-size: .72rem;
-  text-transform: none;
-}
-
-.diagnostic-location {
-  color: #444;
-  font-family: JuliaMono, monospace;
-  font-size: .76rem;
-}
-
-.diagnostic-card pre {
-  margin: 0;
-  color: #374151;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-family: JuliaMono, monospace;
-  font-size: .72rem;
 }
 
 .messages-log {
