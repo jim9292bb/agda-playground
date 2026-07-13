@@ -10,12 +10,12 @@ import { EditorState } from '@codemirror/state'
 import SplitPane from '$lib/components/SplitPane.svelte'
 import AboutPanel from '$lib/components/AboutPanel.svelte'
 import HeaderExamplePicker from '$lib/components/HeaderExamplePicker.svelte'
-import QueriesPanel from '$lib/components/QueriesPanel.svelte'
-import DiagnosticsPanel from '$lib/components/DiagnosticsPanel.svelte'
+import AlsControlCard from '$lib/components/AlsControlCard.svelte'
+import GoalsPanel from '$lib/components/GoalsPanel.svelte'
+import MessagesPanel from '$lib/components/MessagesPanel.svelte'
 import { AgdaController, LS_DOC_KEY, deployProfiles, resolveProfileLibraries } from '$lib/controller.svelte'
 import { myCodeMirrorTheme } from '$lib/codemirror/theme'
 import { agdaInputMethod } from '$lib/codemirror/agda-input'
-import { attachAgdaIM } from '$lib/codemirror/agda-input-dom'
 import { agdaSupport } from '$lib/agda'
 import { getAgdaDocumentVersion, getAgdaGoals, mergeGoalInfos } from '$lib/agda/goal-state'
 import { getGoalAtPosition, getGoalRangeById } from '$lib/agda/goals'
@@ -975,11 +975,7 @@ function syncAgdaDiagnostics() {
   agdaDiagnostics = [...(agdaController.alsRouter?.lastAgdaDiagnostics ?? [])]
 }
 
-/** @type {HTMLDivElement | undefined} */
-let textbox = $state(/** @type {HTMLDivElement | undefined} */(undefined))
-
 let textboxContent = $state('WIP')
-let logEntries = $derived(textboxContent.trimEnd().split(/\n+/).filter(Boolean))
 let selectedExampleId = $state('cubical-prelude')
 let selectedScratchpadExample = $derived(scratchpadExamples.find(example => example.id === selectedExampleId))
 const initialShortcutOverrides = loadShortcutOverrides()
@@ -1029,35 +1025,6 @@ let commandInputPrompt = $state(/** @type {null | {
 let commandInputError = $state('')
 /** @type {HTMLInputElement | undefined} */
 let commandInputElement = $state(/** @type {HTMLInputElement | undefined} */(undefined))
-
-/** @param {HTMLInputElement} el */
-function agdaInputAction(el) {
-  const cleanup = attachAgdaIM(el)
-  return { destroy: cleanup }
-}
-
-/** @type {number | undefined} */
-let raf
-let needScroll = false
-
-$effect.pre(() => {
-  textboxContent
-  if (textbox && textbox.scrollHeight - textbox.clientHeight - textbox.scrollTop < 50) {
-    needScroll = true
-  }
-})
-
-$effect(() => {
-  textboxContent
-  untrack(() => raf)
-  if (needScroll && !raf) {
-    raf = requestAnimationFrame(() => {
-      if (textbox) textbox.scrollTop = textbox.scrollHeight
-      raf = undefined
-      needScroll = false
-    })
-  }
-})
 
 $effect(() => {
   const view = agdaController.editorView
@@ -1159,7 +1126,21 @@ $effect(() => {
       </section>
       {/snippet}
       {#snippet end()}
-        {#if effectiveGoalsPosition === 'bottom'}{@render goalsPanel()}{/if}
+        {#if effectiveGoalsPosition === 'bottom'}
+          <GoalsPanel
+            position={effectiveGoalsPosition}
+            {commandInputPrompt}
+            {commandInputError}
+            {panelGoalInfos}
+            {activeGoalId}
+            {activeGoalDetailStatus}
+            {activeGoalDetailError}
+            bind:commandInputElement
+            onSubmitCommandInput={submitCommandInputPrompt}
+            onCancelCommandInput={cancelCommandInputPrompt}
+            onFocusGoal={focusGoal}
+          />
+        {/if}
       {/snippet}
     </SplitPane>
   </section>
@@ -1169,12 +1150,24 @@ $effect(() => {
     {#if effectiveGoalsPosition === 'right'}
       <div class="right-column-fixed">
         <section class="info-section">
-          {@render alsButtons()}
+          <AlsControlCard {agdaController} {deployProfiles} {onDeploymentProfileChange} onToggleCommands={toggleCommandsPanel} onOpenAbout={() => { aboutPanelVisible = true }} onOpenSettings={openSettingsPanel} />
         </section>
         <section class="output-section">
           <div class="right-goals-stack">
-            {@render goalsPanel()}
-            {@render messagesPanel()}
+            <GoalsPanel
+              position={effectiveGoalsPosition}
+              {commandInputPrompt}
+              {commandInputError}
+              {panelGoalInfos}
+              {activeGoalId}
+              {activeGoalDetailStatus}
+              {activeGoalDetailError}
+              bind:commandInputElement
+              onSubmitCommandInput={submitCommandInputPrompt}
+              onCancelCommandInput={cancelCommandInputPrompt}
+              onFocusGoal={focusGoal}
+            />
+            <MessagesPanel position={effectiveGoalsPosition} {agdaController} {textboxContent} {agdaDiagnostics} bind:selectedMessageTab />
           </div>
         </section>
       </div>
@@ -1182,12 +1175,12 @@ $effect(() => {
       <SplitPane class="right-column-splitter" orientation="vertical" position={.65}>
         {#snippet start()}
         <section class="info-section">
-          {@render alsButtons()}
+          <AlsControlCard {agdaController} {deployProfiles} {onDeploymentProfileChange} onToggleCommands={toggleCommandsPanel} onOpenAbout={() => { aboutPanelVisible = true }} onOpenSettings={openSettingsPanel} />
         </section>
         {/snippet}
         {#snippet end()}
         <section class="output-section">
-          {@render messagesPanel()}
+          <MessagesPanel position={effectiveGoalsPosition} {agdaController} {textboxContent} {agdaDiagnostics} bind:selectedMessageTab />
         </section>
         {/snippet}
       </SplitPane>
@@ -1199,156 +1192,6 @@ $effect(() => {
 <AboutPanel bind:visible={aboutPanelVisible} {runtimeSummary} />
 {/snippet}
 
-{#snippet goalsPanel()}
-  <section class="goals-section">
-    <header class="panel-header">Goals</header>
-    {#if commandInputPrompt}
-      <form class="command-input-panel" onsubmit={(event) => { event.preventDefault(); submitCommandInputPrompt() }}>
-        <label for="command-input">Input for {commandInputPrompt.label}</label>
-        <div class="command-input-row">
-          <input
-            id="command-input"
-            use:agdaInputAction
-            bind:this={commandInputElement}
-            bind:value={commandInputPrompt.value}
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="Agda expression or name" />
-          <button type="submit">Run</button>
-          <button type="button" onclick={cancelCommandInputPrompt}>Cancel</button>
-        </div>
-        {#if commandInputError}
-          <div class="command-input-error">{commandInputError}</div>
-        {/if}
-      </form>
-    {/if}
-    <div class="goals-list">
-      {#if panelGoalInfos.length === 0}
-        <div class="goals-empty">No goals.</div>
-      {:else}
-        {#each panelGoalInfos as goal (`${goal.id}-${goal.range ?? ''}`)}
-          <button
-            type="button"
-            class:active={goal.id === activeGoalId}
-            class="goal-entry"
-            aria-label={`Focus goal ${goal.id}`}
-            onclick={() => focusGoal(goal.id)}>
-            <div class="goal-head">?{goal.id} : {#if goal.type}{goal.type}{:else if goal.id === activeGoalId && activeGoalDetailStatus === 'loading'}<span class="goal-type-muted">…</span>{:else}<span class="goal-type-muted">?</span>{/if}</div>
-            {#if goal.id === activeGoalId}
-              {#if goal.context}
-                <div class="goal-separator"></div>
-                <pre class="goal-context">{goal.context}</pre>
-              {:else if activeGoalDetailStatus === 'loading'}
-                <div class="goal-separator"></div>
-                <div class="goal-context-empty">Loading…</div>
-              {:else if activeGoalDetailStatus === 'error'}
-                <div class="goal-separator"></div>
-                <div class="goal-context-empty">{activeGoalDetailError}</div>
-              {/if}
-            {/if}
-          </button>
-        {/each}
-      {/if}
-    </div>
-  </section>
-{/snippet}
-
-{#snippet messagesPanel()}
-  <section class="messages-panel" data-log-content={textboxContent} data-performance-entries={JSON.stringify(agdaController.performanceEntries)} data-query-results={agdaController.queryResults.map(r => r.content).join('\n---\n')} aria-label="Messages">
-    <header class="messages-header">
-      <div class="messages-header-info">
-        <strong>Messages</strong>
-        <span>{selectedMessageTab === 'log' ? 'Agda interaction log' : selectedMessageTab === 'queries' ? `${agdaController.queryResults.length} results` : `${agdaDiagnostics.length} diagnostics`}</span>
-      </div>
-      <div class="messages-tab-group" role="group" aria-label="Message view">
-        <button type="button" class="messages-tab" class:active={selectedMessageTab === 'log'}
-          onclick={() => { selectedMessageTab = 'log' }}>Log</button>
-        <button type="button" class="messages-tab" class:active={selectedMessageTab === 'queries'}
-          onclick={() => { selectedMessageTab = 'queries' }}>Queries{agdaController.queryResults.length ? ` (${agdaController.queryResults.length})` : ''}</button>
-        <button type="button" class="messages-tab" class:active={selectedMessageTab === 'errors'}
-          onclick={() => { selectedMessageTab = 'errors' }}>Errors{agdaDiagnostics.length ? ` (${agdaDiagnostics.length})` : ''}</button>
-      </div>
-    </header>
-
-    <div class="messages-body">
-      {#if selectedMessageTab === 'log'}
-        <div bind:this={textbox} class="messages-log" aria-label="Agda log" role="log">
-          {#if logEntries.length}
-            {#each logEntries as entry}
-              <pre class="messages-log-entry">{entry}</pre>
-            {/each}
-          {:else}
-            <div class="messages-log-empty">(log area is empty)</div>
-          {/if}
-        </div>
-      {:else if selectedMessageTab === 'queries'}
-        <QueriesPanel {agdaController} />
-      {:else}
-        <DiagnosticsPanel diagnostics={agdaDiagnostics} {agdaController} />
-      {/if}
-    </div>
-  </section>
-{/snippet}
-
-
-{#snippet alsButtons()}
-  {@const statusMeta = {
-    initial:      { color: '#888',    label: 'Starting...' },
-    loading:      { color: '#f59e0b', label: 'Loading...' },
-    loaded:       { color: '#f59e0b', label: agdaController.driveIsCreated ? 'Setting up...' : 'Fetching libraries...' },
-    active:       { color: '#22c55e', label: 'Active' },
-    deactivating: { color: '#888',    label: 'Stopping...' },
-    errored:      { color: '#ef4444', label: 'Error' },
-    exited:       { color: '#888',    label: 'Exited' },
-    terminated:   { color: '#888',    label: 'Terminated' },
-  }[agdaController.alsWorkerStatus] ?? { color: '#888', label: agdaController.alsWorkerStatus }}
-  <div class="control-card">
-    <div class="control-card-row">
-      <span class="als-status-dot" style="--dot-color: {statusMeta.color}"></span>
-      <span class="als-status-label" style="color: {statusMeta.color}">{statusMeta.label}{#if agdaController.alsWorkerStatus === 'loading' && agdaController.wasmLoadingProgress}{@const p = agdaController.wasmLoadingProgress}{@const loaded = (p.bytesLoaded / 1048576).toFixed(1)}{@const total = p.bytesTotal && p.bytesTotal >= p.bytesLoaded ? ` / ${(p.bytesTotal / 1048576).toFixed(1)}` : ''} {loaded}{total} MB{:else if agdaController.alsWorkerStatus === 'loaded' && !agdaController.driveIsCreated && agdaController.wasmLibraryFetchProgress}{@const lp = agdaController.wasmLibraryFetchProgress} {lp.fetched} / {lp.total}{/if}</span>
-      <button type="button" class="btn btn-primary" onclick={() => agdaController.restartALSWASM()} disabled={agdaController.alsWorkerStatus !== 'active'}>Restart</button>
-      <div class="control-card-actions">
-      <button type="button" class="control-btn control-icon-btn" aria-label="Help" onclick={toggleCommandsPanel}>
-        <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
-          <path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286zm1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94z"/>
-          <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0-1a8 8 0 1 1 0 16A8 8 0 0 1 8 0z"/>
-        </svg>
-      </button>
-      <button type="button" class="control-btn control-icon-btn" aria-label="About" onclick={() => { aboutPanelVisible = true }}>
-        <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
-          <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-          <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
-        </svg>
-      </button>
-      <a class="control-btn control-icon-btn" href="https://github.com/jim9292bb/agda-playground" target="_blank" rel="noopener noreferrer" aria-label="Source code on GitHub">
-        <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
-          <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
-        </svg>
-      </a>
-      <button type="button" class="control-btn control-icon-btn" aria-label="Settings" onclick={openSettingsPanel}>
-        <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
-          <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/>
-          <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.42 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.42-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.475l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.115l.094-.319z"/>
-        </svg>
-      </button>
-      </div>
-    </div>
-    {#if deployProfiles.length > 1}
-      <div class="control-card-profile-row">
-        <label for="control-card-profile-select">Environment</label>
-        <select
-          id="control-card-profile-select"
-          value={agdaController.selectedProfileLabel}
-          disabled={agdaController.alsWorkerStatus === 'loading' || agdaController.alsWorkerStatus === 'deactivating'}
-          onchange={(e) => onDeploymentProfileChange(e.currentTarget.value)}>
-          {#each deployProfiles as profile}
-            <option value={profile.label}>{profile.label}</option>
-          {/each}
-        </select>
-      </div>
-    {/if}
-  </div>
-{/snippet}
 
 
 {#snippet settingsPanel()}
@@ -1638,134 +1481,6 @@ $effect(() => {
   --divider-draggable-area: 13px;
 }
 
-.control-card {
-  margin: 12px;
-  border: 1px solid #b0b4bdb5;
-  border-radius: 6px;
-  background: var(--quiet-neutral-fill);
-  overflow: hidden;
-}
-
-.control-card-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-}
-
-.control-card-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: auto;
-}
-
-.control-card-profile-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-top: 1px solid var(--quiet-neutral-stroke-softer);
-  font-size: 0.85em;
-}
-
-.control-card-profile-row label {
-  color: var(--quiet-neutral-text-softer, inherit);
-  flex-shrink: 0;
-}
-
-.control-card-profile-row select {
-  flex: 1;
-  min-width: 0;
-}
-
-.control-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  background: transparent;
-  color: #374151;
-  font: inherit;
-  font-size: .82rem;
-  cursor: pointer;
-  text-decoration: none;
-}
-
-.control-btn:hover {
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, transparent);
-  border-color: var(--quiet-primary-stroke-soft);
-  color: var(--quiet-primary-text, #3b3aab);
-}
-
-.control-icon-btn {
-  padding: 8px 10px;
-  line-height: 0;
-  border: none;
-  color: #374151;
-}
-
-.control-icon-btn svg {
-  width: 18px;
-  height: 18px;
-}
-
-.control-icon-btn:hover {
-  border: none;
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 22%, transparent);
-  color: var(--quiet-primary-text, #3b3aab);
-}
-
-.als-status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--dot-color);
-  flex-shrink: 0;
-}
-
-.als-status-label {
-  font-size: .78rem;
-  font-weight: 500;
-}
-
-
-.btn {
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  background: var(--quiet-neutral-fill-softer);
-  color: #374151;
-  cursor: pointer;
-  font: inherit;
-  padding: 5px 12px;
-  font-size: .82rem;
-}
-.btn:hover:not(:disabled),
-.btn:focus-visible:not(:disabled) {
-  border-color: var(--quiet-primary-stroke-soft);
-  outline: none;
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, var(--quiet-neutral-fill-softer));
-  color: var(--quiet-primary-text, #3b3aab);
-}
-.btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.btn-primary {
-  background: var(--quiet-primary-fill-soft);
-  border-color: var(--quiet-primary-stroke-soft);
-  color: var(--quiet-primary-text, #3b3aab);
-}
-.btn-primary:hover:not(:disabled),
-.btn-primary:focus-visible:not(:disabled) {
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 85%, var(--quiet-neutral-fill));
-  border-color: var(--quiet-primary-stroke);
-}
-
-
 .container > :global(*) {
   flex: 1 1;
 }
@@ -1836,144 +1551,11 @@ $effect(() => {
   z-index: 10;
 }
 
-.goals-section {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 45%, transparent);
-}
-
-.panel-header {
-  padding: 6px 8px;
-  background: var(--quiet-neutral-fill-softer);
-  border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
-  font-size: .9rem;
-  font-weight: 500;
-  letter-spacing: .02em;
-  text-transform: uppercase;
-}
-
 .output-section {
   display: flex;
   flex-direction: column;
   min-height: 0;
   margin-top: -1px;
-}
-
-.command-input-panel {
-  border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
-  padding: 8px;
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, var(--quiet-neutral-fill-softer));
-}
-
-.command-input-panel label {
-  display: block;
-  margin-bottom: 6px;
-  color: #666;
-  font-size: .8rem;
-  font-weight: 700;
-}
-
-.command-input-row {
-  display: flex;
-  gap: 6px;
-}
-
-.command-input-row input {
-  min-width: 0;
-  flex: 1 1;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  padding: 4px 6px;
-  background: var(--quiet-neutral-fill-softer);
-  color: inherit;
-  font-family: JuliaMono, monospace;
-}
-
-.command-input-row button {
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  padding: 4px 8px;
-  background: var(--quiet-neutral-fill-softer);
-  color: inherit;
-  cursor: pointer;
-}
-
-.command-input-row button:hover,
-.command-input-row button:focus-visible {
-  border-color: var(--quiet-primary-stroke-soft);
-  outline: none;
-}
-
-.command-input-error {
-  margin-top: 6px;
-  color: var(--quiet-destructive-text, #a33);
-  font-size: .8rem;
-}
-
-.goals-list {
-  flex: 1 1;
-  min-height: 0;
-  overflow: auto;
-  padding: 8px;
-}
-
-.goals-empty {
-  color: #777;
-  font-size: .8rem;
-  padding: 4px 0;
-}
-
-.goal-entry {
-  display: block;
-  width: 100%;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  padding: 3px 8px;
-  cursor: pointer;
-  color: inherit;
-  font-family: JuliaMono, monospace;
-  font-size: 12px;
-  text-align: start;
-}
-
-.goal-entry:hover,
-.goal-entry:focus-visible {
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, var(--quiet-neutral-fill-softer));
-  outline: none;
-}
-
-.goal-entry.active {
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 28%, var(--quiet-neutral-fill-softer));
-  box-shadow: inset 2px 0 0 var(--quiet-primary-stroke);
-}
-
-.goal-head {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  line-height: 1.5;
-}
-
-.goal-type-muted {
-  color: #999;
-}
-
-.goal-separator {
-  border-top: 1px solid var(--quiet-neutral-stroke-softer);
-  margin: 4px 0;
-}
-
-.goal-context {
-  margin: 0;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  color: var(--quiet-muted-text, #555);
-}
-
-.goal-context-empty {
-  color: #777;
-  font-size: .8rem;
 }
 
 .info-section {
@@ -2006,176 +1588,18 @@ $effect(() => {
 }
 
 /* Goals docked to 'right': Goals and Messages stack as two fixed-size
-   cards (no drag-resizing between them, unlike editor-goals-splitter),
-   splitting the available height roughly 5.5:4.5. Commands lives in the
-   header above the editor regardless of Goals position. */
+   cards (no drag-resizing between them, unlike editor-goals-splitter).
+   Each panel's own sizing/chrome (flex ratio, outlined-box style, header
+   color) is handled internally via its `position` prop — GoalsPanel.svelte
+   and MessagesPanel.svelte — since a parent's scoped CSS can't reach into
+   a child component's own root element. Commands lives in the header
+   above the editor regardless of Goals position. */
 .right-goals-stack {
   display: flex;
   flex-direction: column;
   min-height: 0;
   height: 100%;
 }
-.right-goals-stack > .goals-section {
-  flex: 5.5 5.5 0;
-  min-height: 0;
-  /* overflow: hidden set by the shared card-chrome rule below; .goals-list's
-     own overflow: auto handles internal scrolling once this cap kicks in. */
-}
-.right-goals-stack > .messages-panel {
-  flex: 4.5 4.5 0;
-  min-height: 0;
-}
-
-/* Goals docked to 'right': Goals and Messages are outlined boxes — a
-   plain border, square corners, no shadow — flatter than the rounded/
-   shadowed card chrome used for 'bottom'. */
-.right-goals-stack > .goals-section,
-.right-goals-stack > .messages-panel {
-  margin: 0;
-  border: 1px solid #e6e9ee;
-  overflow: hidden;
-  background: var(--quiet-neutral-fill);
-}
-.right-goals-stack > .goals-section {
-  border-top-width: 2px;
-}
-
-/* Goals docked to 'right' only — 'bottom' keeps the original neutral
-   header color for both panels. */
-.right-goals-stack .panel-header,
-.right-goals-stack .messages-header {
-  background: #ffffff;
-}
-.right-goals-stack .panel-header,
-.right-goals-stack .messages-header {
-  border-bottom-width: 2px;
-  border-bottom-color: #e6e9ee;
-}
-
-/* Goals docked to 'bottom': Messages (alone in the right column) keeps
-   its card chrome, since there it's the only block and needs to read as
-   its own panel against the page background. margin-top compensates for
-   .output-section's own -1px margin-top (which overlaps the SplitPane
-   divider above it) — without this, that -1px shift clips off the top
-   pixel of this card's own border. */
-.output-section > .messages-panel {
-  margin: 1px 12px 12px 12px;
-  border-radius: 10px;
-  border: 1px solid #d0d2d8;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
-  overflow: hidden;
-  background: var(--quiet-neutral-fill);
-}
-
-.messages-panel {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  height: 100%;
-  background: var(--quiet-neutral-fill);
-}
-
-.messages-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 7px 8px;
-  background: var(--quiet-neutral-fill-softer);
-  border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
-}
-
-.messages-header-info {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  min-width: 0;
-}
-
-.messages-header strong {
-  font-size: .9rem;
-  font-weight: 500;
-  letter-spacing: .02em;
-  text-transform: uppercase;
-}
-
-.messages-header span {
-  color: #666;
-  font-size: .72rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.messages-tab-group {
-  display: flex;
-  gap: 1px;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 5px;
-  background: var(--quiet-neutral-stroke-softer);
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.messages-tab {
-  border: none;
-  background: var(--quiet-neutral-fill-softer);
-  color: #374151;
-  font: inherit;
-  font-size: .72rem;
-  padding: 3px 9px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.messages-tab.active {
-  background: var(--quiet-primary-fill-soft);
-  color: var(--quiet-primary-text, #3b3aab);
-  font-weight: 500;
-}
-
-.messages-tab:hover:not(.active) {
-  background: color-mix(in srgb, var(--quiet-neutral-stroke-softer) 60%, var(--quiet-neutral-fill-softer));
-}
-
-.messages-body {
-  display: flex;
-  flex: 1 1;
-  min-height: 0;
-  padding: 0;
-}
-
-.messages-log {
-  flex: 1 1;
-  min-height: 0;
-  width: 100%;
-  overflow: auto;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 78%, white);
-}
-
-.messages-log-entry {
-  margin: 0;
-  padding: 7px 8px;
-  color: #444;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-family: JuliaMono, monospace;
-  font-size: 11px;
-  line-height: 1.45;
-}
-
-.messages-log-entry + .messages-log-entry {
-  border-top: 1px solid var(--quiet-neutral-stroke-softer);
-}
-
-.messages-log-empty {
-  padding: 8px;
-  color: #777;
-  font-size: .8rem;
-}
-
 
 .settings-close-button {
   border: 1px solid var(--quiet-neutral-stroke-softer);
