@@ -1829,7 +1829,7 @@ $effect(() => {
 
 .control-card {
   margin: 12px;
-  border: 1px solid #b0b4bd;
+  border: 1px solid #b0b4bdb5;
   border-radius: 6px;
   background: var(--quiet-neutral-fill);
   overflow: hidden;
