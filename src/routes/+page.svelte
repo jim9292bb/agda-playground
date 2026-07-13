@@ -326,12 +326,6 @@ function requireGoal(context) {
   return context.goal
 }
 
-/** @param {ReturnType<typeof getAgdaShortcutContext>} context */
-function requireInput(context) {
-  if (!context.input.trim()) throw new Error('Enter an expression in the goal or select one first.')
-  return context.input
-}
-
 /** @param {string} label */
 function clearPendingAgdaGoal(label) {
   if (label === 'Case split' && agdaController.alsRouter) {
