@@ -202,6 +202,11 @@ export class AgdaController {
     const backend = this._ensureBackend()
 
     if (backend.isInitialized()) {
+      // Reusing the worker after stopALSWASM() (e.g. the Restart button,
+      // restartALSWASM()) was once known to deadlock the transport under
+      // an earlier runtime backend — verified no longer reproducible with
+      // browser-wasi-shim-memfs (the sole backend now); see
+      // browser-test-restart-worker-reuse.sh.
       console.warn('reusing worker')
       return this._startALSWASM()
     }
@@ -312,7 +317,6 @@ export class AgdaController {
     if (this.alsWorkerStatus !== 'active') {
       throw new Error('cannot stop if the status is not active')
     }
-    // FIXME: cannot reuse the worker, transport just deadlock
     this.alsWorkerStatus = 'deactivating'
     await this.lspClient!.request('shutdown', null)
     this.lspClient!.notification('exit', null)
