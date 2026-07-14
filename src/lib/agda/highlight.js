@@ -286,8 +286,13 @@ function hoverTooltipProvider(view, pos, side) {
           const div = document.createElement('div')
           div.style = 'font-family: sans-serif; font-size: 14px; max-width: 400px; padding: 8px'
 
-          // FIXME: injection
-          div.innerHTML = spec.atoms.map(x => `<strong>${atomDisplayName(x)}</strong>`).join(' + ') + (spec.id ? ` id=${spec.id}` : '')
+          spec.atoms.forEach((atom, i) => {
+            if (i > 0) div.append(' + ')
+            const strong = document.createElement('strong')
+            strong.textContent = atomDisplayName(atom)
+            div.appendChild(strong)
+          })
+          if (spec.id) div.append(` id=${spec.id}`)
 
           if (spec.meta.note) {
             const pre = document.createElement('pre')
