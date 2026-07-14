@@ -10,8 +10,6 @@ export const setHighlight = StateEffect.define({
     const decos = mapRanges(value.decos, ch)
     return decos === value.decos ? value : { ...value, decos }
   }})
-/** @type {StateEffectType<Range<any>[]>} */
-export const removeHighlight = StateEffect.define({map: mapRanges})
 /**
  * @type {StateEffectType<boolean>}
  * true if intended to clean only tokenbased, all otherwise
