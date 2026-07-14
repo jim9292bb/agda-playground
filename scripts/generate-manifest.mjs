@@ -184,7 +184,13 @@ function createHighlightingClient(workerScript, srcDir, agdaDataDir, wasmPath) {
             resolve(payload)
           }
         }
-      } catch {}
+      } catch (err) {
+        // The Content-Length framing above already guarantees `body` is a
+        // complete message by this point, so a failure here means a real
+        // malformed/unexpected message rather than a partial read — worth
+        // surfacing instead of silently dropping.
+        console.error('Failed to handle ALS message:', err)
+      }
     }
   })
 

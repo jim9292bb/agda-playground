@@ -51,7 +51,10 @@ export function getSelectedAlsVersions() {
     let wasmBytes
     try {
       wasmBytes = statSync(join(REPO_ROOT, 'static', 'als', als, wasmFilename)).size
-    } catch {}
+    } catch {
+      // Not downloaded yet (npm run setup hasn't run) — leave wasmBytes
+      // undefined, the caller treats that as "size unknown".
+    }
     result.push({ version: als, wasmFilename, wasmBytes })
   }
   return result
