@@ -66,7 +66,7 @@ function ensureDir(root: Directory, relPath: string): Directory {
     let child = dir.contents.get(part)
     if (!child) {
       child = new Directory(new Map())
-      ;(child as any).parent = dir
+      child.parent = dir
       dir.contents.set(part, child)
     } else if (!(child instanceof Directory)) {
       throw new Error(`Path component '${part}' is not a directory`)
@@ -81,7 +81,6 @@ function writeFileTo(root: Directory, relPath: string, bytes: Uint8Array, readon
   const name = parts.pop()!
   const dir = ensureDir(root, parts.join('/'))
   const file = new File(bytes, { readonly })
-  ;(file as any).parent = dir
   dir.contents.set(name, file)
   return file
 }

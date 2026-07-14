@@ -37,7 +37,7 @@ const emptyDriveProxyStats: DriveProxyStats = {
   agdai: { pathStat: 0, open: 0, read: 0, write: 0 },
 }
 
-const isSafari = /Apple Computer/.test((navigator as any).vendor)
+const isSafari = /Apple Computer/.test(navigator.vendor)
 
 export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
   private readonly _agdaBuffers: { stdin: SharedArrayBuffer; stdout: SharedArrayBuffer }
