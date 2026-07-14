@@ -245,8 +245,6 @@ export class AgdaController {
 
   async restartALSWASM() {
     await this.stopALSWASM()
-    // FIXME: make one tick for the status transition, is it required?
-    await new Promise(r => setTimeout(r))
     return this.startALSWASM()
   }
 
