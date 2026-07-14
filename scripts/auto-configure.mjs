@@ -28,6 +28,7 @@ import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { extractZip } from './zip-utils.mjs'
 import { getLocalLibraries } from './resolve-deploy-config.mjs'
+import { withRetry } from './fetch-retry.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const DEPLOY_ASSETS = resolve(REPO_ROOT, '.deploy-assets')
@@ -141,9 +142,11 @@ async function exists(path) {
 
 async function download(url, destPath) {
   console.log(`  downloading: ${url}`)
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`failed to fetch ${url}: ${res.status} ${res.statusText}`)
-  const buf = Buffer.from(await res.arrayBuffer())
+  const buf = await withRetry(async () => {
+    const res = await fetch(url)
+    if (!res.ok) throw new Error(`failed to fetch ${url}: ${res.status} ${res.statusText}`)
+    return Buffer.from(await res.arrayBuffer())
+  }, { label: url })
   await mkdir(dirname(destPath), { recursive: true })
   await writeFile(destPath, buf)
 }

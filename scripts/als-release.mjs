@@ -14,6 +14,8 @@
  * ALS_RELEASE here), then set the new version numbers in deploy.config.json.
  */
 
+import { withRetry } from './fetch-retry.mjs'
+
 const ALS_RELEASE =
   'https://github.com/jim9292bb/agda-playground/releases/download/als-runtime'
 
@@ -27,7 +29,9 @@ export const alsWasmUrl = (version) => `${ALS_RELEASE}/${alsWasmFilename(version
 export const agdaDataZipUrl = (version) => `${ALS_RELEASE}/agda-data-${version}.zip`
 
 export async function download(url) {
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`failed to fetch ${url}: ${res.status} ${res.statusText}`)
-  return Buffer.from(await res.arrayBuffer())
+  return withRetry(async () => {
+    const res = await fetch(url)
+    if (!res.ok) throw new Error(`failed to fetch ${url}: ${res.status} ${res.statusText}`)
+    return Buffer.from(await res.arrayBuffer())
+  }, { label: url })
 }
