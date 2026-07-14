@@ -48,7 +48,7 @@ export function parseAgdaDiagnostic(message, defaultSeverity = 'error') {
  * @param {import('@codemirror/state').EditorState} state
  * @param {number} position
  */
-export function clampAgdaUtf8Position(state, position) {
+function clampAgdaUtf8Position(state, position) {
   const maxPosition = state.field(offsetTable).text.utf8len
   return Math.max(0, Math.min(position, maxPosition))
 }

@@ -2,7 +2,7 @@ import { Compartment, type Extension } from '@codemirror/state'
 import { EditorView, ViewPlugin } from '@codemirror/view'
 
 // TODO: split baseTheme with (the real) theme
-export const myBaseTheme = EditorView.baseTheme({
+const myBaseTheme = EditorView.baseTheme({
   '&': {
     border: '0 none',
     fontSize: '14px',

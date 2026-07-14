@@ -16,10 +16,10 @@ import type { DriveProxyStats, PerformanceEntry, WASMLoadingProgress } from './w
 import { BrowserWasiShimRuntimeBackend } from './runtime/browser-wasi-shim'
 import {
   deployProfiles, resolveProfileLibraries,
-  type SupportedAgdaVersion, type DriveHandle, type RuntimeBackend, type DeployProfile,
+  type DriveHandle, type RuntimeBackend, type DeployProfile,
 } from './runtime/interface'
 
-export type { SupportedAgdaVersion, DriveHandle, DeployProfile }
+export type { DriveHandle, DeployProfile }
 export { deployProfiles, resolveProfileLibraries }
 
 export const LS_DOC_KEY = 'agda-web-ide-beta:doc'

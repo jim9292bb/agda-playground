@@ -19,7 +19,6 @@ const AGDA_DATA_ZIP_NAME = 'agda-data.zip'
 // choices to keep in sync. See DEPLOYMENT.md for the field docs
 // (deploy.config.json is plain JSON, no comment syntax to carry them inline).
 
-export { DEPLOY_CONFIG }
 export const deployProfiles = DEPLOY_CONFIG.profiles
 export type DeployProfile = (typeof deployProfiles)[number]
 
@@ -129,7 +128,7 @@ for (const profile of deployProfiles) {
 // Derived from the set of `als` names used across deployProfiles.
 // wasmFilename comes from generated-als-info.mjs (built by generate-als-info.mjs).
 
-export const supportedAgdaVersions: readonly string[] =
+const supportedAgdaVersions: readonly string[] =
   [...new Set(deployProfiles.map(p => p.als))]
 export type SupportedAgdaVersion = string
 
@@ -139,7 +138,7 @@ interface AgdaVersionSpec {
   wasmBytes?: number
 }
 
-export const agdaVersionMap: Record<SupportedAgdaVersion, AgdaVersionSpec> = Object.create(null)
+const agdaVersionMap: Record<SupportedAgdaVersion, AgdaVersionSpec> = Object.create(null)
 for (const profile of deployProfiles) {
   const { als } = profile
   if (als in agdaVersionMap) continue
@@ -183,7 +182,7 @@ export interface DriveHandle {
 
 // ── Backend interface ─────────────────────────────────────────────────────────
 
-export interface BackendCallbacks {
+interface BackendCallbacks {
   onWASMLoadingProgressChange(progress: WASMLoadingProgress | null): void
   onWASMLoaded(): void
   onVersionReceived(version: string): void

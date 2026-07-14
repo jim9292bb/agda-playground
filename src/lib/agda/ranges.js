@@ -17,7 +17,7 @@ export const noAgdaRange = 'noRange'
  * @param {EditorState} state
  * @param {number} offset
  */
-export function clampOffsetToCommittedDoc(state, offset) {
+function clampOffsetToCommittedDoc(state, offset) {
   const committedDocLength = state.field(offsetTable).doc.length
   return Math.max(0, Math.min(offset, state.doc.length, committedDocLength))
 }
@@ -27,7 +27,7 @@ export function clampOffsetToCommittedDoc(state, offset) {
  * @param {number} offset
  * @param {AgdaPointOptions} [options]
  */
-export function cmOffsetToAgdaPoint(state, offset, options = {}) {
+function cmOffsetToAgdaPoint(state, offset, options = {}) {
   const clampedOffset = clampOffsetToCommittedDoc(state, offset)
   const line = state.doc.lineAt(clampedOffset)
   const utf8Offset = utf16PosToUtf8(state, clampedOffset)
@@ -84,7 +84,7 @@ export function formatAgdaRange(filepath, start, end, agdaVersion) {
  * @param {{start?: AgdaPointOptions, end?: AgdaPointOptions}} [options]
  * @param {string} [agdaVersion]
  */
-export function cmOffsetsToAgdaRange(state, filepath, from, to, options = {}, agdaVersion) {
+function cmOffsetsToAgdaRange(state, filepath, from, to, options = {}, agdaVersion) {
   return formatAgdaRange(
     filepath,
     cmOffsetToAgdaPoint(state, from, options.start),

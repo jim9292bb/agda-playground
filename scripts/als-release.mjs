@@ -14,7 +14,7 @@
  * ALS_RELEASE here), then set the new version numbers in deploy.config.json.
  */
 
-export const ALS_RELEASE =
+const ALS_RELEASE =
   'https://github.com/jim9292bb/agda-playground/releases/download/als-runtime'
 
 /** The ALS version used by local tooling (dependency-graph extraction via

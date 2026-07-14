@@ -25,17 +25,7 @@ export interface WASMLoadingProgress {
   cancel?: () => void
 }
 
-export interface ALSWorkerInitObject {
-  wasmSource: WASMSource
-  args?: string[]
-  stdinWaker: MessagePort
-  stdin: SharedArrayBuffer
-  stdout: SharedArrayBuffer
-
-  driveBuffers: DriveBuffers
-}
-
-export interface DriveBuffers {
+interface DriveBuffers {
   lock: SharedArrayBuffer
   stdin: SharedArrayBuffer
   stdout: SharedArrayBuffer
@@ -47,7 +37,7 @@ interface _WASISpawnOptions {
   env: Record<string, string>
 }
 
-export interface WASISpawnOptions extends Partial<_WASISpawnOptions> {}
+interface WASISpawnOptions extends Partial<_WASISpawnOptions> {}
 
 export interface ALSWorkerInitResultProxied {
   getALSVersion: () => Promise<string>
@@ -57,14 +47,6 @@ export interface ALSWorkerInitResultProxied {
     Promise<{exitCode: number, stdout: string, stderr: string}>
 }
 
-export interface DriveWorkerInitObject {
-  stdin: SharedArrayBuffer
-  stdout: SharedArrayBuffer
-  agdaDataZip: ArrayBuffer | null
-  agdaStdlibZip: ArrayBuffer | null
-  agdaCubicalZip: ArrayBuffer | null
-}
-
 export interface PerformanceEntry {
   label: string
   durationMs: number
@@ -72,12 +54,12 @@ export interface PerformanceEntry {
   failed?: boolean
 }
 
-export interface DriveProxyPathStats {
+interface DriveProxyPathStats {
   count: number
   durationMs: number
 }
 
-export interface DriveProxyExtensionStats {
+interface DriveProxyExtensionStats {
   pathStat: number
   open: number
   read: number
@@ -99,10 +81,3 @@ export interface DriveProxyStats {
   agda: DriveProxyExtensionStats
   agdai: DriveProxyExtensionStats
 }
-
-export type DriveWorkerReadyMessage =
-  | 'fs-ready'
-  | {
-      type: 'fs-ready'
-      performanceEntries: PerformanceEntry[]
-    }
