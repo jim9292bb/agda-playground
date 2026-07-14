@@ -22,7 +22,7 @@ let examplesMenuOpen = $state(false)
   </button>
   {#if examplesMenuOpen}
     <div class="header-examples-menu" role="menu">
-      {#each examples as example}
+      {#each examples as example (example.id)}
         <button
           type="button"
           class="header-examples-item"

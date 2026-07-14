@@ -72,7 +72,7 @@ $effect(() => {
 
     <div class="settings-panel-main">
       <div class="settings-segmented-control" role="tablist" aria-label="Settings sections">
-        {#each settingsSegments as segment}
+        {#each settingsSegments as segment (segment.id)}
           <button
             type="button"
             class:active={selectedSettingsSegment === segment.id}
@@ -149,7 +149,7 @@ $effect(() => {
             </p>
             <p class="settings-note">Active environment: <strong>{agdaController.activeProfile.label}</strong></p>
             <dl class="settings-runtime-list">
-              {#each runtimeSummary() as item}
+              {#each runtimeSummary() as item (item.label)}
                 <div>
                   <dt>{item.label}</dt>
                   <dd>{item.value}</dd>
@@ -171,7 +171,7 @@ $effect(() => {
               </p>
             {/if}
             <div class="shortcut-settings-list">
-              {#each agdaShortcutRegistry as shortcut}
+              {#each agdaShortcutRegistry as shortcut (shortcut.id)}
                 {@const activeShortcut = activeAgdaShortcutRegistry.find(active => active.id === shortcut.id) ?? shortcut}
                 <div class="shortcut-settings-row">
                   <div>

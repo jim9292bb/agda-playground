@@ -35,7 +35,7 @@ function focusDiagnostic(diagnostic) {
   <header class="diagnostics-panel-title">Diagnostics</header>
   {#if diagnostics.length}
     <div class="diagnostics-list">
-        {#each diagnostics as diagnostic}
+        {#each diagnostics as diagnostic (`${diagnostic.filepath}:${diagnostic.line}:${diagnostic.column}:${diagnostic.message}`)}
           <button
             class:clickable={canFocusDiagnostic(diagnostic)}
             class:error={diagnostic.severity === 'error'}

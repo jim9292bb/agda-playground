@@ -1064,7 +1064,7 @@ $effect(() => {
           </button>
           {#if commandsPanelVisible}
             <div id="commands-panel" class="commands-panel" aria-label="Agda commands">
-              {#each activeAgdaShortcutRegistry as shortcut}
+              {#each activeAgdaShortcutRegistry as shortcut (shortcut.id)}
                 <button
                   type="button"
                   class="command-button"

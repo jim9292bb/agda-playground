@@ -15,7 +15,7 @@ let { visible = $bindable(), runtimeSummary } = $props()
     </div>
     <p class="about-desc">A browser-hosted single-file Agda playground for demonstrations, learning, and practice.</p>
     <dl class="about-meta">
-      {#each runtimeSummary() as item}
+      {#each runtimeSummary() as item (item.label)}
         <div class="about-meta-row"><dt>{item.label}</dt><dd>{item.value}</dd></div>
       {/each}
       <div class="about-meta-row"><dt>Commit</dt><dd><code>{APP_COMMIT_ID}</code></dd></div>

@@ -60,7 +60,7 @@ const statusMeta = $derived({
         value={agdaController.selectedProfileLabel}
         disabled={agdaController.alsWorkerStatus === 'loading' || agdaController.alsWorkerStatus === 'deactivating'}
         onchange={(e) => onDeploymentProfileChange(e.currentTarget.value)}>
-        {#each deployProfiles as profile}
+        {#each deployProfiles as profile (profile.label)}
           <option value={profile.label}>{profile.label}</option>
         {/each}
       </select>

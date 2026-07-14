@@ -72,7 +72,7 @@ $effect(() => {
     {#if selectedMessageTab === 'log'}
       <div bind:this={textbox} class="messages-log" aria-label="Agda log" role="log">
         {#if logEntries.length}
-          {#each logEntries as entry}
+          {#each logEntries as entry, i (i)}
             <pre class="messages-log-entry">{entry}</pre>
           {/each}
         {:else}
