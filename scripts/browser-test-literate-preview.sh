@@ -28,16 +28,50 @@ ab eval "(() => {
 echo "PASS leading markdown block renders as a preview widget immediately on load, even though the cursor starts inside it"
 
 # The block's fence lines must never be visible as text -- the whole point
-# of the redesign is a clean, GitHub-README-like render.
+# of the redesign is a clean, GitHub-README-like render. Fence lines stay as
+# real (still-present) .cm-line elements, visually collapsed via CSS, rather
+# than being removed from the DOM outright (see literate-block-borders.js's
+# module doc for why) -- check actual rendered size, not DOM presence.
 ab eval "(() => {
   const fenceLines = Array.from(document.querySelectorAll('.cm-line')).filter(l => {
     const t = l.textContent.trim()
     return t === '\`\`\`agda' || t === '\`\`\`'
   })
-  if (fenceLines.length !== 0) throw new Error('Found ' + fenceLines.length + ' visible fence line(s), expected the fence markers to be collapsed out of view entirely')
+  if (fenceLines.length !== 2) throw new Error('Expected exactly 2 fence lines in the DOM (collapsed, not removed), found ' + fenceLines.length)
+  const visible = fenceLines.filter(l => l.getBoundingClientRect().height > 0)
+  if (visible.length !== 0) throw new Error('Found ' + visible.length + ' fence line(s) still taking up visible space')
   return { ok: true }
 })()"
-echo "PASS code block fence lines are never shown as visible text"
+echo "PASS code block fence lines are collapsed to zero height, not shown as visible text"
+
+# Regression check for a real bug: every content line of a code block must
+# get its box styling (background/border), including the very first line --
+# a CodeMirror quirk where a Decoration.line() class silently failed to
+# attach to the line immediately after a block-level widget/replace
+# decoration caused the first content line specifically to render with no
+# box at all (confirmed via a real screenshot before the fix).
+ab eval "(() => {
+  const view = document.querySelector('.cm-content')?.cmTile?.view
+  const doc = view.state.doc.toString()
+  const optionsPos = doc.indexOf('OPTIONS')
+  const importPos = doc.indexOf('open import')
+  const findLineEl = pos => {
+    let node = view.domAtPos(pos).node
+    while (node && node.nodeType === 3) node = node.parentNode
+    while (node && !node.classList?.contains('cm-line')) node = node.parentElement
+    return node
+  }
+  const optionsLine = findLineEl(optionsPos)
+  const importLine = findLineEl(importPos)
+  if (!optionsLine?.classList.contains('cm-literate-block-code')) {
+    throw new Error('First content line of the code block is missing its box styling: ' + optionsLine?.className)
+  }
+  if (!importLine?.classList.contains('cm-literate-block-code')) {
+    throw new Error('Last content line of the code block is missing its box styling: ' + importLine?.className)
+  }
+  return { ok: true, optionsClass: optionsLine.className, importClass: importLine.className }
+})()"
+echo "PASS every content line of the code block, including the first, gets its box styling"
 
 # Clicking the Edit button (not the rendered text) enters edit mode.
 ab eval "(() => {
