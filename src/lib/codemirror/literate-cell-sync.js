@@ -1,10 +1,11 @@
-import { Annotation, RangeSetBuilder } from '@codemirror/state'
+import { Annotation, StateEffect, StateField, RangeSetBuilder } from '@codemirror/state'
+import { EditorView, Decoration } from '@codemirror/view'
 import { getAgdaGoals } from '$lib/agda/goal-state'
 import { makeGoalMark } from '$lib/agda/goals'
 import { highlightState } from '$lib/agda/highlight'
 
-/** @import { ChangeSet, EditorState, Text } from '@codemirror/state' */
-/** @import { Decoration, DecorationSet } from '@codemirror/view' */
+/** @import { ChangeSet, EditorState } from '@codemirror/state' */
+/** @import { DecorationSet } from '@codemirror/view' */
 /** @import { CellContentOffset } from '$lib/agda/literate-cells' */
 
 /**
@@ -153,4 +154,62 @@ export function projectHighlightToCells(state, cellOffsets) {
     })
   }
   return result
+}
+
+/**
+ * A cell's own local goal-mark overlay -- dispatched into by the hidden
+ * view's projection driver (see the route) whenever `agdaGoalState` changes
+ * there. Mapped through this cell's own local edits (`tr.changes`) so the
+ * overlay stays visually consistent for the brief window between a local
+ * edit and the next authoritative projection arriving back down from the
+ * hidden view -- the same pattern goal-state.js/highlight.js use for their
+ * own StateFields.
+ * @type {import('@codemirror/state').StateEffectType<DecorationSet>}
+ */
+export const setCellGoalDecorations = StateEffect.define()
+
+export const cellGoalOverlayField = StateField.define({
+  /** @returns {DecorationSet} */
+  create() {
+    return Decoration.none
+  },
+  update(value, tr) {
+    for (const effect of tr.effects) {
+      if (effect.is(setCellGoalDecorations)) value = effect.value
+    }
+    if (tr.docChanged) value = value.map(tr.changes)
+    return value
+  },
+  provide: field => EditorView.decorations.from(field),
+})
+
+/**
+ * @type {import('@codemirror/state').StateEffectType<{aspects: DecorationSet, otherAspects: DecorationSet}>}
+ */
+export const setCellHighlightDecorations = StateEffect.define()
+
+const initialCellHighlight = { aspects: Decoration.none, otherAspects: Decoration.none }
+
+export const cellHighlightOverlayField = StateField.define({
+  create() {
+    return initialCellHighlight
+  },
+  update(value, tr) {
+    for (const effect of tr.effects) {
+      if (effect.is(setCellHighlightDecorations)) value = effect.value
+    }
+    if (tr.docChanged) {
+      value = { aspects: value.aspects.map(tr.changes), otherAspects: value.otherAspects.map(tr.changes) }
+    }
+    return value
+  },
+  provide: field => [
+    EditorView.decorations.from(field, value => value.aspects),
+    EditorView.outerDecorations.from(field, value => value.otherAspects),
+  ],
+})
+
+/** @returns {import('@codemirror/state').Extension} */
+export function cellDecorationOverlays() {
+  return [cellGoalOverlayField, cellHighlightOverlayField]
 }
