@@ -47,7 +47,7 @@ function summarizeLegacyInteractionPoints(decos, ids, state) {
  * @param {number} id
  * @param {Record<string, any>} [baseSpec]
  */
-function makeGoalMark(id, baseSpec = {}) {
+export function makeGoalMark(id, baseSpec = {}) {
   return Decoration.mark({
     ...baseSpec,
     class: baseSpec.class ?? 'agda-hole',
