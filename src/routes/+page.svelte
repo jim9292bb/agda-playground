@@ -22,6 +22,10 @@ import { getAgdaDocumentVersion, getAgdaGoals, mergeGoalInfos } from '$lib/agda/
 import { getGoalAtPosition, getGoalRangeById } from '$lib/agda/goals'
 import { getAgdaShortcutContext } from '$lib/agda/shortcut-context'
 import {
+  runAgdaShortcut as runAgdaShortcutShared,
+  runAgdaShortcutWithInputPrompt as runAgdaShortcutWithInputPromptShared,
+} from '$lib/agda/run-shortcut'
+import {
   advanceAgdaChord,
   agdaShortcutRegistry,
   chordStepsOf,
@@ -250,28 +254,12 @@ const basicTheme = EditorView.theme({
  * @param {(context: import('$lib/agda/shortcut-context').AgdaShortcutContext) => string | Promise<void>} command
  */
 function runAgdaShortcut(label, view, command) {
-  void (async () => {
-    if (agdaController.alsWorkerStatus !== 'active') {
-      textboxContent += `${label} failed: Agda is not active.\n`
-      return
-    }
-
-    try {
-      textboxContent += `${label}...\n`
-      await agdaController.syncSourceFileToDrive()
-      const context = getAgdaShortcutContext(view, agdaController.currentFilePath, goalInfos, agdaController.receivedNumericAgdaVersion)
-      const interaction = await command(context)
-      if (interaction) await agdaController.runAgdaInteraction(interaction)
-      textboxContent += `${label} finished.\n`
-    } catch (err) {
-      if (label === 'Case split' && agdaController.alsRouter) {
-        agdaController.alsRouter.pendingCaseSplitGoal = undefined
-      } else if ((label === 'Give' || label === 'Auto' || label === 'Elaborate and give') && agdaController.alsRouter) {
-        agdaController.alsRouter.pendingGiveGoal = undefined
-      }
-      textboxContent += `${label} failed: ${err instanceof Error ? err.message : String(err)}\n`
-    }
-  })()
+  runAgdaShortcutShared({
+    label, view, agdaController, goalInfos,
+    appendLog: msg => textboxContent += msg,
+    clearPendingGoal: clearPendingAgdaGoal,
+    command,
+  })
 }
 
 /**
@@ -280,29 +268,13 @@ function runAgdaShortcut(label, view, command) {
  * @param {(context: import('$lib/agda/shortcut-context').AgdaShortcutContext, input: string) => string | Promise<void>} command
  */
 function runAgdaShortcutWithInputPrompt(label, view, command) {
-  void (async () => {
-    if (agdaController.alsWorkerStatus !== 'active') {
-      textboxContent += `${label} failed: Agda is not active.\n`
-      return
-    }
-
-    try {
-      await agdaController.syncSourceFileToDrive()
-      const context = getAgdaShortcutContext(view, agdaController.currentFilePath, goalInfos, agdaController.receivedNumericAgdaVersion)
-      if (!context.input.trim()) {
-        openCommandInputPrompt(label, view, context, command)
-        return
-      }
-
-      textboxContent += `${label}...\n`
-      const interaction = await command(context, context.input)
-      if (interaction) await agdaController.runAgdaInteraction(interaction)
-      textboxContent += `${label} finished.\n`
-    } catch (err) {
-      clearPendingAgdaGoal(label)
-      textboxContent += `${label} failed: ${err instanceof Error ? err.message : String(err)}\n`
-    }
-  })()
+  runAgdaShortcutWithInputPromptShared({
+    label, view, agdaController, goalInfos,
+    appendLog: msg => textboxContent += msg,
+    clearPendingGoal: clearPendingAgdaGoal,
+    command,
+    onNeedsInput: openCommandInputPrompt,
+  })
 }
 
 function runLoadShortcut() {
