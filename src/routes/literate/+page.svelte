@@ -8,6 +8,7 @@ import { EditorView, keymap } from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
 
 import SplitPane from '$lib/components/SplitPane.svelte'
+import LiterateCellEditor from '$lib/components/LiterateCellEditor.svelte'
 import AboutPanel from '$lib/components/AboutPanel.svelte'
 import HeaderExamplePicker from '$lib/components/HeaderExamplePicker.svelte'
 import AlsControlCard from '$lib/components/AlsControlCard.svelte'
@@ -18,23 +19,33 @@ import { AgdaController, deployProfiles, resolveProfileLibraries } from '$lib/co
 import { myCodeMirrorTheme } from '$lib/codemirror/theme'
 import { agdaInputMethod } from '$lib/codemirror/agda-input'
 import { agdaSupport } from '$lib/agda'
-import { getAgdaDocumentVersion, getAgdaGoals, mergeGoalInfos } from '$lib/agda/goal-state'
+import { agdaGoalState, getAgdaDocumentVersion, getAgdaGoals, mergeGoalInfos } from '$lib/agda/goal-state'
+import { highlightState } from '$lib/agda/highlight'
 import { getGoalAtPosition, getGoalRangeById } from '$lib/agda/goals'
 import { getAgdaShortcutContext } from '$lib/agda/shortcut-context'
 import {
   runAgdaShortcut as runAgdaShortcutShared,
   runAgdaShortcutWithInputPrompt as runAgdaShortcutWithInputPromptShared,
 } from '$lib/agda/run-shortcut'
+import { parseLiterateBlocks } from '$lib/agda/literate-blocks'
 import {
-  parseLiterateBlocks,
-  blockIndexAtPos,
-  newMarkdownBlockText,
-  newCodeBlockText,
-} from '$lib/agda/literate-blocks'
-import { literateMarkdownPreview, setEditingMarkdownBlock } from '$lib/codemirror/markdown-preview'
-import { literateBlockBorders } from '$lib/codemirror/literate-block-borders'
-import { literateFenceGuard, blockStructureEdit } from '$lib/codemirror/literate-fence-guard'
-import { literateBlocksField } from '$lib/codemirror/literate-blocks-state'
+  createMarkdownCell,
+  createCodeCell,
+  assembleDocument,
+  computeCellContentOffsets,
+  cellOffsetAtPos,
+  cellsFromParsedBlocks,
+} from '$lib/agda/literate-cells'
+import {
+  fromCellSync,
+  translateCellChangesToGlobal,
+  translateGlobalChangesToCells,
+  projectGoalsToCells,
+  projectHighlightToCells,
+  setCellGoalDecorations,
+  setCellHighlightDecorations,
+  cellDecorationOverlays,
+} from '$lib/codemirror/literate-cell-sync'
 import {
   advanceAgdaChord,
   agdaShortcutRegistry,
@@ -70,6 +81,7 @@ import {
 
 import { clearGoals, clearRunningInfo, emitRunningInfo, removeGoalInfo, setGoalInfo } from '$lib/agda/effects'
 import { triggerPrefetch } from '$lib/agda/prefetch'
+import { marked } from 'marked'
 
 const driveLockSab = new SharedArrayBuffer(4)
 const driveStdinSab = SPSC.allocateArrayBuffer(4096)
@@ -130,6 +142,11 @@ ${wrapAsLiterate('{-# OPTIONS --cubical --guardedness #-}\n\nopen import Cubical
 const LS_SHORTCUT_OVERRIDES_KEY = 'agda-playground-literate.shortcut-overrides.v1'
 const LS_GOALS_PANEL_POSITION_KEY = 'agda-playground-literate.goals-panel-position.v1'
 const agdaShortcutIds = new Set(agdaShortcutRegistry.map(shortcut => shortcut.id))
+
+/** @param {string} source @returns {import('$lib/agda/literate-cells').LiterateCell[]} */
+function cellsFromSource(source) {
+  return cellsFromParsedBlocks(source, parseLiterateBlocks(source))
+}
 
 /** @returns {Record<string, string>} */
 function loadShortcutOverrides() {
@@ -269,8 +286,116 @@ function setGoalsPanelPosition(pos) {
   commandsPanelVisible = false
 }
 
+// --- Cell model -------------------------------------------------------
+//
+// The document is an ordered array of markdown/code cells, each with its
+// own real, visible CodeMirror EditorView (Jupyter-style) -- see
+// literate-cells.js and literate-cell-sync.js for the underlying model.
+// `hiddenView` holds the one logical assembled `.lagda.md` document and is
+// what agdaController.editorView points to: every existing Agda
+// interaction module (goal-state.js, highlight.js, handlers.js,
+// editor-mutations.js, shortcut-context.js, goals.js, ranges.js,
+// offsets.js) keeps working against it completely unmodified, since from
+// their point of view it's just "the one EditorView", exactly as before —
+// it's simply never mounted into the page's DOM. `cellViews` is the live
+// registry of each cell's own mounted EditorView, populated/cleared by
+// each cell's own mount/destroy attachment below.
+
+let cells = $state(cellsFromSource(localStorage.getItem(agdaController.docStorageKey) ?? defaultSource))
+/** @type {string | null} */
+let activeCellId = $state(null)
+// Plain (not SvelteMap) intentionally -- a live registry of mounted
+// EditorView instances, mutated imperatively by each cell's own
+// mount/destroy attachment. Never meant to drive Svelte reactivity itself
+// (the reactive source of truth is the `cells` array); Svelte's own
+// reactivity rule doesn't apply here.
+/** @type {Map<string, EditorView>} */
+// eslint-disable-next-line svelte/prefer-svelte-reactivity
+const cellViews = new Map()
+
+/** @param {import('@codemirror/view').ViewUpdate} update */
+function hiddenViewUpdateListener(update) {
+  const isSyncEcho = update.transactions.some(tr => tr.annotation(fromCellSync))
+
+  if (update.docChanged && !isSyncEcho) {
+    const preOffsets = computeCellContentOffsets(cells)
+    const byCell = translateGlobalChangesToCells(preOffsets, update.changes)
+    for (const [cellId, specs] of byCell) {
+      const view = cellViews.get(cellId)
+      if (view && specs.length) view.dispatch({ changes: specs, annotations: fromCellSync.of(true) })
+    }
+  }
+
+  const goalEffects = update.transactions.some(tr => tr.effects.length > 0)
+  if (update.selectionSet || update.docChanged || goalEffects) {
+    syncGoalPanel(update.state)
+  }
+
+  const goalsChanged = update.startState.field(agdaGoalState) !== update.state.field(agdaGoalState)
+  const highlightChanged = update.startState.field(highlightState) !== update.state.field(highlightState)
+  if (goalsChanged || highlightChanged || update.docChanged) {
+    const offsets = computeCellContentOffsets(cells)
+    if (goalsChanged || update.docChanged) {
+      const projected = projectGoalsToCells(update.state, offsets)
+      for (const [cellId, decos] of projected) {
+        cellViews.get(cellId)?.dispatch({ effects: setCellGoalDecorations.of(decos) })
+      }
+    }
+    if (highlightChanged || update.docChanged) {
+      const projected = projectHighlightToCells(update.state, offsets)
+      for (const [cellId, decos] of projected) {
+        cellViews.get(cellId)?.dispatch({ effects: setCellHighlightDecorations.of(decos) })
+      }
+    }
+  }
+}
+
+const hiddenView = new EditorView({
+  state: EditorState.create({
+    // Seeds the hidden view's initial content once at setup -- not meant to
+    // be a live/reactive binding to `cells` (which is why this is wrapped
+    // in untrack()); the sync layer keeps the two in step from here on.
+    doc: untrack(() => assembleDocument(cells)),
+    extensions: [
+      agdaSupport(),
+      agdaController.lspClientCompartment.of([]),
+      EditorView.updateListener.of(hiddenViewUpdateListener),
+      EditorState.changeFilter.of(tr => {
+        for (const e of tr.effects) {
+          if (e.is(emitRunningInfo)) {
+            textboxContent += e.value.message
+          } else if (e.is(clearRunningInfo)) {
+            // Highlighting commands may clear Agda's running-info buffer after
+            // loading succeeds; keep the visible load log until the next Load.
+          } else if (e.is(setGoalInfo)) {
+            goalInfos = mergeGoalInfos(goalInfos, e.value)
+          } else if (e.is(removeGoalInfo)) {
+            goalInfos = goalInfos.filter(goal => goal.id !== e.value)
+          }
+        }
+        return true
+      }),
+    ],
+  }),
+})
+agdaController.connectEditorView(hiddenView)
+
+const reloadAfterAgdaEdit = () => {
+  void (async () => {
+    while (agdaController.alsWorkerStatus === 'active' && agdaController.iotcmStatus !== 'ready') {
+      await new Promise(resolve => setTimeout(resolve, 50))
+    }
+    if (agdaController.alsWorkerStatus === 'active') {
+      await loadAgdaFile()
+    }
+  })()
+}
+hiddenView.dom.addEventListener('agda-reload-needed', reloadAfterAgdaEdit)
+
 onDestroy(() => {
   agdaController.terminateALSWASM()
+  hiddenView.dom.removeEventListener('agda-reload-needed', reloadAfterAgdaEdit)
+  hiddenView.destroy()
 })
 
 const basicTheme = EditorView.theme({
@@ -282,37 +407,36 @@ const basicTheme = EditorView.theme({
   '.cm-scroller': {
     overscrollBehavior: 'contain',
   },
-  // Line numbers read as noise against block-structured prose+code; the
-  // block borders (literate-block-borders.js) are the primary way to
-  // orient within the document here instead.
+  // Line numbers read as noise against block-structured prose+code; each
+  // cell's own wrapping box (see .literate-cell CSS below) is the primary
+  // way to orient within the document here instead.
   '.cm-gutters': {
     display: 'none',
   },
 })
 
 /**
- * Truncates the document to the code block containing the cursor before
- * syncing, so any command run from block N only sees blocks 1..N -- the
- * core literate-programming behavior. syncTruncatedSourceFileToDrive skips
- * the actual reload when that exact prefix is already loaded (see its own
- * doc comment), so running several commands in a row inside the same block
- * doesn't reload on every single one.
- * @param {EditorView} view
+ * Truncates the assembled document to the code block containing the active
+ * cell before syncing, so any command run from cell N only sees cells
+ * 1..N -- the core literate-programming behavior.
+ * syncTruncatedSourceFileToDrive skips the actual reload when that exact
+ * prefix is already loaded, so running several commands in a row inside
+ * the same cell doesn't reload on every single one.
  */
-async function literatePresync(view) {
-  const blocks = parseLiterateBlocks(view.state.doc.toString())
-  const blockIndex = blockIndexAtPos(blocks, view.state.selection.main.head)
-  await agdaController.syncTruncatedSourceFileToDrive(view, blocks, blockIndex)
+async function literatePresync() {
+  const blocks = parseLiterateBlocks(hiddenView.state.doc.toString())
+  const idx = cells.findIndex(c => c.id === activeCellId)
+  const blockIndex = idx >= 0 ? idx : blocks.length - 1
+  await agdaController.syncTruncatedSourceFileToDrive(hiddenView, blocks, blockIndex)
 }
 
 /**
  * @param {string} label
- * @param {EditorView} view
  * @param {(context: import('$lib/agda/shortcut-context').AgdaShortcutContext) => string | Promise<void>} command
  */
-function runAgdaShortcut(label, view, command) {
+function runAgdaShortcut(label, command) {
   runAgdaShortcutShared({
-    label, view, agdaController, goalInfos,
+    label, view: hiddenView, agdaController, goalInfos,
     appendLog: msg => textboxContent += msg,
     clearPendingGoal: clearPendingAgdaGoal,
     presync: literatePresync,
@@ -322,12 +446,11 @@ function runAgdaShortcut(label, view, command) {
 
 /**
  * @param {string} label
- * @param {EditorView} view
  * @param {(context: import('$lib/agda/shortcut-context').AgdaShortcutContext, input: string) => string | Promise<void>} command
  */
-function runAgdaShortcutWithInputPrompt(label, view, command) {
+function runAgdaShortcutWithInputPrompt(label, command) {
   runAgdaShortcutWithInputPromptShared({
-    label, view, agdaController, goalInfos,
+    label, view: hiddenView, agdaController, goalInfos,
     appendLog: msg => textboxContent += msg,
     clearPendingGoal: clearPendingAgdaGoal,
     presync: literatePresync,
@@ -366,59 +489,59 @@ function runLoadAllShortcut() {
   })()
 }
 
-/** @returns {import('$lib/agda/literate-blocks').LiterateBlock[]} */
-function currentLiterateBlocks() {
-  const view = agdaController.editorView
-  return view ? view.state.field(literateBlocksField) : []
-}
+/** Inserts a new cell right after the active cell (or at the end). */
+function insertCellAfterActive(/** @type {import('$lib/agda/literate-cells').LiterateCell} */ newCell, /** @type {boolean} */ enterEditMode = false) {
+  const idx = cells.findIndex(c => c.id === activeCellId)
+  const insertAt = idx >= 0 ? idx + 1 : cells.length
 
-/**
- * Inserts new block text right after the block the cursor is currently in.
- * @param {import('$lib/agda/literate-blocks').NewBlockText} newBlock
- * @param {boolean} [enterMarkdownEditMode] auto-enters edit mode for the
- *   new block -- only meaningful for markdown blocks, since edit mode is
- *   otherwise button-only; without this a freshly-inserted markdown block
- *   would immediately need a click on its own Edit button to become usable.
- */
-function insertBlockAfterCurrent(newBlock, enterMarkdownEditMode = false) {
-  const view = agdaController.editorView
-  if (!view) return
-  const blocks = currentLiterateBlocks()
-  const idx = blockIndexAtPos(blocks, view.state.selection.main.head)
-  const insertAt = blocks[idx]?.to ?? view.state.doc.length
-  view.dispatch({
-    changes: { from: insertAt, to: insertAt, insert: newBlock.text },
-    selection: { anchor: insertAt + newBlock.selectionFrom, head: insertAt + newBlock.selectionTo },
-    effects: enterMarkdownEditMode ? [setEditingMarkdownBlock.of(insertAt)] : [],
-    scrollIntoView: true,
-    annotations: blockStructureEdit.of(true),
+  // Structural inserts/deletes must sync into hiddenView's own document
+  // immediately -- cellSyncExtensions' per-cell listeners only replay
+  // *content* edits inside an already-present cell, never a brand new
+  // cell's own fence-wrapped span, so without this hiddenView would stay
+  // silently out of sync with `cells` until some unrelated edit forced a
+  // resync (confirmed empirically: selection/edit sync into a freshly
+  // inserted cell threw "Selection points outside of document").
+  const blocks = parseLiterateBlocks(hiddenView.state.doc.toString())
+  const globalInsertAt = blocks[insertAt]?.from ?? hiddenView.state.doc.length
+  hiddenView.dispatch({
+    changes: { from: globalInsertAt, to: globalInsertAt, insert: assembleDocument([newCell]) },
+    annotations: fromCellSync.of(true),
   })
-  view.focus()
+
+  cells.splice(insertAt, 0, newCell)
+  activeCellId = newCell.id
+  if (enterEditMode && newCell.type === 'markdown') editingMarkdownCellId = newCell.id
+  void tick().then(() => cellViews.get(newCell.id)?.focus())
 }
 
 function insertMarkdownBlock() {
-  insertBlockAfterCurrent(newMarkdownBlockText(), true)
+  insertCellAfterActive(createMarkdownCell('_new block_'), true)
 }
 
 function insertCodeBlock() {
-  insertBlockAfterCurrent(newCodeBlockText())
+  insertCellAfterActive(createCodeCell(''))
 }
 
 function deleteCurrentBlock() {
-  const view = agdaController.editorView
-  if (!view) return
-  const blocks = currentLiterateBlocks()
-  if (blocks.length <= 1) return
-  const idx = blockIndexAtPos(blocks, view.state.selection.main.head)
+  if (cells.length <= 1) return
+  const idx = cells.findIndex(c => c.id === activeCellId)
+  if (idx < 0) return
+
+  const blocks = parseLiterateBlocks(hiddenView.state.doc.toString())
   const block = blocks[idx]
-  if (!block) return
-  view.dispatch({
-    changes: { from: block.from, to: block.to, insert: '' },
-    selection: { anchor: block.from },
-    scrollIntoView: true,
-    annotations: blockStructureEdit.of(true),
-  })
-  view.focus()
+  if (block) {
+    hiddenView.dispatch({
+      changes: { from: block.from, to: block.to, insert: '' },
+      annotations: fromCellSync.of(true),
+    })
+  }
+
+  const [removed] = cells.splice(idx, 1)
+  cellViews.delete(removed.id)
+  if (editingMarkdownCellId === removed.id) editingMarkdownCellId = null
+  const nextIdx = Math.min(idx, cells.length - 1)
+  activeCellId = cells[nextIdx]?.id ?? null
+  void tick().then(() => cellViews.get(activeCellId ?? '')?.focus())
 }
 
 /** @param {ReturnType<typeof getAgdaShortcutContext>} context */
@@ -437,17 +560,22 @@ function clearPendingAgdaGoal(label) {
 }
 
 /**
+ * Matches run-shortcut.js's shared `onNeedsInput` callback shape
+ * (label, view, context, command) -- `view` isn't needed here (the active
+ * cell is tracked via `activeCellId`/`cellViews` instead) but the parameter
+ * stays so this satisfies the shared interface without changing it (also
+ * used, unmodified, by the single-buffer `/` route).
  * @param {string} label
- * @param {EditorView} view
+ * @param {import('@codemirror/view').EditorView} _view
  * @param {import('$lib/agda/shortcut-context').AgdaShortcutContext} context
  * @param {(context: import('$lib/agda/shortcut-context').AgdaShortcutContext, input: string) => string | Promise<void>} command
  */
-function openCommandInputPrompt(label, view, context, command) {
+function openCommandInputPrompt(label, _view, context, command) {
   commandInputError = ''
   commandInputPrompt = {
     label,
     value: '',
-    documentVersion: getAgdaDocumentVersion(view.state),
+    documentVersion: getAgdaDocumentVersion(hiddenView.state),
     command,
     context,
   }
@@ -459,14 +587,13 @@ function cancelCommandInputPrompt() {
   const label = commandInputPrompt?.label
   commandInputPrompt = null
   if (label) textboxContent += `${label} cancelled.\n`
-  agdaController.editorView?.focus()
+  cellViews.get(activeCellId ?? '')?.focus()
 }
 
 function submitCommandInputPrompt() {
   void (async () => {
     const prompt = commandInputPrompt
-    const view = agdaController.editorView
-    if (!prompt || !view) return
+    if (!prompt) return
 
     const input = prompt.value.trim()
     if (!input) {
@@ -474,10 +601,10 @@ function submitCommandInputPrompt() {
       return
     }
 
-    if (getAgdaDocumentVersion(view.state) !== prompt.documentVersion) {
+    if (getAgdaDocumentVersion(hiddenView.state) !== prompt.documentVersion) {
       commandInputPrompt = null
       textboxContent += `${prompt.label} failed: Reload or retry because the editor changed while the prompt was open.\n`
-      view.focus()
+      cellViews.get(activeCellId ?? '')?.focus()
       return
     }
 
@@ -492,36 +619,63 @@ function submitCommandInputPrompt() {
       clearPendingAgdaGoal(prompt.label)
       textboxContent += `${prompt.label} failed: ${err instanceof Error ? err.message : String(err)}\n`
     } finally {
-      view.focus()
+      cellViews.get(activeCellId ?? '')?.focus()
     }
   })()
 }
 
-/** @param {EditorView} view */
-function getActiveGoalId(view) {
-  const docLength = view.state.doc.length
-  const head = view.state.selection.main.head
+function getActiveGoalId() {
+  const state = hiddenView.state
+  const docLength = state.doc.length
+  const head = state.selection.main.head
   const previousPos = Math.max(0, head - 1)
   const nextPos = Math.min(docLength, head + 1)
   return (
-    getGoalAtPosition(view.state, head) ??
-    getGoalAtPosition(view.state, previousPos) ??
-    getGoalAtPosition(view.state, nextPos)
+    getGoalAtPosition(state, head) ??
+    getGoalAtPosition(state, previousPos) ??
+    getGoalAtPosition(state, nextPos)
   )?.id ?? null
 }
 
 /**
- * @param {EditorView} view
- * @param {1 | -1} direction
+ * Focuses the given goal's own code cell, placing that cell's local cursor
+ * just inside the goal -- the hidden view only ever tracks positions, it's
+ * never itself visible, so every "jump to X" operation has to resolve
+ * which cell to actually focus.
+ * @param {number | string} goalId
  */
-function focusAdjacentGoal(view, direction) {
-  const goals = getAgdaGoals(view.state)
+function focusGoal(goalId) {
+  if (typeof goalId !== 'number') return
+  const range = getGoalRangeById(hiddenView.state, goalId)
+  if (!range) return
+  focusGlobalPosition(Math.min(range.to, range.from + 3))
+}
+
+/**
+ * @param {number} globalPos
+ */
+function focusGlobalPosition(globalPos) {
+  const offsets = computeCellContentOffsets(cells)
+  const entry = cellOffsetAtPos(offsets, globalPos)
+  if (!entry) return
+  const cellView = cellViews.get(entry.cellId)
+  if (!cellView) return
+  const localPos = Math.max(0, Math.min(entry.to - entry.from, globalPos - entry.from))
+  activeCellId = entry.cellId
+  hiddenView.dispatch({ selection: { anchor: globalPos } })
+  cellView.dispatch({ selection: { anchor: localPos }, scrollIntoView: true, annotations: fromCellSync.of(true) })
+  cellView.focus()
+}
+
+/** @param {1 | -1} direction */
+function focusAdjacentGoal(direction) {
+  const goals = getAgdaGoals(hiddenView.state)
   if (goals.length === 0) {
     textboxContent += 'Goal navigation failed: No goals.\n'
     return
   }
 
-  const head = view.state.selection.main.head
+  const head = hiddenView.state.selection.main.head
   const currentIndex = goals.findIndex(goal => goal.outerFrom <= head && head <= goal.outerTo)
   let targetIndex
 
@@ -543,16 +697,16 @@ function focusAdjacentGoal(view, direction) {
   focusGoal(goals[targetIndex].id)
 }
 
-/** @param {EditorView} view */
-function syncGoalPanel(view) {
-  panelGoalInfos = getAgdaGoals(view.state).map(goal => ({
+/** @param {import('@codemirror/state').EditorState} state */
+function syncGoalPanel(state) {
+  panelGoalInfos = getAgdaGoals(state).map(goal => ({
     id: goal.id,
     range: goal.range,
     type: goal.type,
     context: goal.context,
   }))
 
-  const active = getActiveGoalId(view)
+  const active = getActiveGoalId()
   activeGoalId = active != null && panelGoalInfos.some(goal => goal.id === active) ? active : null
 }
 
@@ -570,8 +724,7 @@ async function autoFetchGoalTypes(/** @type {number} */ documentVersion) {
       .filter(g => typeof g.id === 'number' && g.type === undefined)
       .map(g => g.id))
     for (const goalId of goalIds) {
-      const view = agdaController.editorView
-      if (!view || getAgdaDocumentVersion(view.state) !== documentVersion) break
+      if (getAgdaDocumentVersion(hiddenView.state) !== documentVersion) break
       if (agdaController.alsWorkerStatus !== 'active') break
       if (panelGoalInfos.find(g => g.id === goalId)?.type !== undefined) continue
       await agdaController.runAgdaInteraction(
@@ -613,10 +766,9 @@ function clearChordProgress() {
   chordProgress = []
 }
 
-/** @param {EditorView} view */
-function lookupUnicodeAtCursor(view) {
-  const { from, to } = view.state.selection.main
-  const text = view.state.sliceDoc(from, to > from ? to : from + 2)
+function lookupUnicodeAtCursor() {
+  const { from, to } = hiddenView.state.selection.main
+  const text = hiddenView.state.sliceDoc(from, to > from ? to : from + 2)
   const cp = text.codePointAt(0)
   if (cp === undefined || text.length === 0) {
     agdaController.appendQueryResult('Unicode Lookup', 'No character at cursor.')
@@ -632,32 +784,29 @@ function lookupUnicodeAtCursor(view) {
   selectedMessageTab = 'queries'
 }
 
-/**
- * @param {import('$lib/agda/shortcuts').AgdaShortcutDefinition} shortcut
- * @param {EditorView} view
- */
-function runAgdaShortcutDefinition(shortcut, view) {
+/** @param {import('$lib/agda/shortcuts').AgdaShortcutDefinition} shortcut */
+function runAgdaShortcutDefinition(shortcut) {
   switch (shortcut.id) {
     case 'load':
       runLoadShortcut()
       break
     case 'next-goal':
-      focusAdjacentGoal(view, 1)
+      focusAdjacentGoal(1)
       break
     case 'previous-goal':
-      focusAdjacentGoal(view, -1)
+      focusAdjacentGoal(-1)
       break
     case 'goal-type':
-      runAgdaShortcut(shortcut.label, view, context => goalTypeCommand('Simplified', requireGoal(context)))
+      runAgdaShortcut(shortcut.label, context => goalTypeCommand('Simplified', requireGoal(context)))
       break
     case 'context':
-      runAgdaShortcut(shortcut.label, view, context => contextCommand('Simplified', requireGoal(context)))
+      runAgdaShortcut(shortcut.label, context => contextCommand('Simplified', requireGoal(context)))
       break
     case 'goal-type-context':
-      runAgdaShortcut(shortcut.label, view, context => goalTypeContextCommand('Simplified', requireGoal(context)))
+      runAgdaShortcut(shortcut.label, context => goalTypeContextCommand('Simplified', requireGoal(context)))
       break
     case 'goal-type-context-infer':
-      runAgdaShortcut(shortcut.label, view, context => {
+      runAgdaShortcut(shortcut.label, context => {
         const goal = requireGoal(context)
         if (!context.input.trim()) {
           return goalTypeContextCommand('Simplified', goal)
@@ -666,15 +815,15 @@ function runAgdaShortcutDefinition(shortcut, view) {
       })
       break
     case 'goal-type-context-check':
-      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) =>
+      runAgdaShortcutWithInputPrompt(shortcut.label, (context, input) =>
         goalTypeContextCheckCommand('Simplified', requireGoal(context), input))
       break
     case 'search-about':
-      runAgdaShortcutWithInputPrompt(shortcut.label, view, (_context, input) =>
+      runAgdaShortcutWithInputPrompt(shortcut.label, (_context, input) =>
         searchAboutToplevelCommand('Simplified', input))
       break
     case 'module-contents':
-      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) => {
+      runAgdaShortcutWithInputPrompt(shortcut.label, (context, input) => {
         const goal = context.goal
         return goal
           ? moduleContentsCommand('Simplified', goal, input)
@@ -682,7 +831,7 @@ function runAgdaShortcutDefinition(shortcut, view) {
       })
       break
     case 'why-in-scope':
-      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) => {
+      runAgdaShortcutWithInputPrompt(shortcut.label, (context, input) => {
         const goal = context.goal
         return goal
           ? whyInScopeCommand(goal, input)
@@ -690,7 +839,7 @@ function runAgdaShortcutDefinition(shortcut, view) {
       })
       break
     case 'give':
-      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) => {
+      runAgdaShortcutWithInputPrompt(shortcut.label, (context, input) => {
         const goal = requireGoal(context)
         if (agdaController.alsRouter) {
           agdaController.alsRouter.pendingGiveGoal = goal
@@ -699,11 +848,11 @@ function runAgdaShortcutDefinition(shortcut, view) {
       })
       break
     case 'refine':
-      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) =>
+      runAgdaShortcutWithInputPrompt(shortcut.label, (context, input) =>
         refineCommand(requireGoal(context), context.range, input))
       break
     case 'auto':
-      runAgdaShortcut(shortcut.label, view, context => {
+      runAgdaShortcut(shortcut.label, context => {
         const goal = requireGoal(context)
         if (agdaController.alsRouter) {
           agdaController.alsRouter.pendingGiveGoal = goal
@@ -712,7 +861,7 @@ function runAgdaShortcutDefinition(shortcut, view) {
       })
       break
     case 'elaborate-give':
-      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) => {
+      runAgdaShortcutWithInputPrompt(shortcut.label, (context, input) => {
         const goal = requireGoal(context)
         if (agdaController.alsRouter) {
           agdaController.alsRouter.pendingGiveGoal = goal
@@ -721,11 +870,11 @@ function runAgdaShortcutDefinition(shortcut, view) {
       })
       break
     case 'helper-function':
-      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) =>
+      runAgdaShortcutWithInputPrompt(shortcut.label, (context, input) =>
         helperFunctionCommand('AsIs', requireGoal(context), input))
       break
     case 'case-split':
-      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) => {
+      runAgdaShortcutWithInputPrompt(shortcut.label, (context, input) => {
         const goal = requireGoal(context)
         if (agdaController.alsRouter) {
           agdaController.alsRouter.pendingCaseSplitGoal = goal
@@ -734,11 +883,11 @@ function runAgdaShortcutDefinition(shortcut, view) {
       })
       break
     case 'compute':
-      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) =>
+      runAgdaShortcutWithInputPrompt(shortcut.label, (context, input) =>
         computeCommand('DefaultCompute', requireGoal(context), input))
       break
     case 'infer':
-      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) =>
+      runAgdaShortcutWithInputPrompt(shortcut.label, (context, input) =>
         inferCommand('Normalised', requireGoal(context), input))
       break
   }
@@ -749,8 +898,8 @@ const agdaKeymap = keymap.of(agdaShortcutRegistry.flatMap(shortcut =>
     .filter(binding => binding.kind === 'keymap')
     .map(binding => ({
       key: binding.key,
-      run: (/** @type {EditorView} */ view) => {
-        runAgdaShortcutDefinition(shortcut, view)
+      run: () => {
+        runAgdaShortcutDefinition(shortcut)
         return true
       },
     }))))
@@ -760,12 +909,10 @@ const agdaKeymap = keymap.of(agdaShortcutRegistry.flatMap(shortcut =>
  * Ctrl-c Ctrl-x Ctrl-a for abort) before the browser can consume shortcuts
  * such as Ctrl-L. Advances chordProgress by one key per call against
  * chordTable (reserved sequences + the active shortcut registry).
- *
  * @param {KeyboardEvent} event
- * @param {EditorView} view
  */
-function handleAgdaChordKeydown(event, view) {
-  if (event.isComposing || !view.hasFocus) return false
+function handleAgdaChordKeydown(event) {
+  if (event.isComposing) return false
 
   // Modifier-only keypresses are not a chord key; the user may release and
   // re-press Ctrl between chord keys without cancelling the chord.
@@ -791,12 +938,12 @@ function handleAgdaChordKeydown(event, view) {
 
   clearChordProgress()
   if (result.id === '__unicode-lookup') {
-    lookupUnicodeAtCursor(view)
+    lookupUnicodeAtCursor()
   } else if (result.id === '__abort') {
     sendAbort()
   } else {
     const shortcut = findAgdaShortcutById(result.id, activeAgdaShortcutRegistry)
-    if (shortcut) runAgdaShortcutDefinition(shortcut, view)
+    if (shortcut) runAgdaShortcutDefinition(shortcut)
   }
 
   return true
@@ -804,80 +951,125 @@ function handleAgdaChordKeydown(event, view) {
 
 const agdaChordKeymap = EditorView.domEventHandlers({
   keydown(event, view) {
-    return handleAgdaChordKeydown(event, view)
+    if (!view.hasFocus) return false
+    return handleAgdaChordKeydown(event)
   },
 })
 
-/** @type {import('svelte/attachments').Attachment} */
-function codeMirror(el) {
-  const ev = new EditorView({
-    doc: localStorage.getItem(agdaController.docStorageKey) ?? defaultSource,
-    parent: el,
-    extensions: [
-      basicSetup,
-      myCodeMirrorTheme(),
-      basicTheme,
-      agdaSupport(),
-      agdaInputMethod(),
-      literateMarkdownPreview(),
-      literateBlockBorders(),
-      literateFenceGuard,
-      agdaKeymap,
-      agdaChordKeymap,
-      EditorView.updateListener.of(update => {
-        const goalEffects = update.transactions.some(tr => tr.effects.length > 0)
-        if (update.selectionSet || update.docChanged || goalEffects) {
-          syncGoalPanel(update.view)
-        }
-        if (update.selectionSet || update.docChanged) {
-          literateBlockCount = update.view.state.field(literateBlocksField).length
-        }
-      }),
-      agdaController.lspClientCompartment.of([]),
-      EditorState.changeFilter.of(tr => {
-        for (const e of tr.effects) {
-          if (e.is(emitRunningInfo)) {
-            textboxContent += e.value.message
-          } else if (e.is(clearRunningInfo)) {
-            // Highlighting commands may clear Agda's running-info buffer after
-            // loading succeeds; keep the visible load log until the next Load.
-          } else if (e.is(setGoalInfo)) {
-            goalInfos = mergeGoalInfos(goalInfos, e.value)
-          } else if (e.is(removeGoalInfo)) {
-            goalInfos = goalInfos.filter(goal => goal.id !== e.value)
-          }
-        }
-        return true
-      })
-    ],
-  })
-
-  agdaController.connectEditorView(ev)
-  literateBlockCount = ev.state.field(literateBlocksField).length
+// A window-level, capture-phase listener is needed *in addition to* each
+// cell's own agdaChordKeymap domEventHandler: without it, some Agda chord
+// keys collide with CodeMirror's own bundled default bindings (e.g.
+// Ctrl-a's second step for "Auto" collides with basicSetup's selectAll) and
+// lose, since those are wired at the normal bubble-phase precedence.
+// Capturing first and calling stopImmediatePropagation() when handled lets
+// Agda's own chord sequences win regardless. Resolves to whichever cell is
+// actually focused right now (`cellViews.get(activeCellId)`, checked via
+// the live `.hasFocus` rather than the tracked id alone).
+$effect(() => {
   const captureAgdaChord = (/** @type {KeyboardEvent} */ event) => {
-    if (handleAgdaChordKeydown(event, ev)) {
-      event.stopImmediatePropagation()
-    }
-  }
-  const reloadAfterAgdaEdit = () => {
-    void (async () => {
-      while (agdaController.alsWorkerStatus === 'active' && agdaController.iotcmStatus !== 'ready') {
-        await new Promise(resolve => setTimeout(resolve, 50))
-      }
-      if (agdaController.alsWorkerStatus === 'active') {
-        await loadAgdaFile()
-      }
-    })()
+    const activeView = activeCellId ? cellViews.get(activeCellId) : null
+    if (!activeView?.hasFocus) return
+    if (handleAgdaChordKeydown(event)) event.stopImmediatePropagation()
   }
   window.addEventListener('keydown', captureAgdaChord, { capture: true })
-  ev.dom.addEventListener('agda-reload-needed', reloadAfterAgdaEdit)
+  return () => window.removeEventListener('keydown', captureAgdaChord, { capture: true })
+})
 
-  return () => {
-    window.removeEventListener('keydown', captureAgdaChord, { capture: true })
-    ev.dom.removeEventListener('agda-reload-needed', reloadAfterAgdaEdit)
-    clearChordProgress()
-    ev.destroy()
-  }
+/**
+ * Extension list shared by every cell's own visible EditorView -- fires the
+ * bidirectional sync with hiddenView (see literate-cell-sync.js) on every
+ * local doc/selection change, and tracks which cell is "active" (drives
+ * literatePresync's block index and where goal navigation/shortcuts land).
+ * @param {string} cellId
+ * @param {'markdown' | 'code'} cellType
+ */
+function cellSyncExtensions(cellId, cellType) {
+  return [
+    EditorView.domEventHandlers({
+      focus() {
+        activeCellId = cellId
+      },
+    }),
+    EditorView.updateListener.of(update => {
+      const isSyncEcho = update.transactions.some(tr => tr.annotation(fromCellSync))
+
+      if (update.docChanged) {
+        const idx = cells.findIndex(c => c.id === cellId)
+        if (idx < 0) return
+        if (!isSyncEcho) {
+          const preOffsets = computeCellContentOffsets(cells)
+          const specs = translateCellChangesToGlobal(preOffsets[idx].from, update.changes)
+          if (specs.length) hiddenView.dispatch({ changes: specs, annotations: fromCellSync.of(true) })
+        }
+        cells[idx].text = update.state.doc.toString()
+      }
+
+      if (update.selectionSet) {
+        const idx = cells.findIndex(c => c.id === cellId)
+        if (idx < 0) return
+        const offsets = computeCellContentOffsets(cells)
+        const entry = offsets[idx]
+        const sel = update.state.selection.main
+        hiddenView.dispatch({
+          selection: { anchor: entry.from + sel.anchor, head: entry.from + sel.head },
+          annotations: fromCellSync.of(true),
+        })
+      }
+    }),
+    ...(cellType === 'code' ? [cellDecorationOverlays(), agdaKeymap, agdaChordKeymap] : [agdaKeymap, agdaChordKeymap]),
+  ]
+}
+
+/**
+ * Full extension list for one cell's own visible EditorView. Rendering
+ * (LiterateCellEditor.svelte) is a dedicated child component, not an
+ * inline `{@attach}` inside the parent's `{#each cells as cell (cell.id)}`
+ * block -- an inline attachment factory re-evaluates on every structural
+ * change to the `cells` array (confirmed empirically: inserting one new
+ * cell caused an *unrelated* existing cell's EditorView to tear down and
+ * remount, discarding unsynced edits), since Svelte's `{@attach}` re-runs
+ * as an effect tied to the surrounding reactive scope, not just when its
+ * own returned value changes. A child component gives each cell its own
+ * isolated reactive boundary instead.
+ * @param {string} cellId
+ * @param {'markdown' | 'code'} cellType
+ */
+function cellExtensions(cellId, cellType) {
+  return [
+    basicSetup,
+    myCodeMirrorTheme(),
+    basicTheme,
+    agdaInputMethod(),
+    ...cellSyncExtensions(cellId, cellType),
+  ]
+}
+
+/**
+ * @param {string} cellId
+ * @param {import('@codemirror/view').EditorView} view
+ */
+function registerCellView(cellId, view) {
+  cellViews.set(cellId, view)
+  if (activeCellId === null) activeCellId = cellId
+}
+
+/** @param {string} cellId */
+function unregisterCellView(cellId) {
+  cellViews.delete(cellId)
+}
+
+/** @type {string | null} */
+let editingMarkdownCellId = $state(null)
+
+/** @param {string} cellId */
+function enterMarkdownEditMode(cellId) {
+  editingMarkdownCellId = cellId
+  activeCellId = cellId
+  void tick().then(() => cellViews.get(cellId)?.focus())
+}
+
+function exitMarkdownEditMode() {
+  editingMarkdownCellId = null
 }
 
 function clearScratchpadInteractionState() {
@@ -891,22 +1083,29 @@ function clearScratchpadInteractionState() {
   commandInputPrompt = null
   commandInputError = ''
   settingsPanelVisible = false
-  agdaController.editorView?.dispatch({ effects: clearGoals.of() })
+  hiddenView.dispatch({ effects: clearGoals.of() })
 }
 
-/** @param {string} source */
+/**
+ * Tears down every mounted cell view and rebuilds the cell array + hidden
+ * view from `source`.
+ * @param {string} source
+ */
 function replaceScratchpadSource(source) {
-  const view = agdaController.editorView
-  if (!view) return
-  view.dispatch({
-    changes: { from: 0, to: view.state.doc.length, insert: source },
+  for (const view of cellViews.values()) view.destroy()
+  cellViews.clear()
+  editingMarkdownCellId = null
+  const nextCells = cellsFromSource(source)
+  cells = nextCells
+  activeCellId = nextCells[0]?.id ?? null
+  hiddenView.dispatch({
+    changes: { from: 0, to: hiddenView.state.doc.length, insert: assembleDocument(nextCells) },
     selection: { anchor: 0 },
-    annotations: blockStructureEdit.of(true),
+    annotations: fromCellSync.of(true),
   })
   localStorage.setItem(agdaController.docStorageKey, source)
   clearScratchpadInteractionState()
   textboxContent = 'Example loaded into editor. Click Load to type-check it.\n'
-  view.focus()
 }
 
 /** @param {string} exampleId */
@@ -924,16 +1123,15 @@ function openSettingsPanel() {
 
 function closeSettingsPanel() {
   settingsPanelVisible = false
-  agdaController.editorView?.focus()
+  cellViews.get(activeCellId ?? '')?.focus()
 }
 
 function copyEditorCode() {
-  const text = agdaController.editorView?.state.doc.toString() ?? ''
-  navigator.clipboard.writeText(text)
+  navigator.clipboard.writeText(assembleDocument(cells))
 }
 
 function exportAgdaFile() {
-  const text = agdaController.editorView?.state.doc.toString() ?? ''
+  const text = assembleDocument(cells)
   const blob = new Blob([text], { type: 'text/plain' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -951,12 +1149,7 @@ function openAgdaFile(event) {
   const reader = new FileReader()
   reader.onload = () => {
     const text = /** @type {string} */ (reader.result)
-    const view = agdaController.editorView
-    if (!view) return
-    view.dispatch({
-      changes: { from: 0, to: view.state.doc.length, insert: text },
-      annotations: blockStructureEdit.of(true),
-    })
+    replaceScratchpadSource(text)
   }
   reader.readAsText(file)
   input.value = ''
@@ -1010,26 +1203,10 @@ function sendAbort() {
   })
 }
 
-/** @param {number | string} goalId */
-function focusGoal(goalId) {
-  if (typeof goalId !== 'number' || !agdaController.editorView) return
-
-  const view = agdaController.editorView
-  const range = getGoalRangeById(view.state, goalId)
-  if (!range) return
-
-  const cursor = Math.min(range.to, range.from + 3)
-  view.dispatch({
-    selection: { anchor: cursor },
-    scrollIntoView: true,
-  })
-  view.focus()
-}
-
 /**
  * Shared Load implementation for both the block-scoped ("Load", C-c C-l --
- * truncated to the cursor's code block) and explicit full ("Load All", all
- * blocks) actions. `blockIndex == null` means a full, untruncated load.
+ * truncated to the active cell) and explicit full ("Load All", all cells)
+ * actions. `blockIndex == null` means a full, untruncated load.
  * @param {number | null} blockIndex
  */
 async function performLoad(blockIndex) {
@@ -1046,12 +1223,12 @@ async function performLoad(blockIndex) {
   activeGoalDetailError = ''
   commandInputPrompt = null
   commandInputError = ''
-  agdaController.editorView?.dispatch({ effects: clearGoals.of() })
+  hiddenView.dispatch({ effects: clearGoals.of() })
 
   const prefetchFn = agdaController.backend?.prefetchAgdai?.bind(agdaController.backend)
-  if (prefetchFn && agdaController.editorView && agdaController.receivedNumericAgdaVersion) {
+  if (prefetchFn && agdaController.receivedNumericAgdaVersion) {
     triggerPrefetch(
-      agdaController.editorView.state.doc.toString(),
+      hiddenView.state.doc.toString(),
       prefetchFn,
       resolveProfileLibraries(agdaController.activeProfile),
       agdaController.receivedNumericAgdaVersion,
@@ -1062,10 +1239,8 @@ async function performLoad(blockIndex) {
     if (blockIndex == null) {
       await agdaController.loadAgdaFile()
     } else {
-      const view = agdaController.editorView
-      if (!view) throw new Error('Editor is not ready.')
-      const blocks = parseLiterateBlocks(view.state.doc.toString())
-      await agdaController.syncTruncatedSourceFileToDrive(view, blocks, blockIndex)
+      const blocks = parseLiterateBlocks(hiddenView.state.doc.toString())
+      await agdaController.syncTruncatedSourceFileToDrive(hiddenView, blocks, blockIndex)
     }
     syncAgdaDiagnostics()
     textboxContent += 'Load finished.\n'
@@ -1076,15 +1251,13 @@ async function performLoad(blockIndex) {
   }
 }
 
-/** Loads only the code blocks up to and including the one the cursor is in. */
+/** Loads only the cells up to and including the active one. */
 async function loadAgdaFile() {
-  const view = agdaController.editorView
-  const blocks = view ? parseLiterateBlocks(view.state.doc.toString()) : []
-  const blockIndex = view ? blockIndexAtPos(blocks, view.state.selection.main.head) : 0
-  await performLoad(blockIndex)
+  const idx = cells.findIndex(c => c.id === activeCellId)
+  await performLoad(idx >= 0 ? idx : cells.length - 1)
 }
 
-/** Loads the entire document, ignoring the cursor's block. */
+/** Loads the entire document, ignoring the active cell. */
 async function loadAllAgdaFile() {
   await performLoad(null)
 }
@@ -1097,7 +1270,6 @@ let textboxContent = $state('WIP')
 let selectedExampleId = $state('cubical-prelude')
 const initialShortcutOverrides = loadShortcutOverrides()
 let goalInfos = $state(/** @type {{id: number | string, range?: string, type?: string, context?: string}[]} */([]))
-let literateBlockCount = $state(1)
 let panelGoalInfos = $state(/** @type {{id: number | string, range?: string, type?: string, context?: string}[]} */([]))
 let agdaDiagnostics = $state(/** @type {import('$lib/agda/diagnostics').AgdaDiagnostic[]} */([]))
 let activeGoalId = $state(/** @type {number | string | null} */(null))
@@ -1144,12 +1316,10 @@ let commandInputError = $state('')
 let commandInputElement = $state(/** @type {HTMLInputElement | undefined} */(undefined))
 
 $effect(() => {
-  const view = agdaController.editorView
   const goalId = activeGoalId
   const goal = panelGoalInfos.find(goal => goal.id === goalId)
 
   if (
-    !view ||
     typeof goalId !== 'number' ||
     !goal ||
     goal.context !== undefined ||
@@ -1159,7 +1329,7 @@ $effect(() => {
     return
   }
 
-  const documentVersion = getAgdaDocumentVersion(view.state)
+  const documentVersion = getAgdaDocumentVersion(hiddenView.state)
   untrack(() => {
     void requestActiveGoalDetails(goalId, documentVersion)
   })
@@ -1170,9 +1340,7 @@ $effect(() => {
   if (panelGoalInfos.every(g => g.type !== undefined)) return
   if (agdaController.alsWorkerStatus !== 'active') return
   if (agdaController.iotcmStatus !== 'ready') return
-  const view = agdaController.editorView
-  if (!view) return
-  const documentVersion = getAgdaDocumentVersion(view.state)
+  const documentVersion = getAgdaDocumentVersion(hiddenView.state)
   untrack(() => {
     void autoFetchGoalTypes(documentVersion)
   })
@@ -1208,10 +1376,8 @@ $effect(() => {
                   type="button"
                   class="command-button"
                   onclick={() => {
-                    if (agdaController.editorView) {
-                      runAgdaShortcutDefinition(shortcut, agdaController.editorView)
-                      agdaController.editorView.focus()
-                    }
+                    runAgdaShortcutDefinition(shortcut)
+                    cellViews.get(activeCellId ?? '')?.focus()
                   }}>
                   {formatAgdaShortcutHelpBinding(shortcut)}
                 </button>
@@ -1223,15 +1389,15 @@ $effect(() => {
         <button
           type="button"
           class="header-action-btn"
-          title="Check the entire document, ignoring the cursor's code block"
+          title="Check the entire document, ignoring the active cell"
           onclick={runLoadAllShortcut}>Load All</button>
         <button type="button" class="header-action-btn" onclick={insertMarkdownBlock}>+ Markdown</button>
         <button type="button" class="header-action-btn" onclick={insertCodeBlock}>+ Code</button>
         <button
           type="button"
           class="header-action-btn"
-          disabled={literateBlockCount <= 1}
-          title={literateBlockCount <= 1 ? 'At least one block must remain' : 'Delete the block the cursor is in'}
+          disabled={cells.length <= 1}
+          title={cells.length <= 1 ? 'At least one block must remain' : 'Delete the active block'}
           onclick={deleteCurrentBlock}>Delete block</button>
         <button type="button" class="header-action-btn" onclick={copyEditorCode}>Copy</button>
         <button type="button" class="header-action-btn" onclick={() => fileInput.click()}>Open</button>
@@ -1246,7 +1412,35 @@ $effect(() => {
       {#snippet start()}
       <section class="editor-pane" bind:this={editorPaneSectionEl}>
         <div class="editor-wrap">
-          <div class="container" {@attach codeMirror}></div>
+          <div class="literate-cells">
+            {#each cells as cell (cell.id)}
+              <div class="literate-cell" class:literate-cell-code={cell.type === 'code'} class:literate-cell-markdown={cell.type === 'markdown'}>
+                {#if cell.type === 'markdown' && editingMarkdownCellId !== cell.id}
+                  <div class="literate-markdown-render">
+                    <!-- Rendering the user's own local document, not third-party/untrusted
+                         content -- no server, no other users. This is the accepted trade-off
+                         already documented in the original single-buffer implementation
+                         (markdown-preview.js, now removed); unchanged here. -->
+                    <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+                    <div class="literate-markdown-content">{@html marked.parse(cell.text || '_empty block_', { async: false })}</div>
+                    <button type="button" class="literate-markdown-edit-btn" aria-label="Edit this text block" onclick={() => enterMarkdownEditMode(cell.id)}>Edit</button>
+                  </div>
+                {:else}
+                  <LiterateCellEditor
+                    getText={() => cell.text}
+                    extensions={cellExtensions(cell.id, cell.type)}
+                    onView={view => registerCellView(cell.id, view)}
+                    onDestroyed={() => unregisterCellView(cell.id)}
+                  />
+                  {#if cell.type === 'markdown'}
+                    <div class="literate-markdown-done-row">
+                      <button type="button" class="literate-markdown-done-btn" onclick={exitMarkdownEditMode}>✓ Done</button>
+                    </div>
+                  {/if}
+                {/if}
+              </div>
+            {/each}
+          </div>
           {#if chordProgress.length > 0}
             <div class="chord-hint" aria-live="polite" aria-label="Waiting for next chord key">
               {chordProgress.map(step => `C-${displayKey(step.key)}`).join(' ')}
@@ -1460,14 +1654,88 @@ $effect(() => {
   position: relative;
   flex: 1 1;
   min-height: 0;
+  overflow-y: auto;
 }
 
-.container {
-  width: 100%;
-  height: 100%;
+.literate-cells {
   display: flex;
-  flex-direction: row;
-  min-height: 0;
+  flex-direction: column;
+  min-height: 100%;
+  padding: 8px 12px 40px;
+}
+
+.literate-cell {
+  margin: 10px 0;
+  border-radius: 6px;
+}
+
+.literate-cell-code {
+  background: #f6f8fa;
+  border: 2px solid rgba(0, 0, 0, 0.15);
+  padding: 6px 0;
+}
+
+.literate-cell-markdown {
+  background: #ffffff;
+}
+
+.literate-markdown-render {
+  position: relative;
+  padding: 4px 8px;
+}
+
+.literate-markdown-content {
+  cursor: default;
+}
+
+.literate-markdown-content :global(h1),
+.literate-markdown-content :global(h2),
+.literate-markdown-content :global(h3) {
+  margin: 0.4em 0;
+}
+
+.literate-markdown-content :global(p) {
+  margin: 0.4em 0;
+}
+
+.literate-markdown-content :global(code) {
+  font-family: JuliaMono, monospace;
+  background: rgba(128, 128, 128, 0.15);
+  padding: 0 3px;
+  border-radius: 2px;
+}
+
+.literate-markdown-edit-btn {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+  font-size: 0.8em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  background: #f6f8fa;
+  cursor: pointer;
+}
+
+.literate-markdown-render:hover .literate-markdown-edit-btn {
+  opacity: 1;
+}
+
+.literate-markdown-done-row {
+  display: flex;
+  justify-content: flex-end;
+  padding: 2px 8px;
+}
+
+.literate-markdown-done-btn {
+  font-size: 0.8em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(70, 110, 255, 0.4);
+  background: rgba(70, 110, 255, 0.08);
+  cursor: pointer;
 }
 
 .chord-hint {
@@ -1489,14 +1757,6 @@ $effect(() => {
 :global(.split-pane) {
   --divider-width: 1px;
   --divider-draggable-area: 13px;
-}
-
-.container > :global(*) {
-  flex: 1 1;
-}
-
-.container :global(.cm-editor) {
-  background: var(--quiet-neutral-fill);
 }
 
 .editor-section {
@@ -1523,9 +1783,9 @@ $effect(() => {
   min-height: 0;
 }
 
-/* editor-goals-splitter stays mounted in both Goals positions (so
-   .container/{@attach codeMirror} never moves between template branches —
-   see LS_GOALS_PANEL_POSITION_KEY) and just collapses visually instead of
+/* editor-goals-splitter stays mounted in both Goals positions (so the
+   editor pane never moves between template branches — see
+   LS_GOALS_PANEL_POSITION_KEY) and just collapses visually instead of
    being conditionally removed. Goals always lives in end(), the editor in
    start() — collapsing hides end(), expands start(). Unlike the editor,
    the right column has no CodeMirror-style state to lose, so its own
