@@ -7,6 +7,7 @@ import {
   deleteBlock,
   newMarkdownBlockText,
   newCodeBlockText,
+  isFenceLine,
 } from './literate-blocks'
 
 /** @param {import('./literate-blocks').LiterateBlock[]} blocks @param {string} text */
@@ -161,5 +162,29 @@ describe('newMarkdownBlockText / newCodeBlockText', () => {
     // block after the code fence -- expected, matches how the parser
     // treats any trailing non-fence text, blank or not.
     expect(blocks.map(b => b.type)).toEqual(['markdown', 'code', 'markdown'])
+  })
+})
+
+describe('isFenceLine', () => {
+  it('recognizes an opening fence', () => {
+    expect(isFenceLine('```agda')).toBe(true)
+  })
+
+  it('recognizes a closing fence', () => {
+    expect(isFenceLine('```')).toBe(true)
+  })
+
+  it('tolerates trailing whitespace', () => {
+    expect(isFenceLine('```agda   ')).toBe(true)
+  })
+
+  it('rejects a fence-like line with extra content', () => {
+    expect(isFenceLine('```agda extra')).toBe(false)
+    expect(isFenceLine('some ```agda mention')).toBe(false)
+  })
+
+  it('rejects ordinary text', () => {
+    expect(isFenceLine('not a fence')).toBe(false)
+    expect(isFenceLine('')).toBe(false)
   })
 })

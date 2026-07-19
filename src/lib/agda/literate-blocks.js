@@ -17,6 +17,17 @@ const FENCE_OPEN = /^```agda\s*$/
 const FENCE_CLOSE = /^```\s*$/
 
 /**
+ * Whether a single line (no surrounding newlines) is a fence marker line --
+ * shared with literate-fence-guard.js so the "protect fence lines from
+ * manual edits" filter uses the exact same definition the parser does.
+ * @param {string} lineText
+ * @returns {boolean}
+ */
+export function isFenceLine(lineText) {
+  return FENCE_OPEN.test(lineText) || FENCE_CLOSE.test(lineText)
+}
+
+/**
  * @typedef LiterateBlock
  * @prop {'markdown' | 'code'} type
  * @prop {number} from

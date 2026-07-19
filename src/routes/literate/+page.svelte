@@ -33,6 +33,7 @@ import {
 } from '$lib/agda/literate-blocks'
 import { literateMarkdownPreview } from '$lib/codemirror/markdown-preview'
 import { literateBlockBorders } from '$lib/codemirror/literate-block-borders'
+import { literateFenceGuard, blockStructureEdit } from '$lib/codemirror/literate-fence-guard'
 import { literateBlocksField } from '$lib/codemirror/literate-blocks-state'
 import {
   advanceAgdaChord,
@@ -281,6 +282,12 @@ const basicTheme = EditorView.theme({
   '.cm-scroller': {
     overscrollBehavior: 'contain',
   },
+  // Line numbers read as noise against block-structured prose+code; the
+  // block borders (literate-block-borders.js) are the primary way to
+  // orient within the document here instead.
+  '.cm-gutters': {
+    display: 'none',
+  },
 })
 
 /**
@@ -376,6 +383,7 @@ function insertBlockAfterCurrent(/** @type {import('$lib/agda/literate-blocks').
     changes: { from: insertAt, to: insertAt, insert: newBlock.text },
     selection: { anchor: insertAt + newBlock.selectionFrom, head: insertAt + newBlock.selectionTo },
     scrollIntoView: true,
+    annotations: blockStructureEdit.of(true),
   })
   view.focus()
 }
@@ -400,6 +408,7 @@ function deleteCurrentBlock() {
     changes: { from: block.from, to: block.to, insert: '' },
     selection: { anchor: block.from },
     scrollIntoView: true,
+    annotations: blockStructureEdit.of(true),
   })
   view.focus()
 }
@@ -804,6 +813,7 @@ function codeMirror(el) {
       agdaInputMethod(),
       literateMarkdownPreview(),
       literateBlockBorders(),
+      literateFenceGuard,
       agdaKeymap,
       agdaChordKeymap,
       EditorView.updateListener.of(update => {
@@ -883,6 +893,7 @@ function replaceScratchpadSource(source) {
   view.dispatch({
     changes: { from: 0, to: view.state.doc.length, insert: source },
     selection: { anchor: 0 },
+    annotations: blockStructureEdit.of(true),
   })
   localStorage.setItem(agdaController.docStorageKey, source)
   clearScratchpadInteractionState()
@@ -934,7 +945,10 @@ function openAgdaFile(event) {
     const text = /** @type {string} */ (reader.result)
     const view = agdaController.editorView
     if (!view) return
-    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } })
+    view.dispatch({
+      changes: { from: 0, to: view.state.doc.length, insert: text },
+      annotations: blockStructureEdit.of(true),
+    })
   }
   reader.readAsText(file)
   input.value = ''

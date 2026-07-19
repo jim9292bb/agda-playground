@@ -108,6 +108,8 @@ set_editor_fixture() {
     const view = document.querySelector('.cm-content')?.cmTile?.view
     if (!view) return { ok: false, error: 'missing CodeMirror view' }
     const anchor = marker ? source.indexOf(marker) + offset : 0
+    // No-op outside the /literate route; see literate-fence-guard.js.
+    window.__agdaTestBypassFenceGuard = true
     view.dispatch({
       changes: { from: 0, to: view.state.doc.length, insert: source },
       selection: { anchor: Math.max(0, anchor) },
