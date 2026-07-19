@@ -37,6 +37,11 @@ export interface WASIShimWorkerInitObject {
   /** SharedArrayBuffer for on-demand .agdai network fetch via Atomics bridge */
   agdaiFetchSab?: SharedArrayBuffer
   agdaVersion: string
+  /** Bare VFS filename for the live source buffer (no leading slash) —
+   *  defaults to 'source.agda'. The literate-programming route uses
+   *  'source.lagda.md' so Cmd_load's path matches a file that actually
+   *  exists in the VFS and gets refreshed by LiveSourcePreopenDirectory. */
+  sourceFileName?: string
 }
 
 // SAB layout for on-demand .agdai fetch (must match browser-wasi-shim.ts)
@@ -166,10 +171,11 @@ async function extractZipFast(
 async function buildFilesystem(opts: {
   libraries: LibraryToLoad[]
   dataZip: ArrayBuffer
+  sourceFileName: string
 }): Promise<{ root: Directory; sourceFile: File }> {
   const root = new Directory(new Map())
 
-  const sourceFile = writeFileTo(root, 'source.agda', enc.encode(''))
+  const sourceFile = writeFileTo(root, opts.sourceFileName, enc.encode(''))
 
   // All extractions are independent (different VFS dirs) — run in parallel
   const tasks: Promise<void>[] = []
@@ -206,19 +212,22 @@ class LiveSourcePreopenDirectory extends PreopenDirectory {
   private _agdaiRoot: Directory
   private _agdaiFetched = new Set<string>()
   private readonly _pathEnc = new TextEncoder()
+  private readonly _sourceFileName: string
 
   constructor(
     name: string,
     root: Directory,
     sourceFile: File,
     sourceSab: SharedArrayBuffer,
-    agdaiFetchSab?: SharedArrayBuffer,
+    agdaiFetchSab: SharedArrayBuffer | undefined,
+    sourceFileName: string,
   ) {
     super(name, root.contents)
     this._sourceFile = sourceFile
     this._sourceSab = sourceSab
     this._agdaiFetchSab = agdaiFetchSab
     this._agdaiRoot = root
+    this._sourceFileName = sourceFileName
   }
 
   private _refreshSource(): void {
@@ -277,7 +286,7 @@ class LiveSourcePreopenDirectory extends PreopenDirectory {
     fs_rights_inheriting: bigint,
     fd_flags: number,
   ) {
-    if (path_str === 'source.agda') {
+    if (path_str === this._sourceFileName) {
       this._refreshSource()
     } else if (path_str.endsWith('.agdai')) {
       // Skip network fetch for O_CREAT (ALS writing a newly compiled file)
@@ -293,7 +302,7 @@ class LiveSourcePreopenDirectory extends PreopenDirectory {
   }
 
   override path_filestat_get(flags: number, path_str: string) {
-    if (path_str === 'source.agda') {
+    if (path_str === this._sourceFileName) {
       this._refreshSource()
     } else if (path_str.endsWith('.agdai') && !this._agdaiFetched.has(path_str)) {
       // Check VFS first — avoids spurious fetches for files already present
@@ -348,12 +357,13 @@ function makeMainWasi(
   stdinSab: SharedArrayBuffer,
   stdoutSab: SharedArrayBuffer,
   stdinWaker: MessagePort,
-  agdaiFetchSab?: SharedArrayBuffer,
+  agdaiFetchSab: SharedArrayBuffer | undefined,
+  sourceFileName: string,
 ) {
   const stdinFd = new ReadablePipe(stdinSab)
   const stdoutFd = new SPSCStdoutFd(stdoutSab, stdinWaker)
   const stderrFd = ConsoleStdout.lineBuffered(msg => console.warn('ALS:', msg))
-  const rootFd = new LiveSourcePreopenDirectory('/', root, sourceFile, sourceSab, agdaiFetchSab)
+  const rootFd = new LiveSourcePreopenDirectory('/', root, sourceFile, sourceSab, agdaiFetchSab, sourceFileName)
   return new WASI(['als', '--raw'], env, [stdinFd, stdoutFd, stderrFd, rootFd])
 }
 
@@ -380,10 +390,11 @@ async function init({
   dataZip,
   agdaiFetchSab,
   agdaVersion,
+  sourceFileName = 'source.agda',
 }: WASIShimWorkerInitObject) {
   const [module, { root, sourceFile }] = await Promise.all([
     compileWasm(wasmSource),
-    buildFilesystem({ libraries, dataZip }),
+    buildFilesystem({ libraries, dataZip, sourceFileName }),
   ])
 
   if (agdaVersion === '2.8.0') {
@@ -431,7 +442,7 @@ async function init({
     },
 
     start: async (): Promise<number> => {
-      const wasiInst = makeMainWasi(root, sourceFile, sourceSab, stdin, stdout, stdinWaker, agdaiFetchSab)
+      const wasiInst = makeMainWasi(root, sourceFile, sourceSab, stdin, stdout, stdinWaker, agdaiFetchSab, sourceFileName)
       const instance = new WebAssembly.Instance(module, { wasi_snapshot_preview1: wasiInst.wasiImport })
       return wasiInst.start(instance)
     },

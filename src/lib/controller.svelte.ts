@@ -135,7 +135,7 @@ export class AgdaController {
   private _ensureBackend(): RuntimeBackend {
     if (!this._backend) {
       this._backend = new BrowserWasiShimRuntimeBackend(
-        this.config.agdaBuffers, this.config.driveBuffers, this.activeProfile.als)
+        this.config.agdaBuffers, this.config.driveBuffers, this.activeProfile.als, this.config.sourceFileName)
     }
     return this._backend
   }
@@ -150,6 +150,11 @@ export class AgdaController {
       stdin: SharedArrayBuffer,
       stdout: SharedArrayBuffer,
     },
+    /** Bare VFS filename for the live source buffer (no leading slash) —
+     *  defaults to 'source.agda'. Set to 'source.lagda.md' (and pair with
+     *  currentFilePath = '/source.lagda.md') for the literate-programming
+     *  route. */
+    sourceFileName?: string,
   }) {
     this.lspClient = makeLspClient()
   }

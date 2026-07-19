@@ -60,14 +60,17 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
    *  what's written into the WASM filesystem) always keeps using the
    *  human-readable library name, untouched. */
   private _nameToAgdaiKey = new Map<string, string | undefined>()
+  private readonly _sourceFileName: string
 
   constructor(
     agdaBuffers: { stdin: SharedArrayBuffer; stdout: SharedArrayBuffer },
     _driveBuffers: { lock: SharedArrayBuffer; stdin: SharedArrayBuffer; stdout: SharedArrayBuffer },
     agdaVersion: SupportedAgdaVersion,
+    sourceFileName = 'source.agda',
   ) {
     this._agdaBuffers = agdaBuffers
     this._agdaVersion = agdaVersion
+    this._sourceFileName = sourceFileName
 
     this._agdaStdinWriter = new SPSCWriter(agdaBuffers.stdin)
     this._agdaStdoutReader = new SPSCReader(agdaBuffers.stdout)
@@ -170,6 +173,7 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
       dataZip: dataZipData,
       agdaiFetchSab: this._agdaiFetchSab,
       agdaVersion,
+      sourceFileName: this._sourceFileName,
     }, worker => {
       this._lspWorker = worker
       worker.addEventListener('error', (evt) => {
