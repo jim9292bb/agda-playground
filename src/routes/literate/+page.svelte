@@ -33,6 +33,7 @@ import {
   createCodeCell,
   assembleDocument,
   computeCellContentOffsets,
+  computeCellWrapperOffsets,
   cellOffsetAtPos,
   cellsFromParsedBlocks,
 } from '$lib/agda/literate-cells'
@@ -425,7 +426,16 @@ const basicTheme = EditorView.theme({
  * the same cell doesn't reload on every single one.
  */
 async function literatePresync() {
-  const blocks = parseLiterateBlocks(hiddenView.state.doc.toString())
+  // Uses computeCellWrapperOffsets (cells-array-based), not
+  // parseLiterateBlocks(hiddenView's text), for the same reason as
+  // insertCellAfterActive/deleteCurrentBlock above: parseLiterateBlocks
+  // inserts an extra (non-zero-length) markdown block for the blank line
+  // between any two adjacent code cells with no markdown between them --
+  // confirmed empirically to silently truncate right before the *second*
+  // of two consecutive code cells, no matter which one was actually
+  // active, since blocks[idx] no longer lines up with cells[idx] once that
+  // extra block exists.
+  const blocks = computeCellWrapperOffsets(cells)
   const idx = cells.findIndex(c => c.id === activeCellId)
   const blockIndex = idx >= 0 ? idx : blocks.length - 1
   await agdaController.syncTruncatedSourceFileToDrive(hiddenView, blocks, blockIndex)
@@ -501,9 +511,15 @@ function insertCellAfterActive(/** @type {import('$lib/agda/literate-cells').Lit
   // cell's own fence-wrapped span, so without this hiddenView would stay
   // silently out of sync with `cells` until some unrelated edit forced a
   // resync (confirmed empirically: selection/edit sync into a freshly
-  // inserted cell threw "Selection points outside of document").
-  const blocks = parseLiterateBlocks(hiddenView.state.doc.toString())
-  const globalInsertAt = blocks[insertAt]?.from ?? hiddenView.state.doc.length
+  // inserted cell threw "Selection points outside of document"). Uses
+  // computeCellWrapperOffsets (cells-array-based), not
+  // parseLiterateBlocks(hiddenView's text) -- the latter's own
+  // trailing-blank-markdown-block handling doesn't line up 1:1 with
+  // `cells` and silently corrupted an insert positioned after the last
+  // cell (confirmed empirically: it landed one character short of the end
+  // of the document, splitting the closing fence's own newline).
+  const wrapperOffsets = computeCellWrapperOffsets(cells)
+  const globalInsertAt = wrapperOffsets[insertAt]?.from ?? hiddenView.state.doc.length
   hiddenView.dispatch({
     changes: { from: globalInsertAt, to: globalInsertAt, insert: assembleDocument([newCell]) },
     annotations: fromCellSync.of(true),
@@ -528,11 +544,11 @@ function deleteCurrentBlock() {
   const idx = cells.findIndex(c => c.id === activeCellId)
   if (idx < 0) return
 
-  const blocks = parseLiterateBlocks(hiddenView.state.doc.toString())
-  const block = blocks[idx]
-  if (block) {
+  const wrapperOffsets = computeCellWrapperOffsets(cells)
+  const entry = wrapperOffsets[idx]
+  if (entry) {
     hiddenView.dispatch({
-      changes: { from: block.from, to: block.to, insert: '' },
+      changes: { from: entry.from, to: entry.to, insert: '' },
       annotations: fromCellSync.of(true),
     })
   }
@@ -1240,7 +1256,9 @@ async function performLoad(blockIndex) {
     if (blockIndex == null) {
       await agdaController.loadAgdaFile()
     } else {
-      const blocks = parseLiterateBlocks(hiddenView.state.doc.toString())
+      // See literatePresync's comment: cells-array-based offsets, not
+      // parseLiterateBlocks against the assembled text.
+      const blocks = computeCellWrapperOffsets(cells)
       await agdaController.syncTruncatedSourceFileToDrive(hiddenView, blocks, blockIndex)
     }
     syncAgdaDiagnostics()

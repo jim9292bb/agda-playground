@@ -6,6 +6,7 @@ import {
   createCodeCell,
   assembleDocument,
   computeCellContentOffsets,
+  computeCellWrapperOffsets,
   cellOffsetAtPos,
   cellsFromParsedBlocks,
 } from './literate-cells'
@@ -71,6 +72,64 @@ describe('computeCellContentOffsets', () => {
     const offsets = computeCellContentOffsets([a, b])
     expect(doc.slice(offsets[0].from, offsets[0].to)).toBe('a : Set')
     expect(doc.slice(offsets[1].from, offsets[1].to)).toBe('b : Set')
+  })
+})
+
+describe('computeCellWrapperOffsets', () => {
+  it('spans each cell\'s entire serialized form, fence wrapper included', () => {
+    const md = createMarkdownCell('intro')
+    const code = createCodeCell('foo : Set')
+    const doc = assembleDocument([md, code])
+    const offsets = computeCellWrapperOffsets([md, code])
+
+    expect(offsets).toHaveLength(2)
+    expect(doc.slice(offsets[0].from, offsets[0].to)).toBe(assembleDocument([md]))
+    expect(doc.slice(offsets[1].from, offsets[1].to)).toBe(assembleDocument([code]))
+    // The two spans partition the document with no gap or overlap.
+    expect(offsets[0].to).toBe(offsets[1].from)
+    expect(offsets[1].to).toBe(doc.length)
+  })
+
+  it('stays 1:1 with the cells array for consecutive code cells, unlike parseLiterateBlocks', () => {
+    // Regression test: the blank line assembleDocument leaves between two
+    // adjacent code cells with no markdown between them is real, non-zero-
+    // length text -- parseLiterateBlocks (designed to parse arbitrary
+    // .lagda.md text, not specifically this app's own assembled output)
+    // correctly treats it as its own separate markdown block, so
+    // parseLiterateBlocks(doc).length ends up *larger* than cells.length
+    // and blocks[i] silently stops corresponding to cells[i] from that
+    // point on. computeCellWrapperOffsets must not have this problem: it's
+    // built directly from the cells array, never by re-parsing text.
+    const a = createCodeCell('a : Set')
+    const b = createCodeCell('b : Set')
+    const cells = [a, b]
+    const doc = assembleDocument(cells)
+
+    const blocks = parseLiterateBlocks(doc)
+    expect(blocks.length).toBeGreaterThan(cells.length) // documents the parseLiterateBlocks pitfall
+
+    const offsets = computeCellWrapperOffsets(cells)
+    expect(offsets).toHaveLength(cells.length)
+    expect(doc.slice(offsets[0].from, offsets[0].to)).toBe(assembleDocument([a]))
+    expect(doc.slice(offsets[1].from, offsets[1].to)).toBe(assembleDocument([b]))
+  })
+
+  it('gives an insertion point at the very end of the document when appending after the last cell', () => {
+    const only = createCodeCell('a : Set')
+    const cells = [only]
+    const doc = assembleDocument(cells)
+    const offsets = computeCellWrapperOffsets(cells)
+    // "Insert after the last cell" uses offsets[cells.length]?.from, which
+    // is undefined -- callers fall back to doc.length. Confirm that
+    // fallback lands exactly at the end, not one character short (the
+    // original bug: parseLiterateBlocks-based lookup skipped over the
+    // fence's own trailing newline).
+    expect(offsets[cells.length]).toBeUndefined()
+    expect(offsets[cells.length - 1].to).toBe(doc.length)
+  })
+
+  it('is consistent for an empty cell array', () => {
+    expect(computeCellWrapperOffsets([])).toEqual([])
   })
 })
 

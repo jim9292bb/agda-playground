@@ -105,6 +105,33 @@ export function computeCellContentOffsets(cells) {
 }
 
 /**
+ * Like computeCellContentOffsets, but each entry's `[from, to)` spans the
+ * cell's *entire* serialized form -- fence wrapper (code) or trailing
+ * separator (markdown) included, i.e. exactly what
+ * `assembleDocument([cell])` alone occupies at that position. Used for
+ * structural insert/delete of a whole cell, where `parseLiterateBlocks`
+ * can't be relied on to line up 1:1 with the cells array: its own
+ * trailing-blank-markdown-block handling (see its own doc comment) can
+ * introduce one extra block that doesn't correspond to any real cell,
+ * silently shifting every later block's index -- confirmed empirically to
+ * corrupt an insert positioned after the last cell.
+ * @param {LiterateCell[]} cells
+ * @returns {CellContentOffset[]}
+ */
+export function computeCellWrapperOffsets(cells) {
+  /** @type {CellContentOffset[]} */
+  const offsets = []
+  let pos = 0
+  for (const cell of cells) {
+    const from = pos
+    const wrapped = cell.type === 'code' ? CODE_FENCE_OPEN + cell.text + CODE_FENCE_CLOSE : cell.text + MARKDOWN_SUFFIX
+    pos = from + wrapped.length
+    offsets.push({ cellId: cell.id, type: cell.type, from, to: pos })
+  }
+  return offsets
+}
+
+/**
  * @param {CellContentOffset[]} offsets
  * @param {number} pos absolute offset in the assembled document
  * @returns {CellContentOffset | null} the cell whose content range contains

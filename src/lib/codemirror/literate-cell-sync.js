@@ -168,7 +168,7 @@ export function projectHighlightToCells(state, cellOffsets) {
  */
 export const setCellGoalDecorations = StateEffect.define()
 
-export const cellGoalOverlayField = StateField.define({
+const cellGoalOverlayField = StateField.define({
   /** @returns {DecorationSet} */
   create() {
     return Decoration.none
@@ -190,7 +190,7 @@ export const setCellHighlightDecorations = StateEffect.define()
 
 const initialCellHighlight = { aspects: Decoration.none, otherAspects: Decoration.none }
 
-export const cellHighlightOverlayField = StateField.define({
+const cellHighlightOverlayField = StateField.define({
   create() {
     return initialCellHighlight
   },
