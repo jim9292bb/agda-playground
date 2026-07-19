@@ -1,45 +1,84 @@
 import { StateField, RangeSetBuilder } from '@codemirror/state'
-import { EditorView, Decoration } from '@codemirror/view'
+import { EditorView, Decoration, WidgetType } from '@codemirror/view'
 import { literateBlocksField } from './literate-blocks-state'
-import { blockIndexAtPos } from '$lib/agda/literate-blocks'
+import { editingMarkdownBlockField } from './markdown-preview'
+import { isFenceLine } from '$lib/agda/literate-blocks'
 
 /**
- * Cell-like borders for both markdown and code blocks, with the block the
- * cursor is currently in getting a distinct "focused" border color (like
- * Jupyter's active-cell highlight). Implemented as per-line Decoration.line
+ * GitHub-README-like styling for code blocks (bordered, light gray
+ * background) and markdown blocks (borderless, blends into the page --
+ * markdown-preview.js's rendered widget carries its own white background;
+ * this module only needs to style the *editable raw text* while a markdown
+ * block is being edited, and gives it a light "active" border so its extent
+ * is still visible while typing). Implemented as per-line Decoration.line
  * classes: CodeMirror has no single wrapping DOM element per block (unlike
  * Jupyter, where each cell is its own separate editor instance with its own
  * container div), so the box shape is built from border-left/right on every
- * line in the block plus border-top/bottom (with matching corner radius)
- * only on the block's first/last line.
+ * *visible* line in the block, with corner rounding applied via a CSS
+ * sibling selector (see the theme below) rather than a "first/last line"
+ * class computed here -- a Decoration.line() class placed exactly at the
+ * position where a preceding block-level replace decoration ends was
+ * confirmed (empirically) to sometimes silently fail to render, so corner
+ * placement is derived from genuine DOM adjacency instead of a
+ * position-based class lookup that has to survive that same boundary.
  *
- * Only covers *visible* lines -- a markdown block collapsed into
- * markdown-preview.js's widget has no rendered lines to decorate this way;
- * that widget gets equivalent border/background/focus styling directly on
- * its own DOM in markdown-preview.js instead.
- *
- * @param {import('@codemirror/state').EditorState} state
+ * Code blocks never visually show their ` ```agda `/` ``` ` fence lines --
+ * those lines are hidden with a zero-content `Decoration.replace({block:
+ * true})`, rendered via a tiny marker widget (never by touching the
+ * document) so the corner-radius CSS below has a real sibling element to
+ * key off of.
  */
+
+class FenceMarkerWidget extends WidgetType {
+  /** @param {WidgetType} other */
+  eq(other) {
+    return other instanceof FenceMarkerWidget
+  }
+  toDOM() {
+    const div = document.createElement('div')
+    div.className = 'cm-literate-fence-line'
+    return div
+  }
+  ignoreEvent() {
+    return true
+  }
+}
+
+/** @param {import('@codemirror/state').EditorState} state */
 function buildLineDecorations(state) {
   const blocks = state.field(literateBlocksField)
-  const focusedIndex = blockIndexAtPos(blocks, state.selection.main.head)
+  const editingFrom = state.field(editingMarkdownBlockField)
 
+  /** @type {import('@codemirror/state').Range<Decoration>[]} */
+  const fenceDecorations = []
   /** @type {RangeSetBuilder<Decoration>} */
   const builder = new RangeSetBuilder()
-  blocks.forEach((block, index) => {
+  blocks.forEach((/** @type {import('$lib/agda/literate-blocks').LiterateBlock} */ block) => {
     if (block.from === block.to) return
     const startLine = state.doc.lineAt(block.from).number
     const endLine = state.doc.lineAt(Math.max(block.from, block.to - 1)).number
 
+    // A markdown block only gets a border while it is the one actively
+    // being edited -- so its raw-text extent stays visible while typing --
+    // never while merely rendered (that state has no visible lines at all)
+    // and never for any other markdown block.
+    const isEditingMarkdown = block.type === 'markdown' && block.from === editingFrom
+
     for (let ln = startLine; ln <= endLine; ln++) {
-      const classes = [`cm-literate-block`, `cm-literate-block-${block.type}`]
-      if (ln === startLine) classes.push('cm-literate-block-first')
-      if (ln === endLine) classes.push('cm-literate-block-last')
-      if (index === focusedIndex) classes.push('cm-literate-block-focused')
-      builder.add(state.doc.line(ln).from, state.doc.line(ln).from, Decoration.line({ class: classes.join(' ') }))
+      const line = state.doc.line(ln)
+      if (block.type === 'code' && isFenceLine(line.text)) {
+        const to = ln < state.doc.lines ? state.doc.line(ln + 1).from : line.to
+        fenceDecorations.push(Decoration.replace({ widget: new FenceMarkerWidget(), block: true }).range(line.from, to))
+        continue
+      }
+      if (block.type !== 'code' && !isEditingMarkdown) continue
+
+      const cls = block.type === 'code' ? 'cm-literate-block cm-literate-block-code' : 'cm-literate-block cm-literate-block-markdown-editing'
+      builder.add(line.from, line.from, Decoration.line({ class: cls }))
     }
   })
-  return builder.finish()
+  const lineDecorations = builder.finish()
+  return fenceDecorations.length ? lineDecorations.update({ add: fenceDecorations, sort: true }) : lineDecorations
 }
 
 const literateBlockBordersField = StateField.define({
@@ -54,45 +93,61 @@ const literateBlockBordersField = StateField.define({
 })
 
 const literateBlockBordersTheme = EditorView.baseTheme({
+  '.cm-literate-fence-line': {
+    height: '0',
+  },
   '.cm-literate-block': {
     borderLeftWidth: '2px',
     borderRightWidth: '2px',
     borderLeftStyle: 'solid',
     borderRightStyle: 'solid',
-    borderTopWidth: '0',
-    borderBottomWidth: '0',
-    borderTopStyle: 'solid',
-    borderBottomStyle: 'solid',
     paddingLeft: '6px',
   },
-  '.cm-literate-block-first': {
+  '.cm-literate-block-code': {
+    borderColor: 'rgba(0,0,0,0.15)',
+    backgroundColor: '#f6f8fa',
+  },
+  '.cm-literate-block-markdown-editing': {
+    borderColor: 'rgba(70,110,255,0.35)',
+    borderStyle: 'dashed',
+  },
+  // Corner rounding + margin, applied via real DOM adjacency to the (always
+  // rendered, even though visually zero-height) fence marker widgets rather
+  // than a position-computed "first/last line" class.
+  '.cm-literate-fence-line + .cm-literate-block': {
     borderTopWidth: '2px',
     borderTopLeftRadius: '6px',
     borderTopRightRadius: '6px',
-    marginTop: '4px',
-    paddingTop: '2px',
+    marginTop: '14px',
+    paddingTop: '6px',
   },
-  '.cm-literate-block-last': {
+  '.cm-literate-block:has(+ .cm-literate-fence-line)': {
     borderBottomWidth: '2px',
     borderBottomLeftRadius: '6px',
     borderBottomRightRadius: '6px',
-    marginBottom: '4px',
-    paddingBottom: '2px',
+    marginBottom: '14px',
+    paddingBottom: '6px',
   },
-  '.cm-literate-block-markdown': {
-    borderColor: 'rgba(100,110,255,0.3)',
-    backgroundColor: 'rgba(100,110,255,0.045)',
-  },
-  '.cm-literate-block-code': {
-    borderColor: 'rgba(70,170,110,0.35)',
-    backgroundColor: 'rgba(70,170,110,0.05)',
-  },
-  '.cm-literate-block-focused': {
-    borderColor: 'var(--quiet-primary-stroke, #3b3aab)',
+  '.cm-literate-block:last-child': {
+    borderBottomWidth: '2px',
+    borderBottomLeftRadius: '6px',
+    borderBottomRightRadius: '6px',
+    marginBottom: '14px',
+    paddingBottom: '6px',
   },
 })
 
 /** @returns {import('@codemirror/state').Extension} */
 export function literateBlockBorders() {
-  return [literateBlocksField, literateBlockBordersField, literateBlockBordersTheme]
+  return [
+    literateBlocksField,
+    editingMarkdownBlockField,
+    literateBlockBordersField,
+    // Fence lines are hidden via a zero-content block replace (see
+    // buildLineDecorations above) -- registering them as atomic keeps
+    // keyboard cursor motion from ever stopping inside that collapsed
+    // range, consistent with markdown-preview.js's own atomicRanges.
+    EditorView.atomicRanges.of(view => view.state.field(literateBlockBordersField)),
+    literateBlockBordersTheme,
+  ]
 }

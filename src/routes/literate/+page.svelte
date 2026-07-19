@@ -31,7 +31,7 @@ import {
   newMarkdownBlockText,
   newCodeBlockText,
 } from '$lib/agda/literate-blocks'
-import { literateMarkdownPreview } from '$lib/codemirror/markdown-preview'
+import { literateMarkdownPreview, setEditingMarkdownBlock } from '$lib/codemirror/markdown-preview'
 import { literateBlockBorders } from '$lib/codemirror/literate-block-borders'
 import { literateFenceGuard, blockStructureEdit } from '$lib/codemirror/literate-fence-guard'
 import { literateBlocksField } from '$lib/codemirror/literate-blocks-state'
@@ -372,8 +372,15 @@ function currentLiterateBlocks() {
   return view ? view.state.field(literateBlocksField) : []
 }
 
-/** Inserts new block text right after the block the cursor is currently in. */
-function insertBlockAfterCurrent(/** @type {import('$lib/agda/literate-blocks').NewBlockText} */ newBlock) {
+/**
+ * Inserts new block text right after the block the cursor is currently in.
+ * @param {import('$lib/agda/literate-blocks').NewBlockText} newBlock
+ * @param {boolean} [enterMarkdownEditMode] auto-enters edit mode for the
+ *   new block -- only meaningful for markdown blocks, since edit mode is
+ *   otherwise button-only; without this a freshly-inserted markdown block
+ *   would immediately need a click on its own Edit button to become usable.
+ */
+function insertBlockAfterCurrent(newBlock, enterMarkdownEditMode = false) {
   const view = agdaController.editorView
   if (!view) return
   const blocks = currentLiterateBlocks()
@@ -382,6 +389,7 @@ function insertBlockAfterCurrent(/** @type {import('$lib/agda/literate-blocks').
   view.dispatch({
     changes: { from: insertAt, to: insertAt, insert: newBlock.text },
     selection: { anchor: insertAt + newBlock.selectionFrom, head: insertAt + newBlock.selectionTo },
+    effects: enterMarkdownEditMode ? [setEditingMarkdownBlock.of(insertAt)] : [],
     scrollIntoView: true,
     annotations: blockStructureEdit.of(true),
   })
@@ -389,7 +397,7 @@ function insertBlockAfterCurrent(/** @type {import('$lib/agda/literate-blocks').
 }
 
 function insertMarkdownBlock() {
-  insertBlockAfterCurrent(newMarkdownBlockText())
+  insertBlockAfterCurrent(newMarkdownBlockText(), true)
 }
 
 function insertCodeBlock() {
