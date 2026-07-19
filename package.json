@@ -51,7 +51,8 @@
     "test:browser:unicode-lookup": "scripts/browser-test-unicode-lookup.sh",
     "test:browser:restart-worker-reuse": "scripts/browser-test-restart-worker-reuse.sh",
     "test:browser:literate-basic": "scripts/browser-test-literate-basic.sh",
-    "test:browser:literate-truncation": "scripts/browser-test-literate-truncation.sh"
+    "test:browser:literate-truncation": "scripts/browser-test-literate-truncation.sh",
+    "test:browser:literate-preview": "scripts/browser-test-literate-preview.sh"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -84,6 +85,7 @@
     "@sveltejs/adapter-static": "^3.0.10",
     "codemirror": "6.0.2",
     "comlink": "^4.4.2",
+    "marked": "^18.0.6",
     "spsc": "^0.0.7",
     "vscode-languageserver-protocol": "^3.17.5",
     "zod": "^4.3.6"

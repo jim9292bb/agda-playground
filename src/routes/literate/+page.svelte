@@ -26,6 +26,7 @@ import {
   runAgdaShortcutWithInputPrompt as runAgdaShortcutWithInputPromptShared,
 } from '$lib/agda/run-shortcut'
 import { parseLiterateBlocks, blockIndexAtPos } from '$lib/agda/literate-blocks'
+import { literateMarkdownPreview } from '$lib/codemirror/markdown-preview'
 import {
   advanceAgdaChord,
   agdaShortcutRegistry,
@@ -749,6 +750,7 @@ function codeMirror(el) {
       basicTheme,
       agdaSupport(),
       agdaInputMethod(),
+      literateMarkdownPreview(),
       agdaKeymap,
       agdaChordKeymap,
       EditorView.updateListener.of(update => {

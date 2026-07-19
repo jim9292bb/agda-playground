@@ -23,7 +23,7 @@ import {
 export type { DriveHandle, DeployProfile }
 export { deployProfiles, resolveProfileLibraries }
 
-export const LS_DOC_KEY = 'agda-web-ide-beta:doc'
+const LS_DOC_KEY = 'agda-web-ide-beta:doc'
 const loadArgs: string[] = []
 
 function makeLspClient(rootUri: string = '/') {
