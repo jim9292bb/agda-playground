@@ -52,6 +52,14 @@ export class ALSMessageRouter {
     this.activeDocumentVersion = null
     /** @type {(label: string, content: string) => void} */
     this.appendQueryResult = (_label, _content) => {}
+    // Both set by AgdaController.makeALSTransport right after construction,
+    // from its own currentFilePath/onJumpToError -- kept as plain fields
+    // here (not constructor params) since this class is otherwise
+    // constructed before those are necessarily finalized.
+    /** @type {string} */
+    this.currentFilePath = '/source.agda'
+    /** @type {((position: number) => void) | undefined} */
+    this.onJumpToError = undefined
 
     this.cmEncoder = new TextEncoder()
 

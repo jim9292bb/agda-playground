@@ -108,6 +108,12 @@ export class AgdaController {
   receivedNumericAgdaVersion = $state<string | undefined>()
   driveIsCreated = $state(false)
   currentFilePath = $state('/source.agda')
+  /** Overrides handlers.js's default JumpToError behavior (focusing the
+   *  one editorView directly) -- unset on the single-buffer `/` route;
+   *  `/literate` sets this since editorView is a hidden, never-mounted
+   *  view there and jumping needs to resolve which visible cell to focus
+   *  first. */
+  onJumpToError: ((position: number) => void) | undefined = undefined
   iotcmStatus = $state<AgdaIOTCMStatus>('init')
   performanceEntries = $state<PerformanceEntry[]>([])
   queryResults = $state<Array<{ id: number; label: string; content: string }>>([])
@@ -327,6 +333,8 @@ export class AgdaController {
 
     router.intercept(lspClientReadable, lspClientWritable)
     router.appendQueryResult = (label, content) => this.appendQueryResult(label, content)
+    router.currentFilePath = this.currentFilePath
+    router.onJumpToError = this.onJumpToError
 
     return router
   }

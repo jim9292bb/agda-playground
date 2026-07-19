@@ -379,6 +379,7 @@ const hiddenView = new EditorView({
   }),
 })
 agdaController.connectEditorView(hiddenView)
+agdaController.onJumpToError = position => focusGlobalPosition(position)
 
 const reloadAfterAgdaEdit = () => {
   void (async () => {

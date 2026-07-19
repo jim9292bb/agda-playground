@@ -25,6 +25,11 @@ import { focusAgdaUtf8Position, parseAgdaDiagnostic } from './diagnostics'
  * @prop {(documentVersion: number) => boolean} acceptsDocumentVersion
  * @prop {(documentVersion: number) => void} acceptDocumentVersion
  * @prop {(label: string, content: string) => void} appendQueryResult
+ * @prop {string} currentFilePath
+ * @prop {((position: number) => void) | undefined} [onJumpToError] overrides
+ *   the default focusAgdaUtf8Position(editorView, position) -- for routes
+ *   (e.g. /literate) where editorView doesn't correspond 1:1 to what's
+ *   actually visible on screen, and jumping needs extra resolution first
  */
 
 /** @typedef {(
@@ -311,7 +316,12 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
     },
     JumpToError({ filepath, position }) {
       if (!shouldAcceptEditorResponse('JumpToError')) return
-      if (filepath !== '/source.agda') {
+      if (filepath !== controller.currentFilePath) {
+        controller.lastJumpToError = { filepath, position }
+        return
+      }
+      if (controller.onJumpToError) {
+        controller.onJumpToError(position)
         controller.lastJumpToError = { filepath, position }
         return
       }
