@@ -116,6 +116,16 @@ export class AgdaController {
     return deployProfiles.find(p => p.label === this.selectedProfileLabel) ?? deployProfiles[0]
   }
 
+  /** localStorage key this instance persists its buffer under. Namespaced by
+   *  config.sourceFileName so routes using a non-default source file (e.g.
+   *  the literate-programming route's source.lagda.md) don't share storage
+   *  with — and silently overwrite — the default route's saved buffer.
+   *  Equals the plain LS_DOC_KEY when sourceFileName is unset, matching
+   *  today's behavior exactly. */
+  get docStorageKey(): string {
+    return this.config.sourceFileName ? `${LS_DOC_KEY}:${this.config.sourceFileName}` : LS_DOC_KEY
+  }
+
   appendQueryResult(label: string, content: string) {
     this.queryResults = [{ id: this._nextQueryId++, label, content }, ...this.queryResults]
   }
@@ -356,7 +366,7 @@ export class AgdaController {
     console.time('update-fs')
 
     const doc = this.editorView!.state.doc.toString()
-    localStorage.setItem(LS_DOC_KEY, doc)
+    localStorage.setItem(this.docStorageKey, doc)
 
     this.driveIsLocked = true
     try {

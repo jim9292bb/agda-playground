@@ -14,7 +14,7 @@ import AlsControlCard from '$lib/components/AlsControlCard.svelte'
 import GoalsPanel from '$lib/components/GoalsPanel.svelte'
 import MessagesPanel from '$lib/components/MessagesPanel.svelte'
 import SettingsPanel from '$lib/components/SettingsPanel.svelte'
-import { AgdaController, LS_DOC_KEY, deployProfiles, resolveProfileLibraries } from '$lib/controller.svelte'
+import { AgdaController, deployProfiles, resolveProfileLibraries } from '$lib/controller.svelte'
 import { myCodeMirrorTheme } from '$lib/codemirror/theme'
 import { agdaInputMethod } from '$lib/codemirror/agda-input'
 import { agdaSupport } from '$lib/agda'
@@ -682,7 +682,7 @@ const agdaChordKeymap = EditorView.domEventHandlers({
 /** @type {import('svelte/attachments').Attachment} */
 function codeMirror(el) {
   const ev = new EditorView({
-    doc: localStorage.getItem(LS_DOC_KEY) ?? defaultSource,
+    doc: localStorage.getItem(agdaController.docStorageKey) ?? defaultSource,
     parent: el,
     extensions: [
       basicSetup,
@@ -766,7 +766,7 @@ function replaceScratchpadSource(source) {
     changes: { from: 0, to: view.state.doc.length, insert: source },
     selection: { anchor: 0 },
   })
-  localStorage.setItem(LS_DOC_KEY, source)
+  localStorage.setItem(agdaController.docStorageKey, source)
   clearScratchpadInteractionState()
   textboxContent = 'Example loaded into editor. Click Load to type-check it.\n'
   view.focus()
