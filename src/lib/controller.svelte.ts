@@ -11,6 +11,7 @@ import {
 import { ALSMessageRouter, makeLSPTransport, type AgdaIOTCMStatus } from './agda/transport'
 import { commit } from './codemirror/offsets'
 import { getAgdaDocumentVersion } from './agda/goal-state'
+import { truncateToBlock, type LiterateBlock } from './agda/literate-blocks'
 import { createPerformanceTrace, formatDurationMs, formatPerformanceEntry } from './performance'
 import type { DriveProxyStats, PerformanceEntry, WASMLoadingProgress } from './worker/types'
 import { BrowserWasiShimRuntimeBackend } from './runtime/browser-wasi-shim'
@@ -85,6 +86,10 @@ function formatDriveProxyStats(stats: DriveProxyStats): Record<string, unknown> 
 
 export class AgdaController {
   private _backend: RuntimeBackend | undefined
+  /** `${documentVersion}:${blockIndex}` of the block-truncated prefix
+   *  currently loaded into ALS, `'ALL'` after a full loadAgdaFile(), or null
+   *  before any load — see syncTruncatedSourceFileToDrive(). */
+  private _lastLoadedBlockKey: string | null = null
 
   editorView?: EditorView
   lspClient?: LSPClient
@@ -358,15 +363,29 @@ export class AgdaController {
   }
 
   async syncSourceFileToDrive() {
+    const doc = this.editorView!.state.doc.toString()
+    localStorage.setItem(this.docStorageKey, doc)
+    await this._syncStringToDrive(doc)
+  }
+
+  /**
+   * Syncs `truncated` (a prefix of the live document, see
+   * literate-blocks.js's truncateToBlock) to the VFS/ALS instead of the
+   * full buffer, without disturbing the persisted "resume editing" copy
+   * of the real, untruncated document.
+   */
+  private async _syncTruncatedStringToDrive(truncated: string) {
+    localStorage.setItem(this.docStorageKey, this.editorView!.state.doc.toString())
+    await this._syncStringToDrive(truncated)
+  }
+
+  private async _syncStringToDrive(doc: string) {
     if (this.driveIsLocked) {
       throw new Error('drive lock is already acquired')
     }
 
     console.log('will update fs...')
     console.time('update-fs')
-
-    const doc = this.editorView!.state.doc.toString()
-    localStorage.setItem(this.docStorageKey, doc)
 
     this.driveIsLocked = true
     try {
@@ -380,6 +399,11 @@ export class AgdaController {
     console.log('file is synced.')
     console.timeEnd('update-fs')
 
+    // Position mapping (offsets.js's offsetTable) is always checkpointed
+    // against the real, live editorView document -- correct even when the
+    // content just synced to Agda was a truncated prefix, since a prefix
+    // truncation never shifts any position within the retained prefix; see
+    // syncTruncatedSourceFileToDrive's doc comment.
     this.editorView!.dispatch({effects: commit.of()})
 
     this.lspClient!.notification('textDocument/didSave', {
@@ -406,9 +430,13 @@ export class AgdaController {
     }
   }
 
-  async loadAgdaFile() {
-    await this.syncSourceFileToDrive()
-
+  /**
+   * Runs Cmd_load + Cmd_tokenHighlighting against whatever content was most
+   * recently synced to the VFS (full document or a truncated prefix) --
+   * shared by loadAgdaFile() and syncTruncatedSourceFileToDrive() so the
+   * two can't drift out of sync with each other.
+   */
+  private async _loadAndHighlightCurrentDrive() {
     const encodedFilePath = JSON.stringify(this.currentFilePath)
 
     await this.resetDriveProxyStats()
@@ -442,6 +470,35 @@ export class AgdaController {
     } finally {
       await this.appendDriveProxyStats('Drive proxy after token highlighting')
     }
+  }
+
+  async loadAgdaFile() {
+    await this.syncSourceFileToDrive()
+    await this._loadAndHighlightCurrentDrive()
+    // Any subsequent per-command truncated sync must reload, even if it
+    // targets a block index whose key happens to collide with a stale one.
+    this._lastLoadedBlockKey = 'ALL'
+  }
+
+  /**
+   * Truncates the live document to the end of `blocks[blockIndex]` (a pure
+   * prefix cut — see literate-blocks.js's truncateToBlock) and, if that
+   * exact prefix isn't already the currently-loaded one, syncs it and
+   * re-runs Cmd_load/tokenHighlighting so interaction points only exist for
+   * blocks 1..blockIndex. Positions ALS reports for content inside that
+   * prefix land at the same offsets in the live document either way (a
+   * prefix truncation never shifts anything before the cut point), so
+   * callers can resolve the target goal from the live EditorView exactly as
+   * they would after a full load — no separate offset translation needed.
+   */
+  async syncTruncatedSourceFileToDrive(view: EditorView, blocks: LiterateBlock[], blockIndex: number) {
+    const key = `${getAgdaDocumentVersion(view.state)}:${blockIndex}`
+    if (key === this._lastLoadedBlockKey) return
+
+    const truncated = truncateToBlock(view.state.doc.toString(), blocks, blockIndex)
+    await this._syncTruncatedStringToDrive(truncated)
+    await this._loadAndHighlightCurrentDrive()
+    this._lastLoadedBlockKey = key
   }
 
   async runAgdaCommand(

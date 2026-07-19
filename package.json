@@ -50,7 +50,8 @@
     "test:browser:unicode-input": "scripts/browser-test-unicode-input.sh",
     "test:browser:unicode-lookup": "scripts/browser-test-unicode-lookup.sh",
     "test:browser:restart-worker-reuse": "scripts/browser-test-restart-worker-reuse.sh",
-    "test:browser:literate-basic": "scripts/browser-test-literate-basic.sh"
+    "test:browser:literate-basic": "scripts/browser-test-literate-basic.sh",
+    "test:browser:literate-truncation": "scripts/browser-test-literate-truncation.sh"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

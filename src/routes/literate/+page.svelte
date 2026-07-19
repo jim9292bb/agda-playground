@@ -25,6 +25,7 @@ import {
   runAgdaShortcut as runAgdaShortcutShared,
   runAgdaShortcutWithInputPrompt as runAgdaShortcutWithInputPromptShared,
 } from '$lib/agda/run-shortcut'
+import { parseLiterateBlocks, blockIndexAtPos } from '$lib/agda/literate-blocks'
 import {
   advanceAgdaChord,
   agdaShortcutRegistry,
@@ -275,6 +276,21 @@ const basicTheme = EditorView.theme({
 })
 
 /**
+ * Truncates the document to the code block containing the cursor before
+ * syncing, so any command run from block N only sees blocks 1..N -- the
+ * core literate-programming behavior. syncTruncatedSourceFileToDrive skips
+ * the actual reload when that exact prefix is already loaded (see its own
+ * doc comment), so running several commands in a row inside the same block
+ * doesn't reload on every single one.
+ * @param {EditorView} view
+ */
+async function literatePresync(view) {
+  const blocks = parseLiterateBlocks(view.state.doc.toString())
+  const blockIndex = blockIndexAtPos(blocks, view.state.selection.main.head)
+  await agdaController.syncTruncatedSourceFileToDrive(view, blocks, blockIndex)
+}
+
+/**
  * @param {string} label
  * @param {EditorView} view
  * @param {(context: import('$lib/agda/shortcut-context').AgdaShortcutContext) => string | Promise<void>} command
@@ -284,6 +300,7 @@ function runAgdaShortcut(label, view, command) {
     label, view, agdaController, goalInfos,
     appendLog: msg => textboxContent += msg,
     clearPendingGoal: clearPendingAgdaGoal,
+    presync: literatePresync,
     command,
   })
 }
@@ -298,6 +315,7 @@ function runAgdaShortcutWithInputPrompt(label, view, command) {
     label, view, agdaController, goalInfos,
     appendLog: msg => textboxContent += msg,
     clearPendingGoal: clearPendingAgdaGoal,
+    presync: literatePresync,
     command,
     onNeedsInput: openCommandInputPrompt,
   })
@@ -314,6 +332,21 @@ function runLoadShortcut() {
       await loadAgdaFile()
     } catch {
       // loadAgdaFile already writes the failure to the log.
+    }
+  })()
+}
+
+function runLoadAllShortcut() {
+  void (async () => {
+    if (agdaController.alsWorkerStatus !== 'active') {
+      textboxContent += 'Load failed: Agda is not active.\n'
+      return
+    }
+
+    try {
+      await loadAllAgdaFile()
+    } catch {
+      // performLoad already writes the failure to the log.
     }
   })()
 }
@@ -912,7 +945,13 @@ function focusGoal(goalId) {
   view.focus()
 }
 
-async function loadAgdaFile() {
+/**
+ * Shared Load implementation for both the block-scoped ("Load", C-c C-l --
+ * truncated to the cursor's code block) and explicit full ("Load All", all
+ * blocks) actions. `blockIndex == null` means a full, untruncated load.
+ * @param {number | null} blockIndex
+ */
+async function performLoad(blockIndex) {
   textboxContent = `Loading ${agdaController.currentFilePath}...\n`
   goalInfos = []
   panelGoalInfos = []
@@ -939,7 +978,14 @@ async function loadAgdaFile() {
   }
 
   try {
-    await agdaController.loadAgdaFile()
+    if (blockIndex == null) {
+      await agdaController.loadAgdaFile()
+    } else {
+      const view = agdaController.editorView
+      if (!view) throw new Error('Editor is not ready.')
+      const blocks = parseLiterateBlocks(view.state.doc.toString())
+      await agdaController.syncTruncatedSourceFileToDrive(view, blocks, blockIndex)
+    }
     syncAgdaDiagnostics()
     textboxContent += 'Load finished.\n'
   } catch (err) {
@@ -947,6 +993,19 @@ async function loadAgdaFile() {
     textboxContent += `Load failed: ${err instanceof Error ? err.message : String(err)}\n`
     throw err
   }
+}
+
+/** Loads only the code blocks up to and including the one the cursor is in. */
+async function loadAgdaFile() {
+  const view = agdaController.editorView
+  const blocks = view ? parseLiterateBlocks(view.state.doc.toString()) : []
+  const blockIndex = view ? blockIndexAtPos(blocks, view.state.selection.main.head) : 0
+  await performLoad(blockIndex)
+}
+
+/** Loads the entire document, ignoring the cursor's block. */
+async function loadAllAgdaFile() {
+  await performLoad(null)
 }
 
 function syncAgdaDiagnostics() {
@@ -1079,6 +1138,11 @@ $effect(() => {
             <div class="header-menu-backdrop" role="presentation" onclick={() => { commandsPanelVisible = false }}></div>
           {/if}
         </div>
+        <button
+          type="button"
+          class="header-action-btn"
+          title="Check the entire document, ignoring the cursor's code block"
+          onclick={runLoadAllShortcut}>Load All</button>
         <button type="button" class="header-action-btn" onclick={copyEditorCode}>Copy</button>
         <button type="button" class="header-action-btn" onclick={() => fileInput.click()}>Open</button>
         <button type="button" class="header-action-btn" onclick={exportAgdaFile}>Export</button>
