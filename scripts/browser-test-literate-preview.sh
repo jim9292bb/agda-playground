@@ -10,7 +10,7 @@ APP_URL="${APP_URL:-http://127.0.0.1:8099/literate}"
 source "$SCRIPT_DIR/browser-common.sh"
 
 open_app
-ab eval "localStorage.removeItem('agda-playground-literate.shortcut-overrides.v1'); location.reload()"
+ab eval "localStorage.removeItem('agda-playground-literate.shortcut-overrides.v1'); localStorage.removeItem('agda-web-ide-beta:doc:source.lagda.md'); location.reload()"
 ab wait --load networkidle
 
 start_als

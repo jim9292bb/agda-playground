@@ -98,8 +98,19 @@ const markdownPreviewField = StateField.define({
 // rest of this app's CodeMirror-specific styling already uses.
 const markdownPreviewTheme = EditorView.baseTheme({
   '.cm-markdown-preview': {
-    padding: '4px 6px',
+    padding: '4px 8px',
     cursor: 'text',
+    // literate-block-borders.js gives editable (code, or the actively-
+    // edited markdown) blocks a bordered-box look via per-line decorations;
+    // a collapsed markdown-preview widget has no visible lines for that to
+    // attach to (it IS the replacement), so it gets equivalent border/
+    // background/radius styling directly here instead -- matching color,
+    // never a "focused" variant, since a block only ever renders as this
+    // widget when it does NOT contain the cursor (see buildDecorations).
+    border: '2px solid rgba(100,110,255,0.3)',
+    borderRadius: '6px',
+    backgroundColor: 'rgba(100,110,255,0.045)',
+    margin: '4px 0',
   },
   '.cm-markdown-preview h1, .cm-markdown-preview h2, .cm-markdown-preview h3': {
     margin: '0.4em 0',

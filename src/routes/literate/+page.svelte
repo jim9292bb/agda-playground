@@ -25,8 +25,15 @@ import {
   runAgdaShortcut as runAgdaShortcutShared,
   runAgdaShortcutWithInputPrompt as runAgdaShortcutWithInputPromptShared,
 } from '$lib/agda/run-shortcut'
-import { parseLiterateBlocks, blockIndexAtPos } from '$lib/agda/literate-blocks'
+import {
+  parseLiterateBlocks,
+  blockIndexAtPos,
+  newMarkdownBlockText,
+  newCodeBlockText,
+} from '$lib/agda/literate-blocks'
 import { literateMarkdownPreview } from '$lib/codemirror/markdown-preview'
+import { literateBlockBorders } from '$lib/codemirror/literate-block-borders'
+import { literateBlocksField } from '$lib/codemirror/literate-blocks-state'
 import {
   advanceAgdaChord,
   agdaShortcutRegistry,
@@ -350,6 +357,51 @@ function runLoadAllShortcut() {
       // performLoad already writes the failure to the log.
     }
   })()
+}
+
+/** @returns {import('$lib/agda/literate-blocks').LiterateBlock[]} */
+function currentLiterateBlocks() {
+  const view = agdaController.editorView
+  return view ? view.state.field(literateBlocksField) : []
+}
+
+/** Inserts new block text right after the block the cursor is currently in. */
+function insertBlockAfterCurrent(/** @type {import('$lib/agda/literate-blocks').NewBlockText} */ newBlock) {
+  const view = agdaController.editorView
+  if (!view) return
+  const blocks = currentLiterateBlocks()
+  const idx = blockIndexAtPos(blocks, view.state.selection.main.head)
+  const insertAt = blocks[idx]?.to ?? view.state.doc.length
+  view.dispatch({
+    changes: { from: insertAt, to: insertAt, insert: newBlock.text },
+    selection: { anchor: insertAt + newBlock.selectionFrom, head: insertAt + newBlock.selectionTo },
+    scrollIntoView: true,
+  })
+  view.focus()
+}
+
+function insertMarkdownBlock() {
+  insertBlockAfterCurrent(newMarkdownBlockText())
+}
+
+function insertCodeBlock() {
+  insertBlockAfterCurrent(newCodeBlockText())
+}
+
+function deleteCurrentBlock() {
+  const view = agdaController.editorView
+  if (!view) return
+  const blocks = currentLiterateBlocks()
+  if (blocks.length <= 1) return
+  const idx = blockIndexAtPos(blocks, view.state.selection.main.head)
+  const block = blocks[idx]
+  if (!block) return
+  view.dispatch({
+    changes: { from: block.from, to: block.to, insert: '' },
+    selection: { anchor: block.from },
+    scrollIntoView: true,
+  })
+  view.focus()
 }
 
 /** @param {ReturnType<typeof getAgdaShortcutContext>} context */
@@ -751,12 +803,16 @@ function codeMirror(el) {
       agdaSupport(),
       agdaInputMethod(),
       literateMarkdownPreview(),
+      literateBlockBorders(),
       agdaKeymap,
       agdaChordKeymap,
       EditorView.updateListener.of(update => {
         const goalEffects = update.transactions.some(tr => tr.effects.length > 0)
         if (update.selectionSet || update.docChanged || goalEffects) {
           syncGoalPanel(update.view)
+        }
+        if (update.selectionSet || update.docChanged) {
+          literateBlockCount = update.view.state.field(literateBlocksField).length
         }
       }),
       agdaController.lspClientCompartment.of([]),
@@ -779,6 +835,7 @@ function codeMirror(el) {
   })
 
   agdaController.connectEditorView(ev)
+  literateBlockCount = ev.state.field(literateBlocksField).length
   const captureAgdaChord = (/** @type {KeyboardEvent} */ event) => {
     if (handleAgdaChordKeydown(event, ev)) {
       event.stopImmediatePropagation()
@@ -1018,6 +1075,7 @@ let textboxContent = $state('WIP')
 let selectedExampleId = $state('cubical-prelude')
 const initialShortcutOverrides = loadShortcutOverrides()
 let goalInfos = $state(/** @type {{id: number | string, range?: string, type?: string, context?: string}[]} */([]))
+let literateBlockCount = $state(1)
 let panelGoalInfos = $state(/** @type {{id: number | string, range?: string, type?: string, context?: string}[]} */([]))
 let agdaDiagnostics = $state(/** @type {import('$lib/agda/diagnostics').AgdaDiagnostic[]} */([]))
 let activeGoalId = $state(/** @type {number | string | null} */(null))
@@ -1145,6 +1203,14 @@ $effect(() => {
           class="header-action-btn"
           title="Check the entire document, ignoring the cursor's code block"
           onclick={runLoadAllShortcut}>Load All</button>
+        <button type="button" class="header-action-btn" onclick={insertMarkdownBlock}>+ Markdown</button>
+        <button type="button" class="header-action-btn" onclick={insertCodeBlock}>+ Code</button>
+        <button
+          type="button"
+          class="header-action-btn"
+          disabled={literateBlockCount <= 1}
+          title={literateBlockCount <= 1 ? 'At least one block must remain' : 'Delete the block the cursor is in'}
+          onclick={deleteCurrentBlock}>Delete block</button>
         <button type="button" class="header-action-btn" onclick={copyEditorCode}>Copy</button>
         <button type="button" class="header-action-btn" onclick={() => fileInput.click()}>Open</button>
         <button type="button" class="header-action-btn" onclick={exportAgdaFile}>Export</button>
@@ -1318,6 +1384,17 @@ $effect(() => {
   border-color: var(--quiet-primary-stroke-soft);
   background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, var(--quiet-neutral-fill));
   color: var(--quiet-primary-text, #3b3aab);
+}
+
+.header-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.header-action-btn:disabled:hover {
+  border-color: var(--quiet-neutral-stroke-softer);
+  background: var(--quiet-neutral-fill);
+  color: #374151;
 }
 
 .sr-only {

@@ -52,7 +52,8 @@
     "test:browser:restart-worker-reuse": "scripts/browser-test-restart-worker-reuse.sh",
     "test:browser:literate-basic": "scripts/browser-test-literate-basic.sh",
     "test:browser:literate-truncation": "scripts/browser-test-literate-truncation.sh",
-    "test:browser:literate-preview": "scripts/browser-test-literate-preview.sh"
+    "test:browser:literate-preview": "scripts/browser-test-literate-preview.sh",
+    "test:browser:literate-blocks-crud": "scripts/browser-test-literate-blocks-crud.sh"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

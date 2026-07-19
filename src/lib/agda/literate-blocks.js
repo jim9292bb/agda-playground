@@ -87,12 +87,44 @@ export function truncateToBlock(text, blocks, blockIndex) {
   return text.slice(0, blocks[blockIndex]?.to ?? text.length)
 }
 
-/** @returns {string} */
-export function newMarkdownBlockText() {
-  return '\n\n_new block_\n\n'
+/**
+ * Removes blocks[blockIndex] entirely -- a plain text splice, no extra
+ * whitespace cleanup needed since block ranges (including their own fence
+ * lines and surrounding blank-line padding) already partition the document
+ * with no gaps between them; see literate-blocks.test.js's delete+reparse
+ * round-trip coverage.
+ * @param {string} text
+ * @param {LiterateBlock[]} blocks
+ * @param {number} blockIndex
+ * @returns {string}
+ */
+export function deleteBlock(text, blocks, blockIndex) {
+  const block = blocks[blockIndex]
+  if (!block) return text
+  return text.slice(0, block.from) + text.slice(block.to)
 }
 
-/** @returns {string} */
+/**
+ * @typedef NewBlockText
+ * @prop {string} text
+ * @prop {number} selectionFrom position (relative to the start of `text`)
+ *   to place the selection anchor at once `text` is inserted
+ * @prop {number} selectionTo position (relative to the start of `text`) to
+ *   place the selection head at -- equal to selectionFrom for a plain
+ *   cursor, or past it to select placeholder text so typing replaces it
+ */
+
+/** @returns {NewBlockText} */
+export function newMarkdownBlockText() {
+  const placeholder = '_new block_'
+  const text = `\n\n${placeholder}\n\n`
+  const from = text.indexOf(placeholder)
+  return { text, selectionFrom: from, selectionTo: from + placeholder.length }
+}
+
+/** @returns {NewBlockText} */
 export function newCodeBlockText() {
-  return '\n\n```agda\n\n```\n\n'
+  const text = '\n\n```agda\n\n```\n\n'
+  const from = text.indexOf('```agda\n') + '```agda\n'.length
+  return { text, selectionFrom: from, selectionTo: from }
 }
