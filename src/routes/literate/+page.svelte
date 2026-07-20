@@ -405,8 +405,13 @@ onDestroy(() => {
 })
 
 const basicTheme = EditorView.theme({
+  // JuliaMono's glyph metrics (x-height, advance width) run noticeably
+  // larger than the typical code-editor monospace stack at the same
+  // nominal font-size -- 14px here reads roughly like 16px does in e.g.
+  // PLFA's rendered Agda source, confirmed by side-by-side screenshot
+  // comparison rather than by matching the CSS number.
   '&': {
-    fontSize: '16px',
+    fontSize: '14px',
   },
   '.cm-panels': {
     // FIXME: should decouple from this extension
