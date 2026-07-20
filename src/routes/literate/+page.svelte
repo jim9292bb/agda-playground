@@ -1433,7 +1433,12 @@ $effect(() => {
         <div class="editor-wrap">
           <div class="literate-cells">
             {#each cells as cell (cell.id)}
-              <div class="literate-cell" class:literate-cell-code={cell.type === 'code'} class:literate-cell-markdown={cell.type === 'markdown'}>
+              <div
+                class="literate-cell"
+                class:literate-cell-code={cell.type === 'code'}
+                class:literate-cell-markdown={cell.type === 'markdown'}
+                class:literate-cell-focused={cell.id === activeCellId}
+              >
                 {#if cell.type === 'markdown' && editingMarkdownCellId !== cell.id}
                   <div class="literate-markdown-render">
                     <!-- Rendering the user's own local document, not third-party/untrusted
@@ -1696,6 +1701,18 @@ $effect(() => {
 
 .literate-cell-markdown {
   background: #ffffff;
+}
+
+/* The active cell (wherever a command/truncation would target) gets a
+   visible focus ring, Jupyter-style -- box-shadow for markdown cells
+   rather than a border, since markdown cells are deliberately borderless
+   otherwise and a shadow doesn't add any layout-shifting border width. */
+.literate-cell-code.literate-cell-focused {
+  border-color: var(--quiet-primary-stroke, #3b3aab);
+}
+
+.literate-cell-markdown.literate-cell-focused {
+  box-shadow: 0 0 0 2px var(--quiet-primary-stroke, #3b3aab);
 }
 
 .literate-markdown-render {
