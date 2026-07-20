@@ -1739,7 +1739,7 @@ $effect(() => {
 }
 
 .literate-cell-code {
-  background: #f6f8fa;
+  background: #f0f8ff;
   border: 2px solid rgba(0, 0, 0, 0.15);
   padding: 6px 0;
 }
