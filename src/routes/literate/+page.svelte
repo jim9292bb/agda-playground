@@ -1701,18 +1701,19 @@ $effect(() => {
 
 .literate-cell-markdown {
   background: #ffffff;
+  border: 2px solid transparent;
 }
 
 /* The active cell (wherever a command/truncation would target) gets a
-   visible focus ring, Jupyter-style -- box-shadow for markdown cells
-   rather than a border, since markdown cells are deliberately borderless
-   otherwise and a shadow doesn't add any layout-shifting border width. */
+   visible focus ring, Jupyter-style. Markdown cells keep a transparent
+   border at all times (rather than no border) so gaining the focus color
+   doesn't shift layout. */
 .literate-cell-code.literate-cell-focused {
   border-color: var(--quiet-primary-stroke, #3b3aab);
 }
 
 .literate-cell-markdown.literate-cell-focused {
-  box-shadow: 0 0 0 2px var(--quiet-primary-stroke, #3b3aab);
+  border-color: var(--quiet-primary-stroke, #3b3aab);
 }
 
 .literate-markdown-render {
