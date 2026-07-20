@@ -6,6 +6,7 @@ import { SPSC } from 'spsc'
 import { basicSetup } from 'codemirror'
 import { EditorView, keymap } from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
+import { indentWithTab } from '@codemirror/commands'
 
 import SplitPane from '$lib/components/SplitPane.svelte'
 import AboutPanel from '$lib/components/AboutPanel.svelte'
@@ -692,6 +693,10 @@ function codeMirror(el) {
       agdaInputMethod(),
       agdaKeymap,
       agdaChordKeymap,
+      // basicSetup deliberately doesn't bind Tab to indentation (Tab moves
+      // focus by default, for accessibility) -- opt in explicitly. Placed
+      // after the Agda keymaps so any future Agda Tab binding would win.
+      keymap.of([indentWithTab]),
       EditorView.updateListener.of(update => {
         const goalEffects = update.transactions.some(tr => tr.effects.length > 0)
         if (update.selectionSet || update.docChanged || goalEffects) {

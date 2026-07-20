@@ -6,6 +6,7 @@ import { SPSC } from 'spsc'
 import { basicSetup } from 'codemirror'
 import { EditorView, keymap } from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
+import { indentWithTab } from '@codemirror/commands'
 
 import SplitPane from '$lib/components/SplitPane.svelte'
 import LiterateCellEditor from '$lib/components/LiterateCellEditor.svelte'
@@ -1079,6 +1080,11 @@ function cellExtensions(cellId, cellType) {
     basicTheme,
     agdaInputMethod(),
     ...cellSyncExtensions(cellId, cellType),
+    // basicSetup deliberately doesn't bind Tab to indentation (Tab moves
+    // focus by default, for accessibility) -- opt in explicitly. Placed
+    // last so any Agda Tab binding (agdaKeymap/agdaChordKeymap, above)
+    // would win.
+    keymap.of([indentWithTab]),
   ]
 }
 
