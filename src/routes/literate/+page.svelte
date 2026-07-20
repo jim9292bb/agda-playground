@@ -1763,6 +1763,24 @@ $effect(() => {
   border-radius: 2px;
 }
 
+/* Fenced code blocks (```...```) render as <pre><code>...</code></pre> --
+   give the block itself the background/padding/scroll so it isn't just a
+   run of per-line inline-code chips, and clear the inline <code> styling
+   underneath so it doesn't double up. */
+.literate-markdown-content :global(pre) {
+  background: rgba(128, 128, 128, 0.15);
+  padding: 8px 10px;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 0.4em 0;
+}
+
+.literate-markdown-content :global(pre code) {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+}
+
 .literate-markdown-edit-btn {
   position: absolute;
   top: 2px;
