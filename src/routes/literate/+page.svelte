@@ -988,7 +988,10 @@ const agdaChordKeymap = EditorView.domEventHandlers({
 // the live `.hasFocus` rather than the tracked id alone).
 $effect(() => {
   const captureAgdaChord = (/** @type {KeyboardEvent} */ event) => {
-    const activeView = activeCellId ? cellViews.get(activeCellId) : null
+    if (!activeCellId) return
+    const activeCell = cells.find(c => c.id === activeCellId)
+    if (activeCell?.type !== 'code') return
+    const activeView = cellViews.get(activeCellId)
     if (!activeView?.hasFocus) return
     if (handleAgdaChordKeydown(event)) event.stopImmediatePropagation()
   }
@@ -1037,6 +1040,9 @@ function cellSyncExtensions(cellId, cellType) {
         })
       }
     }),
+    // Agda command shortcuts only make sense while a code cell is focused --
+    // a markdown cell (even mid-edit) is prose, not something Load/Give/
+    // Refine/etc. could ever act on.
     ...(cellType === 'code'
       ? [
           cellDecorationOverlays(),
@@ -1055,7 +1061,7 @@ function cellSyncExtensions(cellId, cellType) {
           agdaKeymap,
           agdaChordKeymap,
         ]
-      : [agdaKeymap, agdaChordKeymap]),
+      : []),
   ]
 }
 
