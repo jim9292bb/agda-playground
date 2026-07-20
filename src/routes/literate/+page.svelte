@@ -1440,7 +1440,7 @@ $effect(() => {
                 class:literate-cell-focused={cell.id === activeCellId}
               >
                 {#if cell.type === 'markdown' && editingMarkdownCellId !== cell.id}
-                  <div class="literate-markdown-render">
+                  <div class="literate-markdown-render" onclick={() => { activeCellId = cell.id }}>
                     <!-- Rendering the user's own local document, not third-party/untrusted
                          content -- no server, no other users. This is the accepted trade-off
                          already documented in the original single-buffer implementation
