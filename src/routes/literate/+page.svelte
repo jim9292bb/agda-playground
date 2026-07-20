@@ -83,7 +83,9 @@ import {
 
 import { clearGoals, clearRunningInfo, emitRunningInfo, removeGoalInfo, setGoalInfo } from '$lib/agda/effects'
 import { triggerPrefetch } from '$lib/agda/prefetch'
-import { marked } from 'marked'
+import MarkdownIt from 'markdown-it'
+
+const markdownRenderer = new MarkdownIt()
 
 const driveLockSab = new SharedArrayBuffer(4)
 const driveStdinSab = SPSC.allocateArrayBuffer(4096)
@@ -1465,7 +1467,7 @@ $effect(() => {
                          already documented in the original single-buffer implementation
                          (markdown-preview.js, now removed); unchanged here. -->
                     <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-                    <div class="literate-markdown-content">{@html marked.parse(cell.text || '_empty block_', { async: false })}</div>
+                    <div class="literate-markdown-content">{@html markdownRenderer.render(cell.text || '_empty block_')}</div>
                     <button type="button" class="literate-markdown-edit-btn" aria-label="Edit this text block" onclick={() => enterMarkdownEditMode(cell.id)}>Edit</button>
                   </div>
                 {:else}

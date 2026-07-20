@@ -57,6 +57,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@sveltejs/kit": "^2.53.4",
+    "@types/markdown-it": "^14.1.2",
     "@types/node": "^25.9.1",
     "@vitejs/plugin-basic-ssl": "^2.1.4",
     "eslint": "^10.7.0",
@@ -85,7 +86,7 @@
     "@sveltejs/adapter-static": "^3.0.10",
     "codemirror": "6.0.2",
     "comlink": "^4.4.2",
-    "marked": "^18.0.6",
+    "markdown-it": "^14.3.0",
     "spsc": "^0.0.7",
     "vscode-languageserver-protocol": "^3.17.5",
     "zod": "^4.3.6"
