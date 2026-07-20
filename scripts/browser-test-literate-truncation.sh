@@ -45,10 +45,4 @@ run_agda_chord_at_cell_goal 1 0 "r" "KeyR"
 wait_for_log_contains "Refine finished." 15000
 assert_cell_contains 1 "test2 = one" "Refine succeeds once the active cell's own content includes \`one\`'s definition, and syncs back into the correct visible cell"
 
-# Load All must succeed regardless of which cell is active -- it checks the
-# whole assembled document, ignoring the per-cell truncation rule entirely.
-click_toolbar_button "Load All"
-wait_for_log_contains "Load finished." 30000
-echo "PASS Load All succeeds against the full document"
-
 echo "browser-test-literate-truncation: PASS"

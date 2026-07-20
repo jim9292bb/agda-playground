@@ -509,21 +509,6 @@ function runLoadShortcut() {
   })()
 }
 
-function runLoadAllShortcut() {
-  void (async () => {
-    if (agdaController.alsWorkerStatus !== 'active') {
-      textboxContent += 'Load failed: Agda is not active.\n'
-      return
-    }
-
-    try {
-      await loadAllAgdaFile()
-    } catch {
-      // performLoad already writes the failure to the log.
-    }
-  })()
-}
-
 /** Inserts a new cell right after the active cell (or at the end). */
 function insertCellAfterActive(/** @type {import('$lib/agda/literate-cells').LiterateCell} */ newCell, /** @type {boolean} */ enterEditMode = false) {
   const idx = cells.findIndex(c => c.id === activeCellId)
@@ -561,28 +546,6 @@ function insertMarkdownBlock() {
 
 function insertCodeBlock() {
   insertCellAfterActive(createCodeCell(''))
-}
-
-function deleteCurrentBlock() {
-  if (cells.length <= 1) return
-  const idx = cells.findIndex(c => c.id === activeCellId)
-  if (idx < 0) return
-
-  const wrapperOffsets = computeCellWrapperOffsets(cells)
-  const entry = wrapperOffsets[idx]
-  if (entry) {
-    hiddenView.dispatch({
-      changes: { from: entry.from, to: entry.to, insert: '' },
-      annotations: fromCellSync.of(true),
-    })
-  }
-
-  const [removed] = cells.splice(idx, 1)
-  cellViews.delete(removed.id)
-  if (editingMarkdownCellId === removed.id) editingMarkdownCellId = null
-  const nextIdx = Math.min(idx, cells.length - 1)
-  activeCellId = cells[nextIdx]?.id ?? null
-  void tick().then(() => cellViews.get(activeCellId ?? '')?.focus())
 }
 
 /** @param {ReturnType<typeof getAgdaShortcutContext>} context */
@@ -1196,10 +1159,6 @@ function closeSettingsPanel() {
   cellViews.get(activeCellId ?? '')?.focus()
 }
 
-function copyEditorCode() {
-  navigator.clipboard.writeText(assembleDocument(cells))
-}
-
 function exportAgdaFile() {
   const text = assembleDocument(cells)
   const blob = new Blob([text], { type: 'text/plain' })
@@ -1274,10 +1233,8 @@ function sendAbort() {
 }
 
 /**
- * Shared Load implementation for both the block-scoped ("Load", C-c C-l --
- * truncated to the active cell) and explicit full ("Load All", all cells)
- * actions. `blockIndex == null` means a full, untruncated load.
- * @param {number | null} blockIndex
+ * Load implementation for C-c C-l, truncated to the active cell.
+ * @param {number} blockIndex
  */
 async function performLoad(blockIndex) {
   textboxContent = `Loading ${agdaController.currentFilePath}...\n`
@@ -1306,14 +1263,10 @@ async function performLoad(blockIndex) {
   }
 
   try {
-    if (blockIndex == null) {
-      await agdaController.loadAgdaFile()
-    } else {
-      // See literatePresync's comment: cells-array-based offsets, not
-      // parseLiterateBlocks against the assembled text.
-      const blocks = computeCellWrapperOffsets(cells)
-      await agdaController.syncTruncatedSourceFileToDrive(hiddenView, blocks, blockIndex)
-    }
+    // See literatePresync's comment: cells-array-based offsets, not
+    // parseLiterateBlocks against the assembled text.
+    const blocks = computeCellWrapperOffsets(cells)
+    await agdaController.syncTruncatedSourceFileToDrive(hiddenView, blocks, blockIndex)
     syncAgdaDiagnostics()
     textboxContent += 'Load finished.\n'
   } catch (err) {
@@ -1327,11 +1280,6 @@ async function performLoad(blockIndex) {
 async function loadAgdaFile() {
   const idx = cells.findIndex(c => c.id === activeCellId)
   await performLoad(idx >= 0 ? idx : cells.length - 1)
-}
-
-/** Loads the entire document, ignoring the active cell. */
-async function loadAllAgdaFile() {
-  await performLoad(null)
 }
 
 function syncAgdaDiagnostics() {
@@ -1458,20 +1406,8 @@ $effect(() => {
             <div class="header-menu-backdrop" role="presentation" onclick={() => { commandsPanelVisible = false }}></div>
           {/if}
         </div>
-        <button
-          type="button"
-          class="header-action-btn"
-          title="Check the entire document, ignoring the active cell"
-          onclick={runLoadAllShortcut}>Load All</button>
         <button type="button" class="header-action-btn" onclick={insertMarkdownBlock}>+ Markdown</button>
         <button type="button" class="header-action-btn" onclick={insertCodeBlock}>+ Code</button>
-        <button
-          type="button"
-          class="header-action-btn"
-          disabled={cells.length <= 1}
-          title={cells.length <= 1 ? 'At least one block must remain' : 'Delete the active block'}
-          onclick={deleteCurrentBlock}>Delete block</button>
-        <button type="button" class="header-action-btn" onclick={copyEditorCode}>Copy</button>
         <button type="button" class="header-action-btn" onclick={() => fileInput.click()}>Open</button>
         <button type="button" class="header-action-btn" onclick={exportAgdaFile}>Export</button>
       </div>

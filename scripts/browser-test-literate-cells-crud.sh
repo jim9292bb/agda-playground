@@ -50,7 +50,7 @@ ab eval "(() => {
 })()"
 echo "PASS clicking Done re-renders the markdown cell"
 
-# --- Insert / delete cells -------------------------------------------------
+# --- Insert cells -----------------------------------------------------
 
 # Explicitly focus the code cell so "+ Code" below inserts right after it,
 # regardless of which cell was last active from the markdown edit/done
@@ -73,20 +73,5 @@ ab eval "(() => {
   return { ok: true }
 })()"
 echo "PASS + Markdown inserts a new cell that auto-enters edit mode"
-
-click_toolbar_button "Delete block"
-assert_cell_count 3 "Delete block removed the active (markdown) cell"
-
-# Deleting down to a single cell disables the button (never delete the
-# last one).
-click_toolbar_button "Delete block"
-click_toolbar_button "Delete block"
-ab eval "(() => {
-  const btn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === 'Delete block')
-  if (!btn.disabled) throw new Error('Expected Delete block to be disabled with only one cell left')
-  return { ok: true }
-})()"
-assert_cell_count 1 "down to the last remaining cell"
-echo "PASS Delete block is disabled once only one cell remains"
 
 echo "browser-test-literate-cells-crud: PASS"
