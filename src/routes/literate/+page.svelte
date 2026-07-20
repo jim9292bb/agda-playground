@@ -16,9 +16,10 @@ import GoalsPanel from '$lib/components/GoalsPanel.svelte'
 import MessagesPanel from '$lib/components/MessagesPanel.svelte'
 import SettingsPanel from '$lib/components/SettingsPanel.svelte'
 import { AgdaController, deployProfiles, resolveProfileLibraries } from '$lib/controller.svelte'
-import { myCodeMirrorTheme } from '$lib/codemirror/theme'
+import { myCodeMirrorTheme, autoColorScheme, prefersDarkTheme } from '$lib/codemirror/theme'
 import { agdaInputMethod } from '$lib/codemirror/agda-input'
 import { agdaSupport } from '$lib/agda'
+import { agdaDarkSchemeFromEmacs, agdaLightSchemeFromEmacs } from '$lib/agda/color-scheme'
 import { agdaGoalState, getAgdaDocumentVersion, getAgdaGoals, mergeGoalInfos } from '$lib/agda/goal-state'
 import { highlightState } from '$lib/agda/highlight'
 import { getGoalAtPosition, getGoalRangeById } from '$lib/agda/goals'
@@ -1033,7 +1034,25 @@ function cellSyncExtensions(cellId, cellType) {
         })
       }
     }),
-    ...(cellType === 'code' ? [cellDecorationOverlays(), agdaKeymap, agdaChordKeymap] : [agdaKeymap, agdaChordKeymap]),
+    ...(cellType === 'code'
+      ? [
+          cellDecorationOverlays(),
+          // The highlight/goal decorations projected onto this cell (see
+          // hiddenViewUpdateListener) carry the same `.agda-*` classes
+          // goals.js/highlight.js always use -- agdaSupport() on the hidden
+          // view wires up the logic (goal-state.js/highlight.js StateFields)
+          // but that view is never mounted, so its color-scheme theme never
+          // reaches the DOM. Each code cell's own visible view needs its own
+          // copy of the theme for those classes to actually render in color.
+          autoColorScheme({
+            dark: agdaDarkSchemeFromEmacs,
+            light: agdaLightSchemeFromEmacs,
+            defaultDark: prefersDarkTheme(window),
+          }),
+          agdaKeymap,
+          agdaChordKeymap,
+        ]
+      : [agdaKeymap, agdaChordKeymap]),
   ]
 }
 
