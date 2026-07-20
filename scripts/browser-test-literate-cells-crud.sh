@@ -74,4 +74,29 @@ ab eval "(() => {
 })()"
 echo "PASS + Markdown inserts a new cell that auto-enters edit mode"
 
+# --- Delete cells (hover button, per-cell) --------------------------------
+# 4 cells now, in .literate-cell DOM order: markdown(0, original, rendered),
+# code(1, original), code(2, "test : Set", the one inserted above), markdown
+# (3, new, still auto-editing from + Markdown above -- the active cell).
+
+assert_cell_count 4 "before delete: markdown, code, code, markdown"
+
+# Deletes cell 1 (the original code cell) while cell 3 (the new markdown
+# cell) is the active one -- the delete button targets whichever cell it's
+# attached to, not necessarily the currently-active cell.
+delete_cell 1
+assert_cell_count 3 "hover delete button removed the targeted cell (not necessarily the active one)"
+
+# Deleting down to a single cell removes the button entirely (never delete
+# the last one).
+delete_cell 0
+delete_cell 0
+ab eval "(() => {
+  const hasBtn = !!document.querySelector('.literate-cell-delete-btn')
+  if (hasBtn) throw new Error('Expected no delete button once only one cell remains')
+  return { ok: true }
+})()"
+assert_cell_count 1 "down to the last remaining cell"
+echo "PASS delete button is absent once only one cell remains"
+
 echo "browser-test-literate-cells-crud: PASS"

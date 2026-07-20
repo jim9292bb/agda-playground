@@ -172,6 +172,24 @@ click_toolbar_button() {
   })()"
 }
 
+# Clicks the hover-revealed delete button on `.literate-cell` index `index`
+# (counting *all* cells, same indexing as cell_count -- not just mounted
+# editors). .click() fires regardless of the button's opacity:0 hover-only
+# CSS state, so no actual mouse hover is needed here.
+delete_cell() {
+  local index
+  index="$1"
+  ab eval "(() => {
+    const index = Number($index)
+    const cell = document.querySelectorAll('.literate-cell')[index]
+    if (!cell) return { ok: false, error: 'cell not found', index }
+    const btn = cell.querySelector('.literate-cell-delete-btn')
+    if (!btn) return { ok: false, error: 'delete button not found (only one cell left?)', index }
+    btn.click()
+    return { ok: true }
+  })()"
+}
+
 assert_cell_contains() {
   local index needle_json label
   index="$1"

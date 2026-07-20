@@ -548,6 +548,36 @@ function insertCodeBlock() {
   insertCellAfterActive(createCodeCell(''))
 }
 
+/**
+ * Deletes the given cell (never the last remaining one). Takes an explicit
+ * cellId rather than always acting on activeCellId -- the hover delete
+ * button lets you delete a cell you're not currently focused on/in.
+ * @param {string} cellId
+ */
+function deleteCell(cellId) {
+  if (cells.length <= 1) return
+  const idx = cells.findIndex(c => c.id === cellId)
+  if (idx < 0) return
+
+  const wrapperOffsets = computeCellWrapperOffsets(cells)
+  const entry = wrapperOffsets[idx]
+  if (entry) {
+    hiddenView.dispatch({
+      changes: { from: entry.from, to: entry.to, insert: '' },
+      annotations: fromCellSync.of(true),
+    })
+  }
+
+  const [removed] = cells.splice(idx, 1)
+  cellViews.delete(removed.id)
+  if (editingMarkdownCellId === removed.id) editingMarkdownCellId = null
+  if (activeCellId === removed.id) {
+    const nextIdx = Math.min(idx, cells.length - 1)
+    activeCellId = cells[nextIdx]?.id ?? null
+    void tick().then(() => cellViews.get(activeCellId ?? '')?.focus())
+  }
+}
+
 /** @param {ReturnType<typeof getAgdaShortcutContext>} context */
 function requireGoal(context) {
   if (!context.goal) throw new Error('Place the cursor inside a goal first.')
@@ -1428,6 +1458,14 @@ $effect(() => {
                 class:literate-cell-markdown={cell.type === 'markdown'}
                 class:literate-cell-focused={cell.id === activeCellId}
               >
+                {#if cells.length > 1}
+                  <button
+                    type="button"
+                    class="literate-cell-delete-btn"
+                    aria-label="Delete this block"
+                    title="Delete this block"
+                    onclick={() => deleteCell(cell.id)}>✕</button>
+                {/if}
                 {#if cell.type === 'markdown' && editingMarkdownCellId !== cell.id}
                   <div class="literate-markdown-render" onclick={() => { activeCellId = cell.id }}>
                     <!-- Rendering the user's own local document, not third-party/untrusted
@@ -1678,8 +1716,33 @@ $effect(() => {
 }
 
 .literate-cell {
+  position: relative;
   margin: 10px 0;
   border-radius: 6px;
+}
+
+/* Top-left, mirroring the markdown "Edit" button's top-right position
+   (.literate-markdown-edit-btn) so the two never overlap -- this button
+   lives on every cell type/state (code, markdown rendered, markdown
+   editing), unlike Edit/Done which are markdown-only. */
+.literate-cell-delete-btn {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+  font-size: 0.8em;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  background: #f6f8fa;
+  cursor: pointer;
+}
+
+.literate-cell:hover .literate-cell-delete-btn {
+  opacity: 1;
 }
 
 .literate-cell-code {
