@@ -419,6 +419,15 @@ const basicTheme = EditorView.theme({
   '.cm-gutters': {
     display: 'none',
   },
+  // basicSetup's highlightActiveLine highlights whichever line holds this
+  // view's own selection regardless of DOM focus -- fine for a single
+  // editor, but with N independent cell EditorViews every cell keeps its
+  // own selection, so every cell would show a highlighted line permanently
+  // even when some other cell is the one actually focused. Only show it on
+  // the cell that currently has focus.
+  '.cm-editor:not(.cm-focused) .cm-activeLine': {
+    backgroundColor: 'transparent',
+  },
 })
 
 /**
