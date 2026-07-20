@@ -1721,14 +1721,15 @@ $effect(() => {
   border-radius: 6px;
 }
 
-/* Top-left, mirroring the markdown "Edit" button's top-right position
-   (.literate-markdown-edit-btn) so the two never overlap -- this button
-   lives on every cell type/state (code, markdown rendered, markdown
-   editing), unlike Edit/Done which are markdown-only. */
+/* Top-right, like the markdown "Edit" button -- but this one lives on
+   every cell type/state (code, markdown rendered, markdown editing),
+   unlike Edit/Done which are markdown-only, so .literate-markdown-edit-btn
+   is shifted further left (see its own rule below) to sit beside it
+   without overlapping when both are present. */
 .literate-cell-delete-btn {
   position: absolute;
   top: 2px;
-  left: 4px;
+  right: 4px;
   z-index: 1;
   opacity: 0;
   transition: opacity 0.1s ease;
@@ -1815,7 +1816,9 @@ $effect(() => {
 .literate-markdown-edit-btn {
   position: absolute;
   top: 2px;
-  right: 4px;
+  /* Shifted left of .literate-cell-delete-btn's right:4px so the two sit
+     side by side without overlapping. */
+  right: 36px;
   opacity: 0;
   transition: opacity 0.1s ease;
   font-size: 0.8em;
