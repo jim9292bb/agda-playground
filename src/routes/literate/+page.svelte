@@ -405,6 +405,9 @@ onDestroy(() => {
 })
 
 const basicTheme = EditorView.theme({
+  '&': {
+    fontSize: '16px',
+  },
   '.cm-panels': {
     // FIXME: should decouple from this extension
     marginRight: '-4px',
