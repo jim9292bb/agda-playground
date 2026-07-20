@@ -424,8 +424,11 @@ const basicTheme = EditorView.theme({
   // editor, but with N independent cell EditorViews every cell keeps its
   // own selection, so every cell would show a highlighted line permanently
   // even when some other cell is the one actually focused. Only show it on
-  // the cell that currently has focus.
-  '.cm-editor:not(.cm-focused) .cm-activeLine': {
+  // the cell that currently has focus. `&` here resolves to the theme's own
+  // root selector (the .cm-editor element itself) -- writing `.cm-editor`
+  // instead would ask CodeMirror to scope this rule to a *descendant* of
+  // the editor root, which never matches since .cm-editor is that root.
+  '&:not(.cm-focused) .cm-activeLine': {
     backgroundColor: 'transparent',
   },
 })
