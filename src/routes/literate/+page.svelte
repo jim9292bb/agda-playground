@@ -1729,7 +1729,7 @@ $effect(() => {
 
 .literate-cell {
   position: relative;
-  margin: 10px 12px;
+  margin: 10px 28px;
   border-radius: 6px;
 }
 
