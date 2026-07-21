@@ -146,9 +146,15 @@ function wrapAsLiterate(code) {
 
 const defaultSource = `# Agda Notebook
 
-Edit this document as prose and \`\`\`agda\`\`\` code blocks. Running a command
-while the cursor is in a code block only sends Agda everything up to and
-including that block.
+A Jupyter-style notebook for Agda: this document is a sequence of
+independent prose and \`\`\`agda\`\`\` cells. Running a command while the
+cursor is in a code cell only sends Agda everything up to and including
+that cell.
+
+Use **+ Markdown** / **+ Code** above to add cells, and hover a cell to
+reveal a delete button. **Open** / **Export** read and write a whole
+\`.lagda.md\` file. Markdown cells also render math, e.g.
+$\\sum_{i=0}^n i = \\frac{n(n+1)}{2}$.
 
 ${wrapAsLiterate('{-# OPTIONS --cubical --guardedness #-}\n\nopen import Cubical.Foundations.Prelude\n')}`
 const LS_SHORTCUT_OVERRIDES_KEY = 'agda-playground-literate.shortcut-overrides.v1'
