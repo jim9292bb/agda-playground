@@ -85,8 +85,15 @@ import {
 import { clearGoals, clearRunningInfo, emitRunningInfo, removeGoalInfo, setGoalInfo } from '$lib/agda/effects'
 import { triggerPrefetch } from '$lib/agda/prefetch'
 import MarkdownIt from 'markdown-it'
+import texmath from 'markdown-it-texmath'
+import katex from 'katex'
+import 'katex/dist/katex.min.css'
 
-const markdownRenderer = new MarkdownIt()
+const markdownRenderer = new MarkdownIt().use(texmath, {
+  engine: katex,
+  delimiters: 'dollars',
+  katexOptions: { throwOnError: false },
+})
 
 const driveLockSab = new SharedArrayBuffer(4)
 const driveStdinSab = SPSC.allocateArrayBuffer(4096)
