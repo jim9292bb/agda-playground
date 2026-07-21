@@ -144,7 +144,7 @@ function wrapAsLiterate(code) {
   return `\`\`\`agda\n${code}\`\`\`\n`
 }
 
-const defaultSource = `# Agda Literate Playground
+const defaultSource = `# Agda Notebook
 
 Edit this document as prose and \`\`\`agda\`\`\` code blocks. Running a command
 while the cursor is in a code block only sends Agda everything up to and
@@ -1410,7 +1410,7 @@ $effect(() => {
   <section class="editor-section">
     <header class="header">
       <div class="header-left">
-        <span class="header-title">Agda Literate Playground</span>
+        <span class="header-title">Agda Notebook</span>
         <HeaderExamplePicker examples={scratchpadExamples} {selectedExampleId} onSelect={selectScratchpadExample} />
       </div>
       <div class="header-actions">
@@ -1607,7 +1607,7 @@ $effect(() => {
   onchange={openAgdaFile}>
 
 <svelte:head>
-  <title>Agda Literate Playground</title>
+  <title>Agda Notebook</title>
 </svelte:head>
 
 <div
