@@ -179,8 +179,8 @@ function loadShortcutOverrides() {
 
 /** @returns {'bottom' | 'right'} */
 function loadGoalsPanelPosition() {
-  if (typeof localStorage === 'undefined') return 'bottom'
-  return localStorage.getItem(LS_GOALS_PANEL_POSITION_KEY) === 'right' ? 'right' : 'bottom'
+  if (typeof localStorage === 'undefined') return 'right'
+  return localStorage.getItem(LS_GOALS_PANEL_POSITION_KEY) === 'bottom' ? 'bottom' : 'right'
 }
 
 /**
