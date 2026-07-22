@@ -55,7 +55,7 @@ const DEPLOY_ASSETS = dirname(fileURLToPath(import.meta.url))
 // variant) — confirmed empirically that `import` resolution searches all of
 // these, not just `.agda`/`.lagda` (the two an unrelated error message
 // happens to list as examples).
-const AGDA_FILE_EXTENSIONS = [
+export const AGDA_FILE_EXTENSIONS = [
   '.agda', '.lagda', '.lagda.tex', '.lagda.rst',
   '.lagda.md', '.lagda.org', '.lagda.tree', '.lagda.typ',
 ]

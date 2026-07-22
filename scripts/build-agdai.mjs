@@ -27,12 +27,12 @@
  * generating one here too would just be redundant duplicate work.
  */
 
-import { readFile, mkdir, cp, rm } from 'node:fs/promises'
+import { readFile, mkdir, cp, rm, access } from 'node:fs/promises'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawn, spawnSync } from 'node:child_process'
 import { parseAgdaLibInclude, parseAgdaLibName } from './agda-lib-utils.mjs'
-import { buildGraph } from './generate-manifest.mjs'
+import { buildGraph, AGDA_FILE_EXTENSIONS } from './generate-manifest.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -65,8 +65,24 @@ function versionGte(v, [major, minor, patch]) {
   return v[2] >= patch
 }
 
-function moduleNameToPath(mod) {
-  return mod.split('.').join(sep) + '.agda'
+/**
+ * Resolves a module name to its real file, trying every extension Agda
+ * recognizes (not just `.agda`) -- a literate file (e.g. PLFA's `.lagda.md`
+ * sources) sent to Cmd_load under a fabricated `.agda` path that doesn't
+ * exist doesn't error, it just hangs forever waiting for a response that
+ * never comes (confirmed empirically), so this must check the filesystem
+ * rather than assume the extension.
+ */
+async function moduleNameToPath(mod, includeDir) {
+  const base = mod.split('.').join(sep)
+  for (const ext of AGDA_FILE_EXTENSIONS) {
+    const candidate = join(includeDir, base + ext)
+    try {
+      await access(candidate)
+      return candidate
+    } catch { /* try the next extension */ }
+  }
+  throw new Error(`no source file found for module "${mod}" under ${includeDir} (tried: ${AGDA_FILE_EXTENSIONS.join(', ')})`)
 }
 
 function findSourceVertices(graph) {
@@ -131,14 +147,14 @@ async function buildWithCmdLoad(lib, agdaBin, graph, includeDir, libraryFile) {
   })
   proc.on('error', err => { throw err })
 
-  function loadOne(mod) {
+  async function loadOne(mod) {
+    const path = await moduleNameToPath(mod, includeDir)
     return new Promise((resolve, reject) => {
       const entry = { failed: false, statusCount: 0, errors: [] }
       entry.done = () => (entry.failed
         ? reject(new Error(`Cmd_load reported an error for ${mod}:\n${entry.errors.length > 0 ? entry.errors.join('\n') : '(no error message captured — check the raw --interaction-json output)'}`))
         : resolve())
       pending = entry
-      const path = join(includeDir, moduleNameToPath(mod))
       proc.stdin.write(`IOTCM "${path}" NonInteractive Direct (Cmd_load "${path}" [])\n`)
     })
   }
