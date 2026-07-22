@@ -20,15 +20,17 @@
     "../tests/**/*.js",
     "../tests/**/*.ts",
     "../tests/**/*.svelte",
-    // Outside src/, but imported by src/lib/runtime/interface.ts at build
+    // Outside src/, but imported by src/lib/runtime/interface.ts (and, for
+    // generated-plfa-chapters.mjs, src/routes/plfa/+page.svelte) at build
     // time. The rest of scripts/ is Node-only build tooling, not part
     // of the app bundle, and isn't covered by any tsconfig.
-    // Both generated-*.mjs files don't exist until `npm run setup` (or the
+    // These generated-*.mjs files don't exist until `npm run setup` (or the
     // predev/precheck/prebuild package.json hooks) generate them — gitignored.
     "../deploy.config.json",
     "../scripts/generated-libraries.mjs",
     "../scripts/generated-agdai-keys.mjs",
-    "../scripts/generated-als-info.mjs"
+    "../scripts/generated-als-info.mjs",
+    "../scripts/generated-plfa-chapters.mjs"
   ],
   "exclude": [
     // copied from .svelte-kit/tsconfig.json
