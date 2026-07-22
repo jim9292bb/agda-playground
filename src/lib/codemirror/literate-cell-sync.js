@@ -1,4 +1,4 @@
-import { Annotation, StateEffect, StateField, RangeSetBuilder } from '@codemirror/state'
+import { Annotation, StateEffect, StateField, RangeSetBuilder, RangeSet } from '@codemirror/state'
 import { EditorView, Decoration } from '@codemirror/view'
 import { getAgdaGoals } from '$lib/agda/goal-state'
 import { makeGoalMark } from '$lib/agda/goals'
@@ -89,21 +89,54 @@ export function translateGlobalChangesToCells(cellOffsets, changes) {
  * it so `windowFrom` becomes local position 0 -- the core operation behind
  * projecting goal/highlighting decorations computed on the hidden
  * composite view down onto the one cell they visually belong in.
+ *
+ * Builds the result by collecting matched ranges into a plain array,
+ * sorting it explicitly, then calling `RangeSet.of` -- not the more
+ * obvious `RangeSetBuilder`, whose `.add()` requires strictly sorted,
+ * non-overlapping insertion. Agda's real highlighting output can contain
+ * genuinely overlapping decorations (confirmed empirically: a
+ * `{-# BUILTIN NATURAL #-}` pragma tags the same token with two
+ * overlapping decorations, e.g. both "agda-pragma" and "agda-keyword"),
+ * which `RangeSet.between()`'s own traversal order doesn't reliably keep
+ * sorted across such overlaps -- feeding that raw order straight into
+ * `RangeSetBuilder.add()` throws "Ranges must be added sorted by `from`
+ * position" from inside this function's caller (an
+ * `EditorView.updateListener`, which swallows the exception) -- silently
+ * dropping the highlight-decoration dispatch for that cell entirely, with
+ * no visible error. `RangeSet.of(..., true)` sorts/merges arbitrary
+ * ranges correctly instead of assuming they already arrive pre-sorted.
  * @param {import('@codemirror/state').RangeSet<Decoration>} rangeSet
  * @param {number} windowFrom
  * @param {number} windowTo
  * @returns {DecorationSet}
  */
 export function projectRangeSetToWindow(rangeSet, windowFrom, windowTo) {
-  /** @type {RangeSetBuilder<Decoration>} */
-  const builder = new RangeSetBuilder()
+  /** @type {{ from: number, to: number, value: Decoration }[]} */
+  const raw = []
   rangeSet.between(windowFrom, windowTo, (from, to, value) => {
     const clippedFrom = Math.max(from, windowFrom)
     const clippedTo = Math.min(to, windowTo)
-    if (clippedFrom > clippedTo) return
-    builder.add(clippedFrom - windowFrom, clippedTo - windowFrom, value)
+    // Mark decorations must span at least one character -- a decoration
+    // that starts exactly at (or is clipped down to) the window's own
+    // edge collapses to zero width here, which Decoration.range() throws
+    // on ("Mark decorations may not be empty"), confirmed empirically to
+    // silently abort this whole projection (swallowed by the calling
+    // EditorView.updateListener) and drop every other cell's highlight
+    // update dispatched alongside it in the same pass.
+    if (clippedFrom >= clippedTo) return
+    raw.push({ from: clippedFrom - windowFrom, to: clippedTo - windowFrom, value })
   })
-  return builder.finish()
+  // `between()` on a RangeSet built from multiple joined layers (as
+  // highlightState's aspects is -- Agda can tag one token with more than
+  // one overlapping aspect, e.g. a BUILTIN pragma keyword gets both an
+  // "agda-pragma" and an "agda-keyword" decoration for the same range) is
+  // not guaranteed to yield strictly sorted output; confirmed empirically
+  // that passing its raw traversal order straight to `RangeSet.of(_, true)`
+  // silently drops unrelated entries elsewhere in the set rather than
+  // erroring. Sorting explicitly first avoids relying on RangeSet.of's own
+  // sort implementation to correct arbitrarily out-of-order input.
+  raw.sort((a, b) => a.from - b.from || a.to - b.to)
+  return RangeSet.of(raw.map(r => r.value.range(r.from, r.to)))
 }
 
 /**
