@@ -118,9 +118,13 @@ const agdaController = new AgdaController({
 agdaController.currentFilePath = '/source-plfa.lagda.md'
 // Chapters have real cross-module dependencies (e.g. part2 imports part1)
 // resolved via the `plfa` library mounted in this profile -- see
-// deploy.config.json's "Standard Library v2.1 + PLFA (ALS 2.7.0.1)" entry,
-// version-pinned to match PLFA's own README (Agda v2.7.0 + stdlib v2.1).
-const PLFA_PROFILE_LABEL = 'Standard Library v2.1 + PLFA (ALS 2.7.0.1)'
+// deploy.config.json's "Standard Library v2.1.1 + PLFA (ALS 2.7.0.1)" entry.
+// PLFA's own README pins Agda v2.7.0 + stdlib v2.1, but that exact stdlib
+// snapshot fails to type-check under the whole Agda 2.7.x line (confirmed
+// against both 2.7.0 and 2.7.0.1) in Data.Integer.Tactic.RingSolver, a
+// module PLFA itself never imports -- stdlib v2.1.1 fixes that module
+// while remaining otherwise compatible, so it's used here instead.
+const PLFA_PROFILE_LABEL = 'Standard Library v2.1.1 + PLFA (ALS 2.7.0.1)'
 if (deployProfiles.some(p => p.label === PLFA_PROFILE_LABEL)) {
   agdaController.selectedProfileLabel = PLFA_PROFILE_LABEL
 }
