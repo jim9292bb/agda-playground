@@ -1126,7 +1126,6 @@ function cellExtensions(cellId, cellType) {
  */
 function registerCellView(cellId, view) {
   cellViews.set(cellId, view)
-  if (activeCellId === null) activeCellId = cellId
 }
 
 /** @param {string} cellId */
@@ -1173,7 +1172,7 @@ function replaceScratchpadSource(source) {
   editingMarkdownCellId = null
   const nextCells = cellsFromSource(source)
   cells = nextCells
-  activeCellId = nextCells[0]?.id ?? null
+  activeCellId = null
   hiddenView.dispatch({
     changes: { from: 0, to: hiddenView.state.doc.length, insert: assembleDocument(nextCells) },
     selection: { anchor: 0 },
@@ -1463,7 +1462,7 @@ $effect(() => {
       {#snippet start()}
       <section class="editor-pane" bind:this={editorPaneSectionEl}>
         <div class="editor-wrap">
-          <div class="literate-cells">
+          <div class="literate-cells" onclick={(e) => { if (e.target === e.currentTarget) activeCellId = null }}>
             {#each cells as cell (cell.id)}
               <div
                 class="literate-cell"
