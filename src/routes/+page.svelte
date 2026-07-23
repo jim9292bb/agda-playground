@@ -11,6 +11,7 @@ import { indentWithTab } from '@codemirror/commands'
 import SplitPane from '$lib/components/SplitPane.svelte'
 import AboutPanel from '$lib/components/AboutPanel.svelte'
 import HeaderExamplePicker from '$lib/components/HeaderExamplePicker.svelte'
+import AppSwitcher from '$lib/components/AppSwitcher.svelte'
 import AlsControlCard from '$lib/components/AlsControlCard.svelte'
 import GoalsPanel from '$lib/components/GoalsPanel.svelte'
 import MessagesPanel from '$lib/components/MessagesPanel.svelte'
@@ -1025,6 +1026,7 @@ $effect(() => {
       <div class="header-left">
         <span class="header-title">Agda Playground</span>
         <HeaderExamplePicker examples={scratchpadExamples} {selectedExampleId} onSelect={selectScratchpadExample} />
+        <AppSwitcher current="playground" />
       </div>
       <div class="header-actions">
         <div class="header-commands-wrap">

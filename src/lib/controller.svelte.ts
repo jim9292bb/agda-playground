@@ -23,6 +23,16 @@ import {
 export type { DriveHandle, DeployProfile }
 export { deployProfiles, resolveProfileLibraries }
 
+/** Matches the label deploy.config.json's PLFA profile must use.
+ *  /plfa's own auto-select (src/routes/plfa/+page.svelte) and the
+ *  cross-route AppSwitcher (src/lib/components/AppSwitcher.svelte) both
+ *  check for this exact label to agree on whether "PLFA is deployable
+ *  here" -- deploy.config.json is local/gitignored per deployment and
+ *  either has a profile with this label or it doesn't; there's no
+ *  dedicated schema field for it since label-matching already covers
+ *  every consumer that exists so far. */
+export const PLFA_PROFILE_LABEL = 'Standard Library v2.1.1 + PLFA (ALS 2.7.0.1)'
+
 const LS_DOC_KEY = 'agda-web-ide-beta:doc'
 const loadArgs: string[] = []
 

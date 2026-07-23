@@ -17,7 +17,8 @@ import AlsControlCard from '$lib/components/AlsControlCard.svelte'
 import GoalsPanel from '$lib/components/GoalsPanel.svelte'
 import MessagesPanel from '$lib/components/MessagesPanel.svelte'
 import SettingsPanel from '$lib/components/SettingsPanel.svelte'
-import { AgdaController, deployProfiles, resolveProfileLibraries } from '$lib/controller.svelte'
+import { AgdaController, deployProfiles, resolveProfileLibraries, PLFA_PROFILE_LABEL } from '$lib/controller.svelte'
+import AppSwitcher from '$lib/components/AppSwitcher.svelte'
 import { myCodeMirrorTheme, autoColorScheme, prefersDarkTheme } from '$lib/codemirror/theme'
 import { agdaInputMethod } from '$lib/codemirror/agda-input'
 import { agdaSupport } from '$lib/agda'
@@ -124,7 +125,9 @@ agdaController.currentFilePath = '/source-plfa.lagda.md'
 // against both 2.7.0 and 2.7.0.1) in Data.Integer.Tactic.RingSolver, a
 // module PLFA itself never imports -- stdlib v2.1.1 fixes that module
 // while remaining otherwise compatible, so it's used here instead.
-const PLFA_PROFILE_LABEL = 'Standard Library v2.1.1 + PLFA (ALS 2.7.0.1)'
+// PLFA_PROFILE_LABEL itself lives in controller.svelte.ts, shared with
+// AppSwitcher.svelte (which uses it to decide whether to show a "PLFA"
+// link at all).
 if (deployProfiles.some(p => p.label === PLFA_PROFILE_LABEL)) {
   agdaController.selectedProfileLabel = PLFA_PROFILE_LABEL
 }
@@ -1339,6 +1342,7 @@ $effect(() => {
       <div class="header-left">
         <span class="header-title">PLFA Notebook</span>
         <PlfaChapterPicker chapters={plfaChapters} {selectedChapterId} onSelect={selectPlfaChapter} />
+        <AppSwitcher current="plfa" />
       </div>
       <div class="header-actions">
         <div class="header-commands-wrap">
@@ -1545,6 +1549,7 @@ $effect(() => {
 <style>
 .header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
