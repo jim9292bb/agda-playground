@@ -3,9 +3,14 @@
 #   1. Downloads the ALS runtime assets (wasm + agda-data.zip) for every
 #      version referenced in deploy.config.json straight into static/als/
 #      from this project's als-runtime release (skipped when present).
-#   2. Verifies libraries and ALS assets are in place.
-#   3. Regenerates the generated-*.mjs files consumed by the app bundle.
-#   4. Packages library sources and .agdai caches into static/.
+#   2. Downloads the prebuilt PLFA .agdai cache from this project's
+#      plfa-agdai-v1 release, if deploy.config.json has a matching library
+#      configured and its agdaiDir isn't already populated (see
+#      ensure-plfa-agdai.mjs / plfa-agdai-release.mjs). Non-fatal if it
+#      can't -- PLFA Notebook still works, just with a slow first Load.
+#   3. Verifies libraries and ALS assets are in place.
+#   4. Regenerates the generated-*.mjs files consumed by the app bundle.
+#   5. Packages library sources and .agdai caches into static/.
 #
 # Library sources must already be present (run `npm run auto-configure` for
 # this project's shipped defaults, or place them by hand — see DEPLOYMENT.md).
@@ -18,6 +23,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "Fetching ALS runtime assets into static/als/..."
 node "$SCRIPT_DIR/ensure-als-static.mjs"
+
+echo "Fetching prebuilt PLFA .agdai cache (if a matching profile is configured)..."
+node "$SCRIPT_DIR/ensure-plfa-agdai.mjs"
 
 echo "Verifying required assets are present..."
 node "$SCRIPT_DIR/print-required-files.mjs"
