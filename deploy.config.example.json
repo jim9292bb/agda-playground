@@ -35,6 +35,25 @@
           "agdaiDir": "/absolute/path/to/agdai-cache/agda-categories"
         }
       ]
+    },
+    {
+      "label": "Standard Library v2.1.1 + PLFA (ALS 2.7.0.1)",
+      "als": "2.7.0.1",
+      "plfa": true,
+      "libraries": [
+        {
+          "agdaLibPath": "/absolute/path/to/agda-stdlib-2.1.1/standard-library.agda-lib",
+          "label": "stdlib",
+          "version": "2.1.1",
+          "agdaiDir": "/absolute/path/to/agdai-cache/standard-library-2.1.1"
+        },
+        {
+          "agdaLibPath": "/absolute/path/to/plfa/src/plfa.agda-lib",
+          "label": "plfa",
+          "version": "40adfb9",
+          "agdaiDir": "/absolute/path/to/agdai-cache/plfa"
+        }
+      ]
     }
   ]
 }
