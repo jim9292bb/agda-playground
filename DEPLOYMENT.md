@@ -179,6 +179,7 @@ their browser's local storage).
 | `label` | yes | Display name in the profile selector. Must be unique — used as the profile's identity in the UI and local storage |
 | `als` | yes | Agda version number — must be one of the [supported ALS versions](#supported-als-versions). `npm run setup` downloads `als-<version>.wasm` and `agda-data.zip` for it from the `als-runtime` release into `static/als/<version>/` |
 | `libraries` | yes | List of library entries — see below |
+| `plfa` | no | Set to `true` to mark this as the profile the `/plfa` route auto-selects and to make `AppSwitcher` show a "PLFA" link. A dedicated field rather than matching on `label` text, so relabeling a profile (e.g. bumping its version string) can never silently break PLFA detection. At most one profile should set this |
 
 Each entry in `libraries`:
 

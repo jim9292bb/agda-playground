@@ -17,7 +17,7 @@ import AlsControlCard from '$lib/components/AlsControlCard.svelte'
 import GoalsPanel from '$lib/components/GoalsPanel.svelte'
 import MessagesPanel from '$lib/components/MessagesPanel.svelte'
 import SettingsPanel from '$lib/components/SettingsPanel.svelte'
-import { AgdaController, deployProfiles, resolveProfileLibraries, PLFA_PROFILE_LABEL } from '$lib/controller.svelte'
+import { AgdaController, deployProfiles, resolveProfileLibraries } from '$lib/controller.svelte'
 import AppSwitcher from '$lib/components/AppSwitcher.svelte'
 import { myCodeMirrorTheme, autoColorScheme, prefersDarkTheme } from '$lib/codemirror/theme'
 import { agdaInputMethod } from '$lib/codemirror/agda-input'
@@ -125,11 +125,14 @@ agdaController.currentFilePath = '/source-plfa.lagda.md'
 // against both 2.7.0 and 2.7.0.1) in Data.Integer.Tactic.RingSolver, a
 // module PLFA itself never imports -- stdlib v2.1.1 fixes that module
 // while remaining otherwise compatible, so it's used here instead.
-// PLFA_PROFILE_LABEL itself lives in controller.svelte.ts, shared with
-// AppSwitcher.svelte (which uses it to decide whether to show a "PLFA"
-// link at all).
-if (deployProfiles.some(p => p.label === PLFA_PROFILE_LABEL)) {
-  agdaController.selectedProfileLabel = PLFA_PROFILE_LABEL
+// Which profile counts as "the PLFA profile" is marked by deploy.config.json's
+// own `plfa: true` field on that profile -- not by matching a specific label
+// string, since a label is just display text a deployer is free to reword.
+// AppSwitcher.svelte checks the same field to decide whether to show a
+// "PLFA" link at all.
+const plfaProfile = deployProfiles.find(p => p.plfa === true)
+if (plfaProfile) {
+  agdaController.selectedProfileLabel = plfaProfile.label
 }
 
 $effect(() => {

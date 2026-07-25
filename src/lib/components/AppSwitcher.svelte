@@ -1,11 +1,11 @@
 <script>
 import { resolve } from '$app/paths'
-import { deployProfiles, PLFA_PROFILE_LABEL } from '$lib/controller.svelte'
+import { deployProfiles } from '$lib/controller.svelte'
 
 /** @type {{ current: 'playground' | 'notebook' | 'plfa' }} */
 let { current } = $props()
 
-const hasPlfaProfile = deployProfiles.some(p => p.label === PLFA_PROFILE_LABEL)
+const hasPlfaProfile = deployProfiles.some(p => p.plfa === true)
 </script>
 
 <nav class="app-switcher" aria-label="Switch app">
