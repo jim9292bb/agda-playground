@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run auto-configure && npm run setup && NODE_ENV=production npm run build",
+  "buildCommand": "npm run auto-configure -- --with-plfa && npm run setup && NODE_ENV=production npm run build",
   "outputDirectory": "build",
   "installCommand": "npm install"
 }
