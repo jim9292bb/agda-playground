@@ -169,9 +169,16 @@ Done (condensed — see git history for the full step-by-step record):
       view tab, example picker) so `npm run test:browser` passes cleanly
       against the current UI.
 
-- [ ] Add specs for plfa, agda-unimath, 1lab to `deploy.config.json`
-      (confirm each library's actual `.agda-lib` name/include path/required
-      OPTIONS first), and add corresponding profile(s).
+- [x] Add a spec for plfa to `deploy.config.json` and a corresponding
+      profile — done as an opt-in `npm run auto-configure -- --with-plfa`
+      (see `scripts/auto-configure.mjs`'s `PLFA_LIBRARIES`/`PLFA_PROFILE`),
+      not a fifth default profile, since its `.agdai` cache is much heavier
+      (~285MB) than the others. Powers the `/plfa` notebook route — see
+      "`als-demo`'s `/plfa` route" in the workspace root `CLAUDE.md` and
+      `DEPLOYMENT.md`'s "Deploying to Vercel" section for the full story.
+- [ ] Add specs for agda-unimath, 1lab to `deploy.config.json` (confirm each
+      library's actual `.agda-lib` name/include path/required OPTIONS
+      first), and add corresponding profile(s).
 - [ ] A `deploy.config.json` validation step, run before `npm run setup`,
       checking the kinds of mistakes a deployer could otherwise only
       discover from a thrown error deep in the browser (e.g.
@@ -187,6 +194,53 @@ fetched per-file on demand via the prefetch manifest, never as a bulk zip.
 `npm run setup` downloading every configured profile's libraries is a
 one-time, deployer-side build cost (CI time / disk), not something any end
 user pays for — not worth the added complexity.
+
+## Notebook Routes (`/literate`, `/plfa`)
+
+Two Jupyter-style notebook routes, both reusing the same N-EditorView
+engine: a hidden "composite document" `EditorView` (what `AgdaController`
+actually talks to — every existing Agda-interaction module keeps its
+single-continuous-document assumption unchanged) synced bidirectionally
+against N independent, visible per-cell `EditorView`s. See git history
+(`literate-programming` branch, merged) for the step-by-step build order;
+condensed status below.
+
+Done:
+
+- [x] `/literate` — "Agda Notebook": a general-purpose scratch notebook.
+      Markdown and code cells, add/delete via toolbar, import/export a whole
+      `.lagda.md` file, goal/highlight decorations projected into the
+      correct cell, Give/Refine/MakeCase synced back to the correct visible
+      cell. Cells default unfocused; clicking outside every cell unfocuses.
+- [x] `/plfa` — "PLFA Notebook": read/edit *Programming Language Foundations
+      in Agda* chapter-by-chapter, each chapter loadable as this notebook's
+      own top-level document with the rest of the book mounted as a
+      read-only library so cross-chapter `open import plfa.part1.Xxx`
+      references resolve normally. Hierarchical chapter picker ordered to
+      match the book's own reading order (`data/tableOfContents.yml`), not
+      alphabetically.
+- [x] `AppSwitcher` — a small nav component in all three routes' headers
+      linking between Agda Playground / Agda Notebook / PLFA Notebook.
+      PLFA's link only appears where a PLFA-capable profile actually exists
+      (`deploy.config.json`'s `plfa: true` field — see `DEPLOYMENT.md`).
+- [x] PLFA made deployable without manual local setup: `npm run
+      auto-configure -- --with-plfa` fetches its stdlib/plfa sources and
+      prebuilt `.agdai` cache the same way the other shipped profiles do —
+      see "Curated Multi-Library Support" above and `DEPLOYMENT.md`'s
+      "Deploying to Vercel" section.
+
+Known gaps / not yet done:
+
+- [ ] Hover tooltips (`src/lib/codemirror/`'s lsp-hover-related extensions)
+      haven't been individually re-verified against the cell-local ↔
+      hidden-document offset translation the N-EditorView rewrite
+      introduced — flagged as a risk during the rewrite, not yet resolved
+      one way or the other.
+- [ ] No cell-based browser regression coverage exists for `/plfa`
+      specifically (chapter switching, cross-chapter `open import`
+      resolution) beyond the ad hoc "all 25 chapters Load" verification done
+      during development — only `/literate`'s cell CRUD/truncation/basic
+      flows have dedicated `test:browser:literate-*` scripts.
 
 ## Goal Lifecycle and Editor State
 

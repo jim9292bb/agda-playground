@@ -28,6 +28,15 @@ downloads the ALS runtime assets (wasm + agda-data) for every version in
 then packages everything into `static/`. To run locally instead of
 deploying, use `npm run dev` — the app will be available at `http://localhost:8099`.
 
+Add `-- --with-plfa` to also fetch a fourth profile for the `/plfa` route
+(`npm run auto-configure -- --with-plfa`): stdlib 2.1.1 + PLFA (ALS 2.7.0.1).
+Opt-in rather than a fifth default, since its prebuilt `.agdai` cache is much
+heavier (~285MB) than the other profiles need. Fetches from
+`agda/agda-stdlib`, `plfa/plfa.github.io` (pinned commit), and this project's
+own `plfa-agdai-v1` release the same way the other profiles fetch from
+`als-runtime`/`cache-*` releases — see `als-demo/scripts/auto-configure.mjs`'s
+`PLFA_LIBRARIES`/`PLFA_PROFILE`.
+
 ## Custom deployment
 
 Use this path to deploy with different libraries or a different ALS version.
@@ -96,6 +105,61 @@ npm run build
 
 To run locally instead of deploying, use `npm run dev` — the app will be
 available at `http://localhost:8099`.
+
+## Deploying to Vercel
+
+This project's own production deployment (`agda-playground.vercel.app`) is a
+Vercel project connected to `jim9292bb/agda-playground`'s `main` branch —
+every push there triggers a new production deployment automatically. `main`'s
+`vercel.json` is the config Vercel actually builds from:
+
+```json
+{
+  "buildCommand": "npm run auto-configure -- --with-plfa && npm run setup && NODE_ENV=production npm run build",
+  "outputDirectory": "build",
+  "installCommand": "npm install",
+  "cleanUrls": true
+}
+```
+
+Two things worth calling out if this ever needs to be recreated from scratch:
+
+- **`buildCommand` runs `auto-configure -- --with-plfa`**, not plain
+  `auto-configure` — omitting the flag silently deploys `/plfa` with an
+  empty chapter list (the route builds fine, there's just nothing to load)
+  rather than failing loudly.
+- **`cleanUrls: true` is required**, not optional. `adapter-static`'s default
+  `trailingSlash: 'never'` emits flat files (`literate.html`, `plfa.html`),
+  not `literate/index.html`. Vercel's static hosting doesn't map an
+  extensionless request like `/literate` to `literate.html` without
+  `cleanUrls` — omitting it 404s every route except `/` (which still works,
+  since `index.html` is served for the root regardless). This predates the
+  `/plfa` route entirely; it would have silently broken `/literate` on its
+  own. Confirm any future `vercel.json` still 200s on `/literate` and
+  `/plfa` directly (not just `/literate.html`) after deploying — a bare `curl`
+  against the production URL is enough, no browser needed.
+
+Before trusting a change to any of the above, the cheapest way to actually
+verify it end-to-end (rather than assuming from reading the config) is to
+reproduce what Vercel does locally against a genuinely fresh clone — not
+just a wipe of gitignored directories in an existing working copy, which can
+mask a file that was never `git add`ed:
+
+```sh
+git clone https://github.com/jim9292bb/agda-playground.git /tmp/fresh-clone-test
+cd /tmp/fresh-clone-test
+npm install
+npm run auto-configure -- --with-plfa && npm run setup && NODE_ENV=production npm run build
+npm run preview -- --host 0.0.0.0 --port 8299   # NOT a plain static file server --
+                                                  # needs SvelteKit's own clean-URL handling
+curl -o /dev/null -sw '%{http_code}\n' http://127.0.0.1:8299/plfa
+```
+
+(Run this somewhere with real disk headroom — the full asset set across all
+four profiles is several GB once `.deploy-assets/`, `static/`, and
+`.svelte-kit/output`'s copies are all counted; a quota-limited scratch
+filesystem can fail the build with a misleading disk-space error partway
+through `vite build`'s asset-copy step.)
 
 ## Reference
 
@@ -194,7 +258,7 @@ Each entry in `libraries`:
 
 | `npm run` | Description |
 |---|---|
-| `auto-configure` | Downloads this project's shipped default libraries, creates `deploy.config.json`, fetches prebuilt `.agdai` files |
+| `auto-configure` | Downloads this project's shipped default libraries, creates `deploy.config.json`, fetches prebuilt `.agdai` files. Add `-- --with-plfa` to also fetch the `/plfa` route's profile |
 | `setup` | Downloads ALS runtime assets into `static/als/` per `deploy.config.json`, generates dependency-graph manifests, then packages everything into `static/` for serving |
 | `build-agdai` | Compiles `.agdai` files with native agda, independent of `deploy.config.json`: `npm run build-agdai -- <lib-file> <agdai-dir> [--libraries-file <path>] [--agda-bin <path>]`. Pass a library's `agdaiDir` as `<agdai-dir>` to feed its prefetch cache |
 | `agdai-status` | Shows manifest and cache status for each configured library |

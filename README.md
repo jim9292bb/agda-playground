@@ -10,6 +10,23 @@ context, commands, and diagnostics without setting up a local Agda project.
 Forked from [agda-web/als-demo](https://github.com/agda-web/als-demo); developed
 with AI pair-programming assistance (OpenAI Codex and Claude Code).
 
+## Three apps, one deployment
+
+- **Agda Playground** ([`/`](https://agda-playground.vercel.app/)) — the
+  single-buffer playground described above.
+- **Agda Notebook** ([`/literate`](https://agda-playground.vercel.app/literate))
+  — a Jupyter-style notebook: a sequence of independent markdown and code
+  cells, import/export a whole `.lagda.md` file.
+- **PLFA Notebook** ([`/plfa`](https://agda-playground.vercel.app/plfa)) —
+  the same notebook engine, preloaded with *[Programming Language
+  Foundations in Agda](https://plfa.github.io/)*, chapter by chapter, with
+  the rest of the book mounted as a read-only library so cross-chapter
+  references resolve normally.
+
+All three share one header nav to switch between them. PLFA Notebook is
+opt-in for self-deployers (see [DEPLOYMENT.md](DEPLOYMENT.md)) since its
+prebuilt cache is much larger than the other two apps need.
+
 ## Scope
 
 This is intentionally not a full project-oriented IDE.
