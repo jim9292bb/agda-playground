@@ -11,15 +11,20 @@
  *
  * This is NOT a generic, deploy.config.json-driven downloader — the library
  * set is hardcoded to this project's shipped defaults across all three
- * supported ALS versions (see SHIPPED_PROFILES below). If you add a library
- * of your own, place files by hand instead; see DEPLOYMENT.md.
+ * supported ALS versions (see SHIPPED_PROFILES below), plus one more
+ * opt-in profile for the /plfa route (see PLFA_LIBRARIES/PLFA_PROFILE) —
+ * opt-in because its prebuilt .agdai cache is much heavier (~285MB) than
+ * the other profiles need. If you add a library of your own, place files
+ * by hand instead; see DEPLOYMENT.md.
  *
  * Safe to run repeatedly: each step is skipped if its output already exists.
  *
  * After this script finishes, run `npm run setup` to prepare static/
  * (setup automatically generates dependency-graph manifests first).
  *
- * Usage: node scripts/auto-configure.mjs
+ * Usage:
+ *   node scripts/auto-configure.mjs               # Playground/Notebook profiles only
+ *   node scripts/auto-configure.mjs --with-plfa    # also fetches the PLFA Notebook profile
  */
 
 import { mkdir, mkdtemp, rm, readdir, cp, access, writeFile } from 'node:fs/promises'
@@ -136,6 +141,50 @@ const SHIPPED_PROFILES = [
   },
 ]
 
+// Only fetched/profiled when `--with-plfa` is passed -- this pulls down a
+// much heavier prebuilt .agdai cache (~285MB) than the other profiles, for
+// a feature (the /plfa route) not everyone running auto-configure wants.
+// See CLAUDE.md's "als-demo's /plfa route" section and DEPLOYMENT.md's
+// `plfa` profile field for the full story (why stdlib v2.1.1 rather than
+// PLFA's own README-pinned v2.1, why the cache is fetched from a release
+// instead of rebuilt locally, etc).
+const PLFA_CACHE_RELEASE = 'https://github.com/jim9292bb/agda-playground/releases/download/plfa-agdai-v1'
+const PLFA_COMMIT = '40adfb94a6adc6430b4ca3a41af032eabccf4334'
+const PLFA_LIBRARIES = [
+  {
+    name: 'standard-library-2.1.1',
+    agdaLibFile: 'standard-library.agda-lib',
+    sourceUrl: 'https://github.com/agda/agda-stdlib/archive/refs/tags/v2.1.1.zip',
+    cacheRelease: PLFA_CACHE_RELEASE,
+    releaseAssetPrefix: 'standard-library-2.1.1',
+    label: 'stdlib',
+    version: '2.1.1',
+  },
+  {
+    name: 'plfa',
+    agdaLibFile: 'src/plfa.agda-lib',
+    sourceUrl: `https://github.com/plfa/plfa.github.io/archive/${PLFA_COMMIT}.zip`,
+    cacheRelease: PLFA_CACHE_RELEASE,
+    releaseAssetPrefix: 'plfa',
+    label: 'plfa',
+    version: PLFA_COMMIT.slice(0, 7),
+    // This project only needs src/ (the Agda source, per plfa.agda-lib) and
+    // data/tableOfContents.yml (chapter reading order, see
+    // generate-plfa-chapters.mjs) -- book/courses/extra/papers/tools/web are
+    // the book's own Jekyll website + auxiliary material, ~43MB of the
+    // repo's ~50MB, and web/ in particular trips up the project's own
+    // eslint config if left in place (third-party minified/legacy JS with
+    // no relation to this project's lint rules).
+    removeAfterFetch: ['book', 'courses', 'extra', 'papers', 'tools', 'web'],
+  },
+]
+const PLFA_PROFILE = {
+  label: 'Standard Library v2.1.1 + PLFA (ALS 2.7.0.1)',
+  als: '2.7.0.1',
+  libraries: ['standard-library-2.1.1', 'plfa'],
+  plfa: true,
+}
+
 async function exists(path) {
   try { await access(path); return true } catch { return false }
 }
@@ -161,9 +210,10 @@ async function findSoleSubdir(dir) {
 /**
  * Downloads a source archive (GitHub tag zip with a wrapper folder) and
  * extracts into destDir, stripping the wrapper. removeAfterFetch paths
- * (relative to destDir) are deleted once, right after a fresh extraction —
- * for files this project's tooling can't use as-is (see cubical-0.7/0.8's
- * removeAfterFetch in SHIPPED_LIBRARIES).
+ * (relative to destDir, file or directory) are deleted once, right after a
+ * fresh extraction — for content this project's tooling can't use as-is
+ * (see cubical-0.7/0.8's removeAfterFetch for files, plfa's for whole
+ * directories, in SHIPPED_LIBRARIES/PLFA_LIBRARIES).
  */
 async function fetchSource(url, destDir, workDir, removeAfterFetch = []) {
   if (await exists(destDir)) {
@@ -178,7 +228,7 @@ async function fetchSource(url, destDir, workDir, removeAfterFetch = []) {
   await mkdir(destDir, { recursive: true })
   await cp(wrapped, destDir, { recursive: true })
   for (const relPath of removeAfterFetch) {
-    await rm(join(destDir, relPath), { force: true })
+    await rm(join(destDir, relPath), { recursive: true, force: true })
   }
 }
 
@@ -194,17 +244,18 @@ async function fetchFlatZip(url, destDir, workDir, marker = destDir) {
   await extractZip(zipPath, destDir)
 }
 
-async function ensureDeployConfig(libsWithPaths) {
+async function ensureDeployConfig(libsWithPaths, shippedLibraries, shippedProfiles) {
   const configPath = join(REPO_ROOT, 'deploy.config.json')
   if (await exists(configPath)) {
     console.log(`  already present: deploy.config.json (leaving as-is — delete it to regenerate)`)
     return
   }
   const libMap = new Map(libsWithPaths.map(l => [l.name, l]))
-  const libMeta = new Map(SHIPPED_LIBRARIES.map(l => [l.name, l]))
-  const profiles = SHIPPED_PROFILES.map(profile => ({
+  const libMeta = new Map(shippedLibraries.map(l => [l.name, l]))
+  const profiles = shippedProfiles.map(profile => ({
     label: profile.label,
     als: profile.als,
+    ...(profile.plfa ? { plfa: true } : {}),
     libraries: profile.libraries.map(libName => {
       const { agdaLibPath } = libMap.get(libName)
       const { label, version } = libMeta.get(libName)
@@ -216,13 +267,17 @@ async function ensureDeployConfig(libsWithPaths) {
 }
 
 async function main() {
+  const withPlfa = process.argv.includes('--with-plfa')
+  const shippedLibraries = withPlfa ? [...SHIPPED_LIBRARIES, ...PLFA_LIBRARIES] : SHIPPED_LIBRARIES
+  const shippedProfiles = withPlfa ? [...SHIPPED_PROFILES, PLFA_PROFILE] : SHIPPED_PROFILES
+
   const workDir = await mkdtemp(join(tmpdir(), 'auto-configure-'))
   try {
-    console.log("Fetching this project's own shipped default assets...")
+    console.log("Fetching this project's own shipped default assets" + (withPlfa ? ' (including PLFA)...' : '...'))
 
     // 1. Download library source archives
     const libsWithPaths = []
-    for (const lib of SHIPPED_LIBRARIES) {
+    for (const lib of shippedLibraries) {
       const destDir = join(DEPLOY_ASSETS, 'library', lib.name)
       await fetchSource(lib.sourceUrl, destDir, workDir, lib.removeAfterFetch)
       libsWithPaths.push({
@@ -234,7 +289,7 @@ async function main() {
     }
 
     // 2. Create deploy.config.json if absent (points at the downloaded sources)
-    await ensureDeployConfig(libsWithPaths)
+    await ensureDeployConfig(libsWithPaths, shippedLibraries, shippedProfiles)
 
     // 3. Resolve cache dirs (getLocalLibraries re-reads deploy.config.json and assigns IDs)
     const resolvedLibs = getLocalLibraries()

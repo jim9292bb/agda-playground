@@ -9,6 +9,7 @@ export default tseslint.config(
       'build/**',
       '.svelte-kit/**',
       'static/**',
+      '.deploy-assets/**',
       'src/service-worker.js',
       'scripts/generated-*.mjs',
       'experiments/**',

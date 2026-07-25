@@ -1,7 +1,5 @@
 /**
- * Reads references/plfa/src/plfa/part{1,2,3}/*.lagda.md (a local, gitignored
- * sibling checkout of https://github.com/plfa/plfa.github.io -- see
- * CLAUDE.md's Reference Repositories section) and writes
+ * Reads <PLFA_ROOT>/src/plfa/part{1,2,3}/*.lagda.md and writes
  * scripts/generated-plfa-chapters.mjs: one entry per chapter, with its own
  * `module plfa.partN.Name where` declaration fence stripped (so the text is
  * loadable as a standalone top-level source file -- Agda then infers the
@@ -10,11 +8,19 @@
  * turned into a markdown H1 (so the notebook shows something readable
  * instead of raw front matter).
  *
- * references/plfa is NOT part of this repo and is not fetched by any
- * existing setup script -- if it's missing (a fresh clone that hasn't
- * cloned it, or a deployer who never wants the PLFA feature), this script
- * writes an empty chapter list rather than failing, the same graceful-skip
- * convention generate-library-info.mjs uses for a missing library.
+ * PLFA_ROOT is resolved from whichever of these exists first:
+ *   1. deploy.config.json's "plfa"-labeled library's agdaLibPath (i.e.
+ *      <PLFA_ROOT>/src/plfa.agda-lib) -- what `npm run auto-configure
+ *      --with-plfa` fetches into .deploy-assets/library/plfa, so a fresh
+ *      clone can generate real chapters with zero manual setup.
+ *   2. references/plfa -- a local, gitignored sibling checkout of
+ *      https://github.com/plfa/plfa.github.io (see CLAUDE.md's Reference
+ *      Repositories section), predating (1) and kept as a fallback for the
+ *      existing local dev workflow that clones it there directly.
+ * If neither exists (a fresh clone with no PLFA setup at all, or a deployer
+ * who never wants the PLFA feature), this script writes an empty chapter
+ * list rather than failing, the same graceful-skip convention
+ * generate-library-info.mjs uses for a missing library.
  *
  * The generated file is a plain ES module imported by the /plfa route at
  * build time (Vite inlines it into the compiled bundle). It's gitignored.
@@ -32,30 +38,55 @@
  * Usage: node scripts/generate-plfa-chapters.mjs
  */
 
-import { readdir, readFile, writeFile } from 'node:fs/promises'
+import { readdir, readFile, writeFile, access } from 'node:fs/promises'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { readDeployConfig } from './resolve-deploy-config.mjs'
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
-const PLFA_ROOT = join(REPO_ROOT, '..', 'references', 'plfa')
-const PLFA_SRC = join(PLFA_ROOT, 'src', 'plfa')
-const TOC_PATH = join(PLFA_ROOT, 'data', 'tableOfContents.yml')
 const OUT_PATH = join(REPO_ROOT, 'scripts', 'generated-plfa-chapters.mjs')
 const PARTS = ['part1', 'part2', 'part3']
+
+async function pathExists(path) {
+  try {
+    await access(path)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** @returns {Promise<string | null>} */
+async function findPlfaRoot() {
+  for (const profile of readDeployConfig().profiles) {
+    for (const lib of profile.libraries) {
+      if (lib.label !== 'plfa') continue
+      // agdaLibPath is <PLFA_ROOT>/src/plfa.agda-lib
+      const candidate = dirname(dirname(lib.agdaLibPath))
+      if (await pathExists(join(candidate, 'src', 'plfa'))) return candidate
+    }
+  }
+
+  const referencesFallback = join(REPO_ROOT, '..', 'references', 'plfa')
+  if (await pathExists(join(referencesFallback, 'src', 'plfa'))) return referencesFallback
+
+  return null
+}
 
 /**
  * Parses `data/tableOfContents.yml`'s `include: src/plfa/partN/Xxx.lagda.md`
  * lines (in file order) into a map of part -> ordered chapter ids. Not a
  * general YAML parser -- this file's structure is simple and fixed enough
  * that adding a YAML dependency for one file isn't worth it.
+ * @param {string} tocPath
  * @returns {Promise<Record<string, string[]>>}
  */
-async function readChapterOrder() {
+async function readChapterOrder(tocPath) {
   /** @type {Record<string, string[]>} */
   const order = { part1: [], part2: [], part3: [] }
   let text
   try {
-    text = await readFile(TOC_PATH, 'utf8')
+    text = await readFile(tocPath, 'utf8')
   } catch {
     return order
   }
@@ -99,10 +130,12 @@ async function main() {
   /** @type {{ part: string, id: string, title: string, source: string }[]} */
   const chapters = []
 
-  if (await exists(PLFA_SRC)) {
-    const order = await readChapterOrder()
+  const plfaRoot = await findPlfaRoot()
+  if (plfaRoot) {
+    const plfaSrc = join(plfaRoot, 'src', 'plfa')
+    const order = await readChapterOrder(join(plfaRoot, 'data', 'tableOfContents.yml'))
     for (const part of PARTS) {
-      const dir = join(PLFA_SRC, part)
+      const dir = join(plfaSrc, part)
       if (!(await exists(dir))) continue
       const files = (await readdir(dir)).filter(f => f.endsWith('.lagda.md'))
       const ids = files.map(f => f.replace(/\.lagda\.md$/, ''))
@@ -123,7 +156,8 @@ async function main() {
 
   const out = `// Generated by scripts/generate-plfa-chapters.mjs — do not edit by hand.
 // Re-run \`npm run setup\` (or \`node scripts/generate-plfa-chapters.mjs\`) after
-// updating references/plfa.
+// updating the PLFA source (references/plfa, or deploy.config.json's "plfa"
+// library).
 
 /** @typedef {{ part: string, id: string, title: string, source: string }} PlfaChapter */
 
