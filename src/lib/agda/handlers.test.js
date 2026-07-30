@@ -123,6 +123,35 @@ describe('ResponseJSONRaw > DisplayInfo', () => {
     ])
   })
 
+  it('keeps out-of-scope context entries, suffixed "(not in scope)", instead of dropping them', () => {
+    const { controller, handlers } = makeSetup('')
+    handlers.ResponseJSONRaw?.(/** @type {any} */ ({
+      kind: 'DisplayInfo',
+      info: {
+        kind: 'GoalSpecific',
+        interactionPoint: { id: 0 },
+        goalInfo: {
+          kind: 'GoalType',
+          type: 'eq y x',
+          entries: [
+            { inScope: true, reifiedName: 'e', originalName: 'e', binding: 'eq x y' },
+            { inScope: false, reifiedName: 'y', originalName: 'y', binding: 'A' },
+            { inScope: false, reifiedName: 'x', originalName: 'x', binding: 'A' },
+            { inScope: false, reifiedName: 'A', originalName: 'A', binding: 'Set' },
+          ],
+        },
+      },
+    }))
+    expect(controller.queryResults).toEqual([
+      {
+        label: 'Goal Type and Context',
+        content: expect.stringContaining(
+          'e : eq x y\ny : A (not in scope)\nx : A (not in scope)\nA : Set (not in scope)',
+        ),
+      },
+    ])
+  })
+
   it('dispatches setGoalInfo with the goal type/context for a GoalSpecific response', () => {
     const { view, handlers } = makeSetup('')
     handlers.ResponseJSONRaw?.(/** @type {any} */ ({

@@ -105,11 +105,14 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
     }
   }
 
-  /** @param {Agda._ContextEntry[]} entries */
+  /** Entries with `inScope: false` are implicit bindings (e.g. from a
+   *  signature's `{A : Set}`) that Agda unified but aren't directly named in
+   *  the pattern -- Agda's own EmacsTop.hs still reports them, suffixed
+   *  " (not in scope)", rather than dropping them.
+   *  @param {Agda._ContextEntry[]} entries */
   function formatContextEntries(entries) {
     return entries
-      .filter(entry => entry.inScope)
-      .map(entry => `${entry.reifiedName || entry.originalName} : ${entry.binding}`)
+      .map(entry => `${entry.reifiedName || entry.originalName} : ${entry.binding}${entry.inScope ? '' : ' (not in scope)'}`)
       .join('\n')
   }
 
