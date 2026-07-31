@@ -129,7 +129,8 @@ Tooling and dependencies this project builds on:
 This project embeds and redistributes the following academic software (see
 [Related projects](#related-projects) above for tooling-level dependencies).
 Each project requests a citation if you use it; see the linked `CITATION.cff`
-files for full citation details.
+files (or license, where a project has no `CITATION.cff`) for full citation
+details.
 
 - **Agda** — Agda Developers. [agda/agda](https://github.com/agda/agda),
   [CITATION.cff](https://github.com/agda/agda/blob/master/CITATION.cff)
@@ -139,6 +140,11 @@ files for full citation details.
 - **Cubical Agda Library** — The Agda Community.
   [agda/cubical](https://github.com/agda/cubical),
   [CITATION.cff](https://github.com/agda/cubical/blob/master/CITATION.cff)
+- **Programming Language Foundations in Agda (PLFA)** — Philip Wadler, Wen
+  Kokke, Jeremy G. Siek. [plfa/plfa.github.io](https://github.com/plfa/plfa.github.io),
+  licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) (no
+  `CITATION.cff`; content served by the `/plfa` route, opt-in via `npm run
+  auto-configure -- --with-plfa` — see [DEPLOYMENT.md](DEPLOYMENT.md))
 
 ### License
 
