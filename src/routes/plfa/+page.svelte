@@ -976,11 +976,21 @@ function cellSyncExtensions(cellId, cellType) {
         const idx = cells.findIndex(c => c.id === cellId)
         if (idx < 0) return
         if (!isSyncEcho) {
+          // Compute offsets and dispatch to hiddenView from cells[idx].text
+          // *after* it's already updated to the post-edit content: dispatch()
+          // is synchronous and re-enters hiddenViewUpdateListener before
+          // returning, so if cells[idx].text were still stale at that point,
+          // its own computeCellContentOffsets(cells) call would compute a
+          // window shifted by this edit's length -- misaligning goal/
+          // highlight projection for this cell and every cell after it for
+          // that one pass.
+          cells[idx].text = update.state.doc.toString()
           const preOffsets = computeCellContentOffsets(cells)
           const specs = translateCellChangesToGlobal(preOffsets[idx].from, update.changes)
           if (specs.length) hiddenView.dispatch({ changes: specs, annotations: fromCellSync.of(true) })
+        } else {
+          cells[idx].text = update.state.doc.toString()
         }
-        cells[idx].text = update.state.doc.toString()
       }
 
       if (update.selectionSet) {
