@@ -34,7 +34,7 @@ for this browser-hosted single-file Agda playground IDE. Use it before searching
 | `C-c C-,` | Goal type and context `[Simplified]` | `Cmd_goal_type_context Simplified goalId noRange ""` |
 | `C-c C-.` | Goal type, context, inferred type `[Simplified]` | `Cmd_goal_type_context_infer Simplified goalId noRange content` |
 | `C-c C-;` | Goal type, context, checked type `[Simplified]` | `Cmd_goal_type_context_check Simplified goalId noRange content` |
-| `C-c C-d` | Infer type `[Normalised]` | `Cmd_infer Normalised goalId noRange content` |
+| `C-c C-d` | Infer type `[Simplified]` | `Cmd_infer Simplified goalId noRange content` |
 | `C-c C-n` | Compute normal form | `Cmd_compute DefaultCompute goalId noRange content` |
 | `C-c C-z` | Search about `[Simplified]` | `Cmd_search_about_toplevel Simplified content` |
 | `C-c C-o` | Module contents `[Simplified]` | `Cmd_show_module_contents Simplified goalId noRange content` or top-level variant |

@@ -42,7 +42,7 @@ namespace Agda {
   | WhyInScope
   | NormalForm
   | InferredType
-  // | Context
+  | Context
   | Version
   | GoalSpecific
 
@@ -110,6 +110,7 @@ namespace Agda {
   type InferredType = { kind: 'InferredType', commandState: unknown, time: unknown, expr: string }
   type SearchAbout = { kind: 'SearchAbout', results: { name: string, term: string }[], search: string }
   type ModuleContents = { kind: 'ModuleContents', contents: { name: string, term: string }[], names: string[], telescope: unknown[] }
+  type Context = { kind: 'Context', interactionPoint: _InteractionPoint, context: _ContextEntry[] }
 
   type AllGoalsWarnings = {
     kind: 'AllGoalsWarnings',

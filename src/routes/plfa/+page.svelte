@@ -864,7 +864,7 @@ function runAgdaShortcutDefinition(shortcut) {
       break
     case 'infer':
       runAgdaShortcutWithInputPrompt(shortcut.label, (context, input) =>
-        inferCommand('Normalised', requireGoal(context), input))
+        inferCommand('Simplified', requireGoal(context), input))
       break
   }
 }

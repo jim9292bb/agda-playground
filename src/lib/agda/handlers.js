@@ -159,6 +159,7 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       }
     }
     switch (info.kind) {
+      case 'Context':        return { label: 'Context', content: formatContextEntries(info.context ?? []) }
       case 'WhyInScope':     return { label: 'Why in Scope', content: info.message ?? '' }
       case 'SearchAbout':    return { label: 'Search About', content: formatNameTermList(info.results) }
       case 'ModuleContents': return { label: 'Module Contents', content: formatNameTermList(info.contents) }

@@ -186,6 +186,24 @@ describe('ResponseJSONRaw > DisplayInfo', () => {
     }))
     expect(controller.queryResults).toEqual([{ label: 'Normal Form', content: '42' }])
   })
+
+  it('routes a top-level Context response to the Queries panel instead of dumping raw JSON into the log', () => {
+    const { controller, handlers } = makeSetup('')
+    handlers.ResponseJSONRaw?.(/** @type {any} */ ({
+      kind: 'DisplayInfo',
+      info: {
+        kind: 'Context',
+        interactionPoint: { id: 0 },
+        context: [
+          { inScope: true, reifiedName: 'n', originalName: 'n', binding: 'Nat' },
+          { inScope: false, reifiedName: 'A', originalName: 'A', binding: 'Set' },
+        ],
+      },
+    }))
+    expect(controller.queryResults).toEqual([
+      { label: 'Context', content: 'n : Nat\nA : Set (not in scope)' },
+    ])
+  })
 })
 
 describe('ResponseJSONRaw > ClearRunningInfo / RunningInfo', () => {
