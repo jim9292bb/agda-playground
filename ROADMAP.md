@@ -228,6 +228,23 @@ Done:
       prebuilt `.agdai` cache the same way the other shipped profiles do —
       see "Curated Multi-Library Support" above and `DEPLOYMENT.md`'s
       "Deploying to Vercel" section.
+- [x] Fixed a cell-sync race where editing one cell could silently drop
+      another cell's goal/highlight decoration projection with no visible
+      error: `cellSyncExtensions`' `updateListener` (`+page.svelte`) wrote
+      the edited cell's `cells[idx].text` *after* dispatching to
+      `hiddenView`, but `EditorView.dispatch()` re-enters
+      `hiddenViewUpdateListener` synchronously before returning — so that
+      listener's `computeCellContentOffsets(cells)` call read the pre-edit
+      length for one pass, shifting the projection window for every cell
+      after the edited one. The shifted window could clip a decoration to
+      zero width or break `RangeSetBuilder`'s sort assumption, both of
+      which throw inside `EditorView.updateListener` — an exception
+      CodeMirror itself swallows, dropping that projection pass silently
+      (see `projectRangeSetToWindow`'s comments in
+      `literate-cell-sync.js`). Fixed by updating `cells[idx].text` before
+      the `hiddenView` dispatch (commit `7e8b4bb`); regression-tested with
+      `npm run test:browser:literate-cell-sync-race`, verified red on the
+      pre-fix code and green on the fix (commit `72bedeb`).
 
 Known gaps / not yet done:
 
