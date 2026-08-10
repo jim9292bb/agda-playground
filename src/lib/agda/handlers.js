@@ -74,10 +74,20 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
     controller.acceptDocumentVersion(getAgdaDocumentVersion(editorView.state))
   }
 
-  /** @param {any} constraint */
+  /** Prefixes with the goal's own id, matching upstream's `"?N : type"` /
+   *  `"?N : Sort s"` rendering (`BasicOps.hs`'s `Pretty (OutputConstraint ...)`
+   *  instance, mirrored by agda-mode-vscode's `Agda.res`) -- without this,
+   *  a goal's AllGoalsWarnings entry is indistinguishable from any other.
+   *  @param {any} constraint */
   function formatConstraint(constraint) {
-    if (constraint.type) return constraint.type
-    if (constraint.sort) return constraint.sort
+    const id = `?${getConstraintId(constraint.constraintObj)}`
+    // JustSort (an interaction point whose type is only known to be some
+    // Set, not further constrained) carries no separate `sort` field --
+    // upstream's own `Pretty (OutputConstraint ...)` instance
+    // (BasicOps.hs) renders it as "Sort <the goal itself>", not
+    // "<goal> : Sort <value>".
+    if (constraint.type) return `${id} : ${constraint.type}`
+    if (constraint.kind === 'JustSort') return `Sort ${id}`
     return JSON.stringify(constraint)
   }
 
@@ -129,14 +139,27 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
     }
   }
 
+  /** `boundary` (Cubical partial-element face constraints) and
+   *  `outputForms` (leftover unification constraints) are already sent by
+   *  ALS's JSON on every GoalType response -- EmacsTop.hs's Goal_GoalType
+   *  rendering shows them as "Boundary (wanted)"/"Constraints" sections
+   *  rather than dropping them, which is what this app did before.
+   *  @param {string[] | undefined} lines
+   *  @param {string} heading */
+  function formatGoalSection(lines, heading) {
+    return lines?.length ? `${heading}:\n${lines.join('\n')}` : ''
+  }
+
   /** @param {Agda._GoalInfo | undefined} goalInfo */
   function summarizeGoalInfo(goalInfo) {
     if (goalInfo?.kind !== 'GoalType') return {}
+    const boundary = formatGoalSection(goalInfo.boundary, 'Boundary (wanted)')
     const aux = formatGoalAux(goalInfo.typeAux)
     const context = formatContextEntries(goalInfo.entries ?? [])
+    const constraints = formatGoalSection(goalInfo.outputForms, 'Constraints')
     return {
       type: goalInfo.type,
-      context: [aux, context].filter(Boolean).join('\n'),
+      context: [boundary, aux, context, constraints].filter(Boolean).join('\n'),
     }
   }
 
@@ -159,12 +182,14 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       if (!gi) return null
       switch (gi.kind) {
         case 'GoalType': {
+          const boundary = formatGoalSection(gi.boundary, 'Boundary (wanted)')
           const aux = formatGoalAux(gi.typeAux)
           const context = formatContextEntries(gi.entries ?? [])
+          const constraints = formatGoalSection(gi.outputForms, 'Constraints')
           const label = context ? 'Goal Type and Context' : 'Goal Type'
-          const header = [gi.type ?? '', aux].filter(Boolean).join('\n')
+          const header = [gi.type ?? '', boundary, aux].filter(Boolean).join('\n')
           const content = context ? `${header}\n${QUERY_SEPARATOR}\n${context}` : header
-          return { label, content }
+          return { label, content: constraints ? `${content}\n${constraints}` : content }
         }
         case 'NormalForm':    return { label: 'Normal Form', content: gi.expr ?? '' }
         case 'InferredType':  return { label: 'Inferred Type', content: gi.expr ?? '' }

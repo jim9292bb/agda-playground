@@ -79,8 +79,8 @@ namespace Agda {
     typeAux: _GoalTypeAux,
     type: string,
     entries: _ContextEntry[],
-    boundary: unknown[],
-    outputForms: unknown[],
+    boundary: string[],
+    outputForms: string[],
   }
 
   type _ContextEntry = {

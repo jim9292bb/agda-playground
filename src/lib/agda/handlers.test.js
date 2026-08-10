@@ -104,6 +104,48 @@ describe('ResponseJSONRaw > DisplayInfo', () => {
     expect(controller.lastAgdaError).toBeNull()
   })
 
+  it('prefixes AllGoalsWarnings goal entries with their own ?id, not just the bare type', () => {
+    const { view, handlers } = makeSetup('')
+    handlers.ResponseJSONRaw?.(/** @type {any} */ ({
+      kind: 'DisplayInfo',
+      info: {
+        kind: 'AllGoalsWarnings',
+        errors: [],
+        warnings: [],
+        visibleGoals: [{ kind: 'OfType', constraintObj: { id: 0 }, type: 'N' }],
+        invisibleGoals: [{ kind: 'JustSort', constraintObj: { id: 1 } }],
+      },
+    }))
+    const emitSpec = view.dispatchLog.find(spec =>
+      /** @type {any} */ (spec.effects)?.value?.message?.includes('?0'))
+    expect(/** @type {any} */ (emitSpec?.effects).value.message).toContain('?0 : N')
+    expect(/** @type {any} */ (emitSpec?.effects).value.message).toContain('Sort ?1')
+  })
+
+  it('shows Boundary (wanted) and Constraints sections when a GoalType response carries them', () => {
+    const { controller, handlers } = makeSetup('')
+    handlers.ResponseJSONRaw?.(/** @type {any} */ ({
+      kind: 'DisplayInfo',
+      info: {
+        kind: 'GoalSpecific',
+        interactionPoint: { id: 0 },
+        goalInfo: {
+          kind: 'GoalType',
+          type: 'N',
+          boundary: ['i0 = z'],
+          outputForms: ['n =?= m : N'],
+          entries: [],
+        },
+      },
+    }))
+    expect(controller.queryResults).toEqual([
+      {
+        label: 'Goal Type',
+        content: 'N\nBoundary (wanted):\ni0 = z\nConstraints:\nn =?= m : N',
+      },
+    ])
+  })
+
   it('routes a GoalSpecific/GoalType result to appendQueryResult, combining type and context', () => {
     const { controller, handlers } = makeSetup('')
     handlers.ResponseJSONRaw?.(/** @type {any} */ ({
