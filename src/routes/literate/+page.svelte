@@ -896,8 +896,17 @@ function runAgdaShortcutDefinition(shortcut) {
       })
       break
     case 'refine':
-      runAgdaShortcutWithInputPrompt(shortcut.label, (context, input) =>
-        refineCommand(requireGoal(context), context.range, input))
+      // See src/routes/+page.svelte's 'refine' case for why this always
+      // sends (never prompts for input first) -- Cmd_refine_or_intro treats
+      // empty content as "intro", which the client-side prompt would
+      // otherwise pre-empt.
+      runAgdaShortcut(shortcut.label, context => {
+        const goal = requireGoal(context)
+        if (agdaController.alsRouter) {
+          agdaController.alsRouter.pendingGiveGoal = goal
+        }
+        return refineCommand(goal, context.range, context.input)
+      })
       break
     case 'auto':
       runAgdaShortcut(shortcut.label, context => {

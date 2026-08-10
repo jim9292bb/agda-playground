@@ -34,8 +34,8 @@ namespace Agda {
   | AllGoalsWarnings
   // | Time
   | Error
-  // | Intro_NotFound
-  // | Intro_ConstructorUnknown
+  | IntroNotFound
+  | IntroConstructorUnknown
   | Auto
   | ModuleContents
   | SearchAbout
@@ -104,6 +104,8 @@ namespace Agda {
   type GoalCurrentGoal = { kind: 'CurrentGoal', rewrite: _Rewrite, type: string }
   type GoalHelperFunction = { kind: 'HelperFunction', signature: string }
 
+  type IntroNotFound = { kind: 'IntroNotFound' }
+  type IntroConstructorUnknown = { kind: 'IntroConstructorUnknown', constructors: string[] }
   type Auto = { kind: 'Auto', info: string }
   type WhyInScope = { kind: 'WhyInScope', thing: string, filepath: string | null, message: string }
   type NormalForm = { kind: 'NormalForm', commandState: unknown, computeMode: unknown, time: unknown, expr: string }

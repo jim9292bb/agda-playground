@@ -168,6 +168,17 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
     return (items ?? []).map(({ name, term }) => `${name} : ${term}`).join('\n')
   }
 
+  /** Matches EmacsTop.hs's `mkOr` + `punctuate comma` rendering exactly:
+   *  the last two names are joined with "or", everything before that with
+   *  commas -- e.g. `['z', 's']` -> "z or s", `['a', 'b', 'c']` -> "a, b or c".
+   *  @param {string[]} constructors */
+  function formatIntroConstructors(constructors) {
+    if (constructors.length <= 1) return `Don't know which constructor to introduce of ${constructors.join('')}`
+    const init = constructors.slice(0, -2)
+    const lastTwo = constructors.slice(-2).join(' or ')
+    return `Don't know which constructor to introduce of ${[...init, lastTwo].join(', ')}`
+  }
+
   const QUERY_SEPARATOR = '────────────────────────────────────────────────────────────'
 
   /**
@@ -200,6 +211,8 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
     }
     switch (info.kind) {
       case 'Context':        return { label: 'Context', content: formatContextEntries(info.context ?? []) }
+      case 'IntroNotFound':  return { label: 'Intro', content: 'No introduction forms found.' }
+      case 'IntroConstructorUnknown': return { label: 'Intro', content: formatIntroConstructors(info.constructors) }
       case 'WhyInScope':     return { label: 'Why in Scope', content: info.message ?? '' }
       case 'SearchAbout':    return { label: 'Search About', content: formatNameTermList(info.results) }
       case 'ModuleContents': return { label: 'Module Contents', content: formatNameTermList(info.contents) }

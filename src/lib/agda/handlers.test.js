@@ -306,6 +306,39 @@ describe('ResponseJSONRaw > DisplayInfo', () => {
       { label: 'Context', content: 'n : Nat\nA : Set (not in scope)' },
     ])
   })
+
+  it('routes IntroNotFound (Refine on an empty goal with no constructor candidates) to the Queries panel', () => {
+    const { controller, handlers } = makeSetup('')
+    handlers.ResponseJSONRaw?.(/** @type {any} */ ({
+      kind: 'DisplayInfo',
+      info: { kind: 'IntroNotFound' },
+    }))
+    expect(controller.queryResults).toEqual([
+      { label: 'Intro', content: 'No introduction forms found.' },
+    ])
+  })
+
+  it('routes IntroConstructorUnknown (Refine on an ambiguous empty goal) to the Queries panel', () => {
+    const { controller, handlers } = makeSetup('')
+    handlers.ResponseJSONRaw?.(/** @type {any} */ ({
+      kind: 'DisplayInfo',
+      info: { kind: 'IntroConstructorUnknown', constructors: ['z', 's'] },
+    }))
+    expect(controller.queryResults).toEqual([
+      { label: 'Intro', content: "Don't know which constructor to introduce of z or s" },
+    ])
+  })
+
+  it('joins three or more IntroConstructorUnknown candidates with commas before the final "or", matching EmacsTop.hs', () => {
+    const { controller, handlers } = makeSetup('')
+    handlers.ResponseJSONRaw?.(/** @type {any} */ ({
+      kind: 'DisplayInfo',
+      info: { kind: 'IntroConstructorUnknown', constructors: ['a', 'b', 'c'] },
+    }))
+    expect(controller.queryResults).toEqual([
+      { label: 'Intro', content: "Don't know which constructor to introduce of a, b or c" },
+    ])
+  })
 })
 
 describe('ResponseJSONRaw > ClearRunningInfo / RunningInfo', () => {

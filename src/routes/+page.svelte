@@ -572,8 +572,20 @@ function runAgdaShortcutDefinition(shortcut, view) {
       })
       break
     case 'refine':
-      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) =>
-        refineCommand(requireGoal(context), context.range, input))
+      // Unlike Give/Elaborate-give/Why-in-scope, Refine's own Agda command
+      // (Cmd_refine_or_intro) has meaningful behavior for *empty* content --
+      // it falls back to "intro" (auto-introduce a constructor), succeeding
+      // outright when the goal type has exactly one constructor. Always
+      // sending (never prompting first, unlike runAgdaShortcutWithInputPrompt)
+      // lets Agda's own IntroNotFound/IntroConstructorUnknown responses
+      // surface instead of a client-side prompt overriding that behavior.
+      runAgdaShortcut(shortcut.label, view, context => {
+        const goal = requireGoal(context)
+        if (agdaController.alsRouter) {
+          agdaController.alsRouter.pendingGiveGoal = goal
+        }
+        return refineCommand(goal, context.range, context.input)
+      })
       break
     case 'auto':
       runAgdaShortcut(shortcut.label, view, context => {
