@@ -116,12 +116,27 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       .join('\n')
   }
 
+  /** A goal already containing a partial term (e.g. `{! n !}`) reports it
+   *  back via `typeAux` -- Agda's own EmacsTop.hs renders this as a "Have:"
+   *  (or, for an elaborated term, "Elaborates to:") line alongside the
+   *  goal type, rather than silently ignoring the goal's current contents.
+   *  @param {Agda._GoalTypeAux | undefined} typeAux */
+  function formatGoalAux(typeAux) {
+    switch (typeAux?.kind) {
+      case 'GoalAndHave':         return `Have: ${typeAux.expr}`
+      case 'GoalAndElaboration':  return `Elaborates to: ${typeAux.term}`
+      default:                    return ''
+    }
+  }
+
   /** @param {Agda._GoalInfo | undefined} goalInfo */
   function summarizeGoalInfo(goalInfo) {
     if (goalInfo?.kind !== 'GoalType') return {}
+    const aux = formatGoalAux(goalInfo.typeAux)
+    const context = formatContextEntries(goalInfo.entries ?? [])
     return {
       type: goalInfo.type,
-      context: formatContextEntries(goalInfo.entries ?? []),
+      context: [aux, context].filter(Boolean).join('\n'),
     }
   }
 
@@ -144,11 +159,11 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       if (!gi) return null
       switch (gi.kind) {
         case 'GoalType': {
+          const aux = formatGoalAux(gi.typeAux)
           const context = formatContextEntries(gi.entries ?? [])
           const label = context ? 'Goal Type and Context' : 'Goal Type'
-          const content = context
-            ? `${gi.type ?? ''}\n${QUERY_SEPARATOR}\n${context}`
-            : (gi.type ?? '')
+          const header = [gi.type ?? '', aux].filter(Boolean).join('\n')
+          const content = context ? `${header}\n${QUERY_SEPARATOR}\n${context}` : header
           return { label, content }
         }
         case 'NormalForm':    return { label: 'Normal Form', content: gi.expr ?? '' }

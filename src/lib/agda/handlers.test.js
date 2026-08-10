@@ -152,6 +152,66 @@ describe('ResponseJSONRaw > DisplayInfo', () => {
     ])
   })
 
+  it('shows a "Have:" line for a goal that already contains a partial term', () => {
+    const { controller, handlers } = makeSetup('')
+    handlers.ResponseJSONRaw?.(/** @type {any} */ ({
+      kind: 'DisplayInfo',
+      info: {
+        kind: 'GoalSpecific',
+        interactionPoint: { id: 0 },
+        goalInfo: {
+          kind: 'GoalType',
+          type: 'N',
+          typeAux: { kind: 'GoalAndHave', expr: 'n' },
+          entries: [{ inScope: true, reifiedName: 'n', originalName: 'n', binding: 'N' }],
+        },
+      },
+    }))
+    expect(controller.queryResults).toEqual([
+      { label: 'Goal Type and Context', content: 'N\nHave: n\n────────────────────────────────────────────────────────────\nn : N' },
+    ])
+  })
+
+  it('shows an "Elaborates to:" line for a goal with an elaborated term', () => {
+    const { controller, handlers } = makeSetup('')
+    handlers.ResponseJSONRaw?.(/** @type {any} */ ({
+      kind: 'DisplayInfo',
+      info: {
+        kind: 'GoalSpecific',
+        interactionPoint: { id: 0 },
+        goalInfo: {
+          kind: 'GoalType',
+          type: 'N',
+          typeAux: { kind: 'GoalAndElaboration', term: 'suc zero' },
+          entries: [],
+        },
+      },
+    }))
+    expect(controller.queryResults).toEqual([
+      { label: 'Goal Type', content: 'N\nElaborates to: suc zero' },
+    ])
+  })
+
+  it('includes the "Have:" line in the Goals panel context, not just the query result', () => {
+    const { view, handlers } = makeSetup('')
+    handlers.ResponseJSONRaw?.(/** @type {any} */ ({
+      kind: 'DisplayInfo',
+      info: {
+        kind: 'GoalSpecific',
+        interactionPoint: { id: 0 },
+        goalInfo: {
+          kind: 'GoalType',
+          type: 'N',
+          typeAux: { kind: 'GoalAndHave', expr: 'n' },
+          entries: [{ inScope: true, reifiedName: 'n', originalName: 'n', binding: 'N' }],
+        },
+      },
+    }))
+    const setGoalInfoSpec = view.dispatchLog.find(spec =>
+      /** @type {any} */ (spec.effects)?.value?.[0]?.id === 0)
+    expect(/** @type {any} */ (setGoalInfoSpec?.effects).value[0].context).toBe('Have: n\nn : N')
+  })
+
   it('dispatches setGoalInfo with the goal type/context for a GoalSpecific response', () => {
     const { view, handlers } = makeSetup('')
     handlers.ResponseJSONRaw?.(/** @type {any} */ ({

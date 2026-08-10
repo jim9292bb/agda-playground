@@ -46,4 +46,23 @@ submit_command_prompt "a"
 ab wait 2000
 assert_queries_contains "N" "Infer type of a is N"
 
+# C-c C-. / C-c C-; (Goal type+context+inferred/checked type) -- regression
+# for a bug where handlers.js's GoalType formatting ignored the `typeAux`
+# field entirely, so a goal already containing a partial term (here `n`)
+# never showed the "Have: <type>" / "Elaborates to: <term>" line Agda's own
+# EmacsTop.hs includes (Cmd_goal_type_context_infer/_check are the only two
+# commands that populate typeAux -- plain C-c C-, always sends GoalOnly, so
+# it correctly never shows this line).
+set_editor_fixture "test-fixtures/agda/idN-elaborate.agda"
+load_agda
+cursor_in_goal 0
+press_agda_chord "." "Period"
+ab wait 2000
+assert_queries_contains "Have:" "Goal type/context/inferred type shows a Have: line for a goal with content"
+
+cursor_in_goal 0
+press_agda_chord ";" "Semicolon"
+ab wait 2000
+assert_queries_contains "Elaborates to:" "Goal type/context/checked type shows an Elaborates to: line"
+
 echo "browser-test-goal-details: PASS"
