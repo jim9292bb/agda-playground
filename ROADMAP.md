@@ -276,6 +276,19 @@ refine, auto, and asynchronous ALS responses.
 - [x] Add defensive handling for damaged or partially edited goal boundaries.
 - [x] Verify `Load` updates highlighting, diagnostics, warnings, and goals after the goal-state refactor.
 - [x] Add browser regression coverage for damaged or partially edited goal boundaries.
+- [x] Fixed Give/Refine results containing a bare `?` (e.g. refining a goal
+      of type `N -> N` with the partial application `s` gives `s ?`, where
+      `?` marks a fresh sub-goal Agda already knows about) not being
+      registered as a new interaction point until a manual reload: Case
+      split's `replaceGoalClause` already converted `?` → `{!   !}` and
+      fired `'agda-reload-needed'` for its own generated clauses, but
+      `replaceGoal`/`removeGoalBoundary` — the mutation functions
+      `GiveAction`'s handler actually uses for Give/Refine — did not, so the
+      new `?` sat as inert text with no Goals panel entry. Fixed by
+      extracting a shared `convertBareGoalMarkers` helper in
+      `editor-mutations.js` and wiring it into both functions (commit
+      `445c1a1`); regression-tested with `npm run
+      test:browser:give-embedded-goal` plus 3 new unit tests.
 
 ## Core Practice Commands
 
@@ -286,6 +299,24 @@ Agda shortcuts.
 - [x] Wire `C-c C-Space` Give using `Cmd_give WithoutForce goalId range content`.
 - [x] Wire `C-c C-c` Case split using `Cmd_make_case goalId range content`.
 - [x] After Case split, replace the old goal with returned clauses and immediately reload.
+- [x] Fixed Case split silently ignoring the `MakeCase` response's `variant`
+      field (`Function` vs `ExtendedLambda`): `handlers.js`'s `MakeCase` case
+      destructured only `{ clauses }` and always called `replaceGoalClause`
+      with the "replace the whole line with new top-level clauses" strategy
+      -- correct for a normal function clause, but for a goal inside an
+      extended lambda (`λ { x -> {! !} }` or `λ where x -> {! !}`, e.g. used
+      throughout PLFA's `Confluence.lagda.md`/`Substitution.lagda.md`) that
+      inserted syntactically-broken new top-level declarations instead of
+      `;`-separated clauses inside the braces. Ported agda-mode-vscode's
+      `Goal.res` `caseSplitAux`/`replaceWithLambda` (searches backward from
+      the goal for the nearest unmatched `{`, `;`, `where`, or line break to
+      find the enclosing clause, then rewrites only that clause) as
+      `findExtendedLambdaClauseStart`/`extendedLambdaClauseEdit` in
+      `editor-mutations.js`, and threads `variant` through from
+      `handlers.js`. Regression-tested with `npm run
+      test:browser:case-split-extended-lambda` (verified red on the pre-fix
+      code: it split `λ { x -> {! !} }` into broken new top-level lines) plus
+      unit tests covering both the `{ }`-braces and `where`-clause forms.
 - [x] Wire `C-c C-r` Refine using `Cmd_refine_or_intro False goalId range content`.
 - [x] Replace provisional Auto behavior with real `Cmd_autoOne normalization goalId range content`.
 - [x] Implement `C-c C-m` Elaborate and give using `Cmd_elaborate_give`.

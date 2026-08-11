@@ -203,7 +203,7 @@ namespace Agda {
   type MakeCase = {
     kind: 'MakeCase',
     interactionPoint: number,
-    variant: unknown,
+    variant: 'Function' | 'ExtendedLambda',
     clauses: unknown[],
   }
 

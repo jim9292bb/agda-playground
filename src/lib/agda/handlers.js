@@ -446,7 +446,7 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       controller.pendingGiveGoal = undefined
       acceptCurrentDocumentVersion()
     },
-    MakeCase({ clauses }) {
+    MakeCase({ variant, clauses }) {
       if (!shouldAcceptEditorResponse('MakeCase')) {
         controller.pendingCaseSplitGoal = undefined
         return
@@ -457,7 +457,7 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       const goal = controller.pendingCaseSplitGoal
       controller.pendingCaseSplitGoal = undefined
       if (goal) {
-        replaceGoalClause(editorView, goal, renderedClauses)
+        replaceGoalClause(editorView, goal, renderedClauses, variant)
       } else {
         emitMessage(renderedClauses.join('\n'))
       }

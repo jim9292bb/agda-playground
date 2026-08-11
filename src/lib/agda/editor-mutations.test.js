@@ -131,4 +131,37 @@ describe('replaceGoalClause', () => {
     expect(/** @type {CustomEvent} */ (view.dispatchedEvents[0]).type).toBe('agda-reload-needed')
     expect(/** @type {CustomEvent} */ (view.dispatchedEvents[0]).detail).toEqual({ reason: 'case-split' })
   })
+
+  it('replaces only the current clause inside `λ { }` braces, joined with "; " on new lines', () => {
+    const doc = 'bar = λ { x → {! !} }'
+    const view = makeView(doc)
+    const goalFrom = doc.indexOf('{! !}')
+    const goal = { from: goalFrom, to: goalFrom + '{! !}'.length }
+
+    replaceGoalClause(view, goal, ['zero → ?', 'suc n → ?'], 'ExtendedLambda')
+
+    expect(view.state.doc.toString()).toBe('bar = λ { zero → {!   !}\n       ; suc n → {!   !} }')
+  })
+
+  it('replaces only the current clause inside `λ where`, joined by newline + matching indentation', () => {
+    const doc = 'bar = λ where\n  x → {! !}'
+    const view = makeView(doc)
+    const goalFrom = doc.indexOf('{! !}')
+    const goal = { from: goalFrom, to: goalFrom + '{! !}'.length }
+
+    replaceGoalClause(view, goal, ['zero → ?', 'suc n → ?'], 'ExtendedLambda')
+
+    expect(view.state.doc.toString()).toBe('bar = λ where\n  zero → {!   !}\n  suc n → {!   !}')
+  })
+
+  it('leaves an unrelated top-level line untouched for the ExtendedLambda variant', () => {
+    const doc = 'foo : N -> N\nfoo n = λ { x → {! !} }'
+    const view = makeView(doc)
+    const goalFrom = doc.indexOf('{! !}')
+    const goal = { from: goalFrom, to: goalFrom + '{! !}'.length }
+
+    replaceGoalClause(view, goal, ['zero → ?'], 'ExtendedLambda')
+
+    expect(view.state.doc.toString()).toBe('foo : N -> N\nfoo n = λ { zero → {!   !} }')
+  })
 })

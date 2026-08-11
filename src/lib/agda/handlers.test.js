@@ -15,6 +15,9 @@ class FakeEditorView {
     this.state = state
     /** @type {import('@codemirror/state').TransactionSpec[]} */
     this.dispatchLog = []
+    /** @type {Event[]} */
+    this.dispatchedEvents = []
+    this.dom = { dispatchEvent: (/** @type {Event} */ e) => this.dispatchedEvents.push(e) }
   }
   /** @param {import('@codemirror/state').TransactionSpec} spec */
   dispatch(spec) {
@@ -423,5 +426,28 @@ describe('ResponseJSONRaw > MakeCase', () => {
     handlers.ResponseJSONRaw?.(/** @type {any} */ ({ kind: 'MakeCase', clauses: ['zero -> ?', 'suc n -> ?'] }))
     const spec = /** @type {any} */ (view.dispatchLog[0])
     expect(spec.effects.value.message).toBe('zero -> ?\nsuc n -> ?\n')
+  })
+
+  it('rewrites only the enclosing clause for an ExtendedLambda goal, not the whole line', () => {
+    const { view, controller, handlers } = makeSetup('bar = λ { x → {! !} }')
+    const goalFrom = 'bar = λ { x → '.length
+    controller.pendingCaseSplitGoal = { from: goalFrom, to: goalFrom + '{! !}'.length }
+    handlers.ResponseJSONRaw?.(/** @type {any} */ ({
+      kind: 'MakeCase',
+      variant: 'ExtendedLambda',
+      clauses: ['zero → ?', 'suc n → ?'],
+    }))
+    expect(view.state.doc.toString()).toBe('bar = λ { zero → {!   !}\n       ; suc n → {!   !} }')
+  })
+
+  it('rewrites the whole line for a Function goal (default variant)', () => {
+    const { view, controller, handlers } = makeSetup('  foo x = {! !}')
+    controller.pendingCaseSplitGoal = { from: 10, to: 15 }
+    handlers.ResponseJSONRaw?.(/** @type {any} */ ({
+      kind: 'MakeCase',
+      variant: 'Function',
+      clauses: ['zero -> ?', 'suc n -> ?'],
+    }))
+    expect(view.state.doc.toString()).toBe('  zero -> {!   !}\n  suc n -> {!   !}')
   })
 })

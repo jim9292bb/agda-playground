@@ -127,8 +127,9 @@ export function removeGoalBoundary(editorView, interactionPoint, paren, fallback
  * @param {EditorView} editorView
  * @param {{from: number, to: number}} goal
  * @param {string[]} clauses
+ * @returns {{range: {from: number, to: number}, replacement: string}}
  */
-export function replaceGoalClause(editorView, goal, clauses) {
+function functionClauseEdit(editorView, goal, clauses) {
   const doc = editorView.state.doc
   const startLine = doc.lineAt(goal.from)
   const linePrefix = doc.sliceString(startLine.from, goal.from)
@@ -136,10 +137,92 @@ export function replaceGoalClause(editorView, goal, clauses) {
   const replacement = indentation + clauses
     .map(clause => clause.replace(/\?/g, '{!   !}'))
     .join('\n' + indentation)
+  return { range: { from: startLine.from, to: goal.to }, replacement }
+}
+
+/**
+ * Ports agda-mode-vscode's `Goal.res` `caseSplitAux`: an extended-lambda
+ * goal (`λ { x -> {! !} }` or `λ where\n  x -> {! !}`) sits inside a single
+ * expression, not a sequence of top-level declarations, so only the current
+ * clause -- found by searching backward from the goal for whichever comes
+ * last among an unmatched `{`, a `;`, the `where` keyword, or a line break
+ * -- gets rewritten, not the whole line.
+ * @param {import('@codemirror/state').Text} doc
+ * @param {number} goalFrom
+ * @returns {{inWhereClause: boolean, indentWidth: number, caseStart: number, lastLineBreakOffset: number}}
+ */
+function findExtendedLambdaClauseStart(doc, goalFrom) {
+  const textBeforeGoal = doc.sliceString(0, goalFrom)
+
+  let lastOpenCurlyBracketOffset
+  {
+    let bracketCount = 0
+    let i = goalFrom - 1
+    while (i >= 0 && bracketCount >= 0) {
+      if (i !== 0) {
+        const ch = textBeforeGoal[i - 1]
+        if (ch === '}') bracketCount++
+        else if (ch === '{') bracketCount--
+      }
+      i--
+    }
+    lastOpenCurlyBracketOffset = i + 1
+  }
+
+  const lastSemicolonIndex = textBeforeGoal.lastIndexOf(';')
+  const lastSemicolonOffset = (lastSemicolonIndex === -1 ? 0 : lastSemicolonIndex) + 1
+
+  const lastWhereIndex = textBeforeGoal.lastIndexOf('where')
+  const lastWhereTokenOffset = (lastWhereIndex === -1 ? 0 : lastWhereIndex) + 5
+
+  const lastLineBreakOffset = Math.max(0, Math.max(
+    textBeforeGoal.lastIndexOf('\r'),
+    textBeforeGoal.lastIndexOf('\n'),
+  )) + 1
+
+  const inWhereClause = lastWhereTokenOffset > lastOpenCurlyBracketOffset
+  const searchStart = Math.max(
+    Math.max(lastLineBreakOffset, lastSemicolonOffset),
+    Math.max(lastWhereTokenOffset, lastOpenCurlyBracketOffset),
+  )
+
+  let caseStart = searchStart
+  while (caseStart < textBeforeGoal.length && /[ \f\t]/.test(textBeforeGoal[caseStart])) caseStart++
+
+  return { inWhereClause, indentWidth: caseStart - lastLineBreakOffset, caseStart, lastLineBreakOffset }
+}
+
+/**
+ * @param {EditorView} editorView
+ * @param {{from: number, to: number}} goal
+ * @param {string[]} clauses
+ * @returns {{range: {from: number, to: number}, replacement: string}}
+ */
+function extendedLambdaClauseEdit(editorView, goal, clauses) {
+  const { inWhereClause, indentWidth, caseStart } = findExtendedLambdaClauseStart(editorView.state.doc, goal.from)
+  const separator = inWhereClause
+    ? '\n' + ' '.repeat(Math.max(0, indentWidth))
+    : '\n' + ' '.repeat(Math.max(0, indentWidth - 2)) + '; '
+  const replacement = clauses
+    .map(clause => clause.replace(/\?/g, '{!   !}'))
+    .join(separator)
+  return { range: { from: caseStart, to: goal.to }, replacement }
+}
+
+/**
+ * @param {EditorView} editorView
+ * @param {{from: number, to: number}} goal
+ * @param {string[]} clauses
+ * @param {'Function' | 'ExtendedLambda'} [variant]
+ */
+export function replaceGoalClause(editorView, goal, clauses, variant = 'Function') {
+  const { range, replacement } = variant === 'ExtendedLambda'
+    ? extendedLambdaClauseEdit(editorView, goal, clauses)
+    : functionClauseEdit(editorView, goal, clauses)
 
   editorView.dispatch({
-    changes: { from: startLine.from, to: goal.to, insert: replacement },
-    selection: { anchor: startLine.from },
+    changes: { from: range.from, to: range.to, insert: replacement },
+    selection: { anchor: range.from },
   })
   editorView.dom.dispatchEvent(new CustomEvent('agda-reload-needed', {
     bubbles: true,
