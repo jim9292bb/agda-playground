@@ -47,6 +47,31 @@ function goalContent(goalText) {
 }
 
 /**
+ * A Give/Refine result can itself contain a bare `?` -- e.g. refining a
+ * goal of type `N -> N` with the partial application `s` inserts `s ?`,
+ * where `?` marks a fresh sub-goal Agda already knows about (it shows up
+ * in the very next Cmd_metas-driven AllGoalsWarnings). Case split's own
+ * generated clauses use the same `?` convention for their new goals (see
+ * replaceGoalClause below); mirror both things it does for that: convert
+ * `?` to the real `{!   !}` hole markup, and dispatch the same
+ * 'agda-reload-needed' event so the app automatically reloads and Agda
+ * scans + registers the new hole as a clickable interaction point --
+ * without this, the `?` sat there as inert text with no Goals panel entry
+ * until the user manually reloaded.
+ * @param {EditorView} editorView
+ * @param {string} text
+ * @returns {string}
+ */
+function convertBareGoalMarkers(editorView, text) {
+  if (!text.includes('?')) return text
+  editorView.dom.dispatchEvent(new CustomEvent('agda-reload-needed', {
+    bubbles: true,
+    detail: { reason: 'give-with-new-goal' },
+  }))
+  return text.replace(/\?/g, '{!   !}')
+}
+
+/**
  * @param {EditorView} editorView
  * @param {{from: number, to: number}} range
  * @param {number} interactionPoint
@@ -71,7 +96,7 @@ export function replaceGoal(editorView, interactionPoint, replacement, fallbackG
   const range = resolveGoalRange(editorView, interactionPoint, fallbackGoal)
   if (!range) return false
 
-  replaceRangeAndRemoveGoal(editorView, range, interactionPoint, replacement)
+  replaceRangeAndRemoveGoal(editorView, range, interactionPoint, convertBareGoalMarkers(editorView, replacement))
   return true
 }
 
@@ -94,7 +119,7 @@ export function removeGoalBoundary(editorView, interactionPoint, paren, fallback
   if (content === null) return false
 
   const replacement = paren ? `(${content})` : content
-  replaceRangeAndRemoveGoal(editorView, range, interactionPoint, replacement)
+  replaceRangeAndRemoveGoal(editorView, range, interactionPoint, convertBareGoalMarkers(editorView, replacement))
   return true
 }
 

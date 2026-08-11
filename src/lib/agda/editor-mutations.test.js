@@ -70,6 +70,22 @@ describe('replaceGoal', () => {
     const fallback = { id: 999, from: 6, to: 11, text: '{! !}' }
     expect(replaceGoal(view, 5, 'zero', fallback)).toBe(false)
   })
+
+  it('converts a bare ? in the given content into a real hole and fires a reload event', () => {
+    const view = makeView('foo = {! !}', { id: 0, hole: '{! !}' })
+    const ok = replaceGoal(view, 0, 's ?', undefined)
+    expect(ok).toBe(true)
+    expect(view.state.doc.toString()).toBe('foo = s {!   !}')
+    expect(view.dispatchedEvents).toHaveLength(1)
+    expect(/** @type {CustomEvent} */ (view.dispatchedEvents[0]).type).toBe('agda-reload-needed')
+    expect(/** @type {CustomEvent} */ (view.dispatchedEvents[0]).detail).toEqual({ reason: 'give-with-new-goal' })
+  })
+
+  it('does not fire a reload event when the given content has no bare ?', () => {
+    const view = makeView('foo = {! !}', { id: 0, hole: '{! !}' })
+    replaceGoal(view, 0, 'zero', undefined)
+    expect(view.dispatchedEvents).toHaveLength(0)
+  })
 })
 
 describe('removeGoalBoundary', () => {
@@ -92,6 +108,15 @@ describe('removeGoalBoundary', () => {
     const fallback = { id: 5, from: 6, to: 9, text: 'bar' }
     expect(removeGoalBoundary(view, 5, false, fallback)).toBe(false)
     expect(view.state.doc.toString()).toBe('foo = bar')
+  })
+
+  it('converts a bare ? left in the goal content into a real hole and fires a reload event', () => {
+    const view = makeView('foo = {! s ? !}', { id: 0, hole: '{! s ? !}' })
+    const ok = removeGoalBoundary(view, 0, false, undefined)
+    expect(ok).toBe(true)
+    expect(view.state.doc.toString()).toBe('foo = s {!   !}')
+    expect(view.dispatchedEvents).toHaveLength(1)
+    expect(/** @type {CustomEvent} */ (view.dispatchedEvents[0]).type).toBe('agda-reload-needed')
   })
 })
 
