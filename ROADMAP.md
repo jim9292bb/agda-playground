@@ -341,6 +341,20 @@ normal forms, scope, and module contents without leaving the playground.
 - [x] Wire `C-c C-n` Compute normal form using `Cmd_compute`.
 - [x] Implement `C-c C-z` Search about using `Cmd_search_about_toplevel`.
 - [x] Implement `C-c C-o` Module contents using `Cmd_show_module_contents`.
+- [x] Fixed Module Contents silently dropping the queried module's own
+      submodule list: ALS's `ModuleContents` response sends `names` (the
+      submodules) alongside `contents` (the module's typed names), but
+      `handlers.js`'s `ModuleContents` case rendered only
+      `formatNameTermList(info.contents)`, never reading `info.names` --
+      the query looked complete (no error) but silently omitted data for any
+      module containing submodules. Upstream's `EmacsTop.hs`
+      (`Info_ModuleContents`) renders both as a "Modules" section above a
+      "Names" section; added `formatModuleContents` in `handlers.js` to do
+      the same, only when `names` is non-empty (so a query on a leaf module,
+      the common case, renders unchanged). Regression-tested with `npm run
+      test:browser:module-contents-submodules` (verified red on the pre-fix
+      code: the "Modules:" section was entirely absent) plus 2 new unit
+      tests.
 - [x] Implement `C-c C-w` Why in scope using `Cmd_why_in_scope`.
 - [x] Extract query command construction into `src/lib/agda/commands.js`.
 - [x] Move query results from the raw log into a structured Queries panel.

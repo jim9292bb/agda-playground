@@ -168,6 +168,19 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
     return (items ?? []).map(({ name, term }) => `${name} : ${term}`).join('\n')
   }
 
+  /** ALS's ModuleContents response sends `names` (the module's own
+   *  submodules) alongside `contents` (its typed names) -- EmacsTop.hs's
+   *  Info_ModuleContents renders both as a "Modules" section above a
+   *  "Names" section, but `names` was declared in app.d.ts and never read.
+   *  Only add the "Modules" section when there actually are submodules, so
+   *  a plain module-contents query (the common case) renders unchanged.
+   *  @param {Agda.ModuleContents} info */
+  function formatModuleContents(info) {
+    const names = formatNameTermList(info.contents)
+    if (!info.names?.length) return names
+    return `Modules:\n${info.names.join('\n')}\n\nNames:\n${names}`
+  }
+
   /** Matches EmacsTop.hs's `mkOr` + `punctuate comma` rendering exactly:
    *  the last two names are joined with "or", everything before that with
    *  commas -- e.g. `['z', 's']` -> "z or s", `['a', 'b', 'c']` -> "a, b or c".
@@ -215,7 +228,7 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       case 'IntroConstructorUnknown': return { label: 'Intro', content: formatIntroConstructors(info.constructors) }
       case 'WhyInScope':     return { label: 'Why in Scope', content: info.message ?? '' }
       case 'SearchAbout':    return { label: 'Search About', content: formatNameTermList(info.results) }
-      case 'ModuleContents': return { label: 'Module Contents', content: formatNameTermList(info.contents) }
+      case 'ModuleContents': return { label: 'Module Contents', content: formatModuleContents(info) }
       case 'NormalForm':     return { label: 'Normal Form', content: info.expr ?? '' }
       case 'InferredType':   return { label: 'Inferred Type', content: info.expr ?? '' }
       default: return null

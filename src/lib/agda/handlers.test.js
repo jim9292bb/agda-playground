@@ -342,6 +342,41 @@ describe('ResponseJSONRaw > DisplayInfo', () => {
       { label: 'Intro', content: "Don't know which constructor to introduce of a, b or c" },
     ])
   })
+
+  it('renders only the Names section when a module has no submodules', () => {
+    const { controller, handlers } = makeSetup('')
+    handlers.ResponseJSONRaw?.(/** @type {any} */ ({
+      kind: 'DisplayInfo',
+      info: {
+        kind: 'ModuleContents',
+        names: [],
+        telescope: [],
+        contents: [{ name: 'refl', term: 'x ≡ x' }],
+      },
+    }))
+    expect(controller.queryResults).toEqual([
+      { label: 'Module Contents', content: 'refl : x ≡ x' },
+    ])
+  })
+
+  it('adds a "Modules" section above "Names" when the queried module has submodules', () => {
+    const { controller, handlers } = makeSetup('')
+    handlers.ResponseJSONRaw?.(/** @type {any} */ ({
+      kind: 'DisplayInfo',
+      info: {
+        kind: 'ModuleContents',
+        names: ['Data.Nat.Base.Sub', 'Data.Nat.Base.Add'],
+        telescope: [],
+        contents: [{ name: 'zero', term: 'ℕ' }],
+      },
+    }))
+    expect(controller.queryResults).toEqual([
+      {
+        label: 'Module Contents',
+        content: 'Modules:\nData.Nat.Base.Sub\nData.Nat.Base.Add\n\nNames:\nzero : ℕ',
+      },
+    ])
+  })
 })
 
 describe('ResponseJSONRaw > ClearRunningInfo / RunningInfo', () => {
