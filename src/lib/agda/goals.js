@@ -125,7 +125,7 @@ export function buildLegacyGoalTransaction(state, holes, ids) {
   }
 }
 
-const expandedQuestionMarkGoal = '{!  !}'
+const expandedQuestionMarkGoal = '{!   !}'
 
 /**
  * @param {EditorState} state
@@ -166,7 +166,7 @@ export function expandGoals(state, goals) {
   const ret = []
   for (const {from, to} of goals) {
     if (state.doc.sliceString(from, to) == '?') {
-      ret.push({ from, to, insert: '{!  !}' })
+      ret.push({ from, to, insert: '{!   !}' })
     }
   }
   return ChangeSet.of(ret, state.doc.length)

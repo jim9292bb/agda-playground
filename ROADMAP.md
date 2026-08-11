@@ -289,6 +289,20 @@ refine, auto, and asynchronous ALS responses.
       `editor-mutations.js` and wiring it into both functions (commit
       `445c1a1`); regression-tested with `npm run
       test:browser:give-embedded-goal` plus 3 new unit tests.
+- [x] Fixed `Load`'s `?` → hole expansion using 2 spaces (`{!  !}`) instead
+      of Agda's own 3-space convention (`{!   !}`, hardcoded in
+      agda-mode-vscode's `Goals.res:832` and confirmed live against real
+      ALS output) — an inconsistency within als-demo itself, since
+      Give/Refine/Case-split's own `?` → hole conversion
+      (`editor-mutations.js`) already used 3 spaces; only `goals.js`'s
+      `expandedQuestionMarkGoal` constant (and its unused-in-production
+      `expandGoals` sibling) used 2. Found via a full live comparison sweep
+      of all 17 implemented commands against real `agda-mode-vscode` +
+      ALS-WASM running in `vscode-test-web` (see
+      `/home/jim/agda-scratchpad/agda-command-behavior-reference.md`).
+      Fixed by changing the constant to 3 spaces; regression-tested by
+      updating `test:browser:goal-lifecycle`'s Load assertion plus 4 unit
+      tests.
 
 ## Core Practice Commands
 
@@ -355,6 +369,16 @@ normal forms, scope, and module contents without leaving the playground.
       test:browser:module-contents-submodules` (verified red on the pre-fix
       code: the "Modules:" section was entirely absent) plus 2 new unit
       tests.
+- [x] Fixed Search About / Module Contents rendering `name : type` entries
+      with no column alignment, unlike real agda-mode-vscode which pads
+      names to the widest one so every `:` lines up (confirmed via live
+      `vscode-test-web` comparison: `_+_     : ...` / `bar     : ...` style
+      alignment) -- als-demo's shared `formatNameTermList` in `handlers.js`
+      previously did a flat `${name} : ${term}` per line. Sort order and
+      content were already correct; this was purely cosmetic. Fixed by
+      padding each name to the widest name's length before formatting;
+      regression-tested with `npm run test:browser:search-about-alignment`
+      (verified red on the pre-fix code) plus 2 new unit tests.
 - [x] Implement `C-c C-w` Why in scope using `Cmd_why_in_scope`.
 - [x] Extract query command construction into `src/lib/agda/commands.js`.
 - [x] Move query results from the raw log into a structured Queries panel.

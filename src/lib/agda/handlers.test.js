@@ -377,6 +377,48 @@ describe('ResponseJSONRaw > DisplayInfo', () => {
       },
     ])
   })
+
+  it('column-aligns Names entries by padding names to the widest one, matching agda-mode-vscode', () => {
+    const { controller, handlers } = makeSetup('')
+    handlers.ResponseJSONRaw?.(/** @type {any} */ ({
+      kind: 'DisplayInfo',
+      info: {
+        kind: 'ModuleContents',
+        names: [],
+        telescope: [],
+        contents: [
+          { name: '_+_', term: 'N -> N -> N' },
+          { name: 'bar', term: 'N' },
+          { name: 's', term: 'N -> N' },
+          { name: 'z', term: 'N' },
+        ],
+      },
+    }))
+    expect(controller.queryResults).toEqual([
+      {
+        label: 'Module Contents',
+        content: '_+_ : N -> N -> N\nbar : N\ns   : N -> N\nz   : N',
+      },
+    ])
+  })
+
+  it('column-aligns Search About results the same way', () => {
+    const { controller, handlers } = makeSetup('')
+    handlers.ResponseJSONRaw?.(/** @type {any} */ ({
+      kind: 'DisplayInfo',
+      info: {
+        kind: 'SearchAbout',
+        search: 'N',
+        results: [
+          { name: 'isZero', term: 'N -> Bool' },
+          { name: 'zero', term: 'N' },
+        ],
+      },
+    }))
+    expect(controller.queryResults).toEqual([
+      { label: 'Search About', content: 'isZero : N -> Bool\nzero   : N' },
+    ])
+  })
 })
 
 describe('ResponseJSONRaw > ClearRunningInfo / RunningInfo', () => {
@@ -419,7 +461,7 @@ describe('ResponseJSONRaw > InteractionPoints', () => {
         { id: 0, range: [{ start: { pos: 7, line: 1, col: 7 }, end: { pos: 8, line: 1, col: 8 } }] },
       ],
     }))
-    expect(view.state.doc.toString()).toBe('foo = {!  !}')
+    expect(view.state.doc.toString()).toBe('foo = {!   !}')
     expect(getAgdaGoals(view.state)).toHaveLength(1)
   })
 })

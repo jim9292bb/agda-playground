@@ -29,22 +29,22 @@ function ipRange(line, startCol, endCol) {
 }
 
 describe('buildGoalTransaction', () => {
-  it('expands a bare "?" hole into {!  !} and registers a tracked goal', () => {
+  it('expands a bare "?" hole into {!   !} and registers a tracked goal', () => {
     const state = makeState('foo = ?')
     // '?' occupies 0-indexed [6, 7) -> 1-based pos 7..8
     const ip = { id: 0, range: ipRange(1, 7, 8) }
     const spec = buildGoalTransaction(state, [ip])
     const newState = state.update(spec).state
 
-    expect(newState.doc.toString()).toBe('foo = {!  !}')
+    expect(newState.doc.toString()).toBe('foo = {!   !}')
 
     const goals = getAgdaGoals(newState)
     expect(goals).toHaveLength(1)
     expect(goals[0]).toMatchObject({
       id: 0,
       outerFrom: 6,
-      outerTo: 12,
-      text: '{!  !}',
+      outerTo: 13,
+      text: '{!   !}',
       range: '1:7-8',
     })
   })
@@ -90,7 +90,7 @@ describe('expandGoals', () => {
   it('builds an insertion changeset only for ranges that are exactly "?"', () => {
     const state = makeState('a ? b')
     const changes = expandGoals(state, [{ from: 2, to: 3 }])
-    expect(changes.apply(state.doc).toString()).toBe('a {!  !} b')
+    expect(changes.apply(state.doc).toString()).toBe('a {!   !} b')
   })
 
   it('skips ranges whose content is not "?"', () => {
@@ -106,8 +106,8 @@ describe('getGoalRangeById / getGoalAtPosition', () => {
     const ip = { id: 0, range: ipRange(1, 7, 8) }
     const newState = state.update(buildGoalTransaction(state, [ip])).state
 
-    expect(getGoalRangeById(newState, 0)).toEqual({ from: 6, to: 12 })
-    expect(getGoalAtPosition(newState, 8)).toMatchObject({ id: 0, from: 6, to: 12 })
+    expect(getGoalRangeById(newState, 0)).toEqual({ from: 6, to: 13 })
+    expect(getGoalAtPosition(newState, 8)).toMatchObject({ id: 0, from: 6, to: 13 })
   })
 
   it('returns null when no goal matches', () => {

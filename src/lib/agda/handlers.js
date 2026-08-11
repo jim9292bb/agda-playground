@@ -163,9 +163,14 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
     }
   }
 
-  /** @param {Array<{name: string, term: string}>} items */
+  /** Column-aligns the `:` across entries, matching agda-mode-vscode's own
+   *  rendering (e.g. `_+_     : N -> N -> N` / `bar : N`, names padded to
+   *  the widest one) rather than a flat unaligned `name : term` per line.
+   *  @param {Array<{name: string, term: string}>} items */
   function formatNameTermList(items) {
-    return (items ?? []).map(({ name, term }) => `${name} : ${term}`).join('\n')
+    const entries = items ?? []
+    const width = Math.max(0, ...entries.map(({ name }) => name.length))
+    return entries.map(({ name, term }) => `${name.padEnd(width)} : ${term}`).join('\n')
   }
 
   /** ALS's ModuleContents response sends `names` (the module's own
