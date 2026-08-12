@@ -163,12 +163,28 @@ export function inferCommand(normalization, goal, content) {
 }
 
 /**
+ * @param {Normalization} normalization
+ * @param {string} content
+ */
+export function inferToplevelCommand(normalization, content) {
+  return `(Cmd_infer_toplevel ${normalization} ${quoted(content)})`
+}
+
+/**
  * @param {ComputeMode} computeMode
  * @param {AgdaCommandGoal} goal
  * @param {string} content
  */
 export function computeCommand(computeMode, goal, content) {
   return `(Cmd_compute ${computeMode} ${goal.id} noRange ${quoted(content)})`
+}
+
+/**
+ * @param {ComputeMode} computeMode
+ * @param {string} content
+ */
+export function computeToplevelCommand(computeMode, content) {
+  return `(Cmd_compute_toplevel ${computeMode} ${quoted(content)})`
 }
 
 /** Flips whether subsequent goal/query output shows implicit `{...}`

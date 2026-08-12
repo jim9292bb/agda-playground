@@ -18,7 +18,9 @@ import {
   makeCaseCommand,
   helperFunctionCommand,
   inferCommand,
+  inferToplevelCommand,
   computeCommand,
+  computeToplevelCommand,
   toggleImplicitArgsCommand,
   toggleIrrelevantArgsCommand,
 } from './commands'
@@ -100,6 +102,18 @@ describe('toplevel commands (no goal)', () => {
 
   it('whyInScopeToplevelCommand', () => {
     expect(whyInScopeToplevelCommand('foo')).toBe('(Cmd_why_in_scope_toplevel "foo")')
+  })
+
+  it('inferToplevelCommand', () => {
+    expect(inferToplevelCommand('Simplified', 'x + 1')).toBe(
+      '(Cmd_infer_toplevel Simplified "x + 1")'
+    )
+  })
+
+  it('computeToplevelCommand', () => {
+    expect(computeToplevelCommand('DefaultCompute', 'x + 1')).toBe(
+      '(Cmd_compute_toplevel DefaultCompute "x + 1")'
+    )
   })
 })
 

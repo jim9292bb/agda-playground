@@ -70,6 +70,7 @@ import {
   autoOneCommand,
   contextCommand,
   computeCommand,
+  computeToplevelCommand,
   elaborateGiveCommand,
   giveCommand,
   goalTypeCommand,
@@ -78,6 +79,7 @@ import {
   goalTypeContextInferCommand,
   helperFunctionCommand,
   inferCommand,
+  inferToplevelCommand,
   makeCaseCommand,
   moduleContentsCommand,
   moduleContentsToplevelCommand,
@@ -884,12 +886,20 @@ function runAgdaShortcutDefinition(shortcut) {
       })
       break
     case 'compute':
-      runAgdaShortcutWithInputPrompt(shortcut.label, (context, input) =>
-        computeCommand('DefaultCompute', requireGoal(context), input))
+      runAgdaShortcutWithInputPrompt(shortcut.label, (context, input) => {
+        const goal = context.goal
+        return goal
+          ? computeCommand('DefaultCompute', goal, input)
+          : computeToplevelCommand('DefaultCompute', input)
+      })
       break
     case 'infer':
-      runAgdaShortcutWithInputPrompt(shortcut.label, (context, input) =>
-        inferCommand('Simplified', requireGoal(context), input))
+      runAgdaShortcutWithInputPrompt(shortcut.label, (context, input) => {
+        const goal = context.goal
+        return goal
+          ? inferCommand('Simplified', goal, input)
+          : inferToplevelCommand('Simplified', input)
+      })
       break
     case 'toggle-implicit-args':
       showImplicitArgs = !showImplicitArgs
