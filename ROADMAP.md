@@ -264,13 +264,38 @@ Done:
       (verified red on the pre-fix code: no tooltip appeared at all; green
       on the fix, tooltip correctly anchored at the hovered character)
       plus 5 new unit tests for the two pure helpers. `/plfa`'s identical
-      fix is verified by code parity and `npm run check` only -- no
-      `/plfa`-specific browser test harness exists yet (see the gap below).
-- [ ] No cell-based browser regression coverage exists for `/plfa`
-      specifically (chapter switching, cross-chapter `open import`
-      resolution) beyond the ad hoc "all 25 chapters Load" verification done
-      during development — only `/literate`'s cell CRUD/truncation/basic
-      flows have dedicated `test:browser:literate-*` scripts.
+      fix was verified by code parity and `npm run check` only at the time
+      -- now also covered directly, see below.
+- [x] Built a `/plfa`-specific browser regression suite
+      (`scripts/browser-plfa-common.sh` + five `test:browser:plfa-*`
+      scripts), closing the gap noted above. Unlike the ad hoc "all 25
+      chapters Load" check done during development, every test here uses
+      real PLFA chapter content (never a hand-typed fixture) with a
+      throwaway goal/definition appended in the browser only (never written
+      back to any file):
+      - `plfa-basic`: Load/Give/Case-split against the Naturals chapter.
+        Found and worked around a real timing gotcha along the way: Give's
+        own follow-up recheck renumbers any other still-open goal, and the
+        client's tracked goal id doesn't reliably catch up to that
+        renumbering before the very next command dispatches -- the test
+        re-Loads between Give and Case split rather than chasing this as a
+        production bug (out of scope for this task).
+      - `plfa-hover`: hovering over `zero` in the Naturals chapter's own
+        `data ℕ` declaration shows the `ℕ` type -- same fix as
+        `/literate`'s, now actually exercised live in `/plfa` rather than
+        trusted by code parity alone.
+      - `plfa-goal-navigation`: Next/Previous goal across two real chapter
+        cells, wrap-around both directions -- same code as `/literate`'s
+        (confirmed byte-identical), likewise now actually exercised.
+      - `plfa-chapter-switching`: switching from Naturals to Induction
+        replaces the cells and confirms a goal from Naturals doesn't leak
+        into Induction's cells or its Goals panel.
+      - `plfa-cross-chapter-import`: loads `part2.Properties` (which itself
+        does `open import plfa.part1.Isomorphism` and `open import
+        plfa.part2.Lambda` unqualified) and appends a definition that
+        actually *uses* a specific imported name (`_≃_`/`≃-refl`), so a
+        type error would surface if cross-chapter resolution broke, not
+        just an unresolved-module error.
 
 ## Goal Lifecycle and Editor State
 
