@@ -170,3 +170,18 @@ export function inferCommand(normalization, goal, content) {
 export function computeCommand(computeMode, goal, content) {
   return `(Cmd_compute ${computeMode} ${goal.id} noRange ${quoted(content)})`
 }
+
+/** Flips whether subsequent goal/query output shows implicit `{...}`
+ *  arguments -- matches agda-mode-vscode's own scope: only Toggle is
+ *  user-facing there (`ShowImplicitArgs Bool` exists in Agda's own
+ *  protocol but is never sent by any client command, only used
+ *  internally to restore a saved preference). */
+export function toggleImplicitArgsCommand() {
+  return '(ToggleImplicitArgs)'
+}
+
+/** Flips whether subsequent goal/query output shows irrelevant `.`-prefixed
+ *  arguments -- same scope note as `toggleImplicitArgsCommand`. */
+export function toggleIrrelevantArgsCommand() {
+  return '(ToggleIrrelevantArgs)'
+}

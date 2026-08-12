@@ -8,6 +8,10 @@ import { agdaShortcutRegistry, formatAgdaShortcutHelpBinding } from '$lib/agda/s
  * goalsPanelPosition: 'bottom' | 'right',
  * onSetGoalsPanelPosition: (pos: 'bottom' | 'right') => void,
  * agdaController: import('$lib/controller.svelte').AgdaController,
+ * showImplicitArgs: boolean,
+ * showIrrelevantArgs: boolean,
+ * onToggleImplicitArgs: () => void,
+ * onToggleIrrelevantArgs: () => void,
  * deployProfiles: import('$lib/controller.svelte').DeployProfile[],
  * runtimeSummary: () => { label: string, value: string }[],
  * shortcutDrafts: Record<string, string>,
@@ -26,6 +30,10 @@ let {
   goalsPanelPosition,
   onSetGoalsPanelPosition,
   agdaController,
+  showImplicitArgs,
+  showIrrelevantArgs,
+  onToggleImplicitArgs,
+  onToggleIrrelevantArgs,
   deployProfiles,
   runtimeSummary,
   shortcutDrafts,
@@ -125,6 +133,14 @@ $effect(() => {
               <label class="settings-toggle-row">
                 <input type="checkbox" disabled />
                 <span>Agda Unicode input method</span>
+              </label>
+              <label class="settings-toggle-row">
+                <input type="checkbox" checked={showImplicitArgs} onchange={onToggleImplicitArgs} />
+                <span>Show implicit arguments (Ctrl-c Ctrl-x Ctrl-h)</span>
+              </label>
+              <label class="settings-toggle-row">
+                <input type="checkbox" checked={showIrrelevantArgs} onchange={onToggleIrrelevantArgs} />
+                <span>Show irrelevant arguments (Ctrl-c Ctrl-x Ctrl-i)</span>
               </label>
               {#if !isMobile}
                 <label class="settings-field">

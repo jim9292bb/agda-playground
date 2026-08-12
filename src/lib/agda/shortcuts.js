@@ -137,6 +137,28 @@ export const agdaShortcutRegistry = Object.freeze([
     label: 'Why in scope',
     bindings: [{ kind: 'chord', key: 'w', ctrl: true, label: 'Ctrl-c Ctrl-w' }],
   },
+  {
+    id: 'toggle-implicit-args',
+    label: 'Toggle implicit arguments',
+    bindings: [{
+      kind: 'chord',
+      key: 'h',
+      ctrl: true,
+      label: 'Ctrl-c Ctrl-x Ctrl-h',
+      steps: [{ key: 'c', ctrl: true }, { key: 'x', ctrl: true }, { key: 'h', ctrl: true }],
+    }],
+  },
+  {
+    id: 'toggle-irrelevant-args',
+    label: 'Toggle irrelevant arguments',
+    bindings: [{
+      kind: 'chord',
+      key: 'i',
+      ctrl: true,
+      label: 'Ctrl-c Ctrl-x Ctrl-i',
+      steps: [{ key: 'c', ctrl: true }, { key: 'x', ctrl: true }, { key: 'i', ctrl: true }],
+    }],
+  },
 ])
 
 /**

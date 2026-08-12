@@ -19,6 +19,8 @@ import {
   helperFunctionCommand,
   inferCommand,
   computeCommand,
+  toggleImplicitArgsCommand,
+  toggleIrrelevantArgsCommand,
 } from './commands'
 
 const goal = { id: 3 }
@@ -135,5 +137,15 @@ describe('content quoting', () => {
 
   it('escapes newlines in user content', () => {
     expect(inferCommand('Simplified', goal, 'a\nb')).toBe('(Cmd_infer Simplified 3 noRange "a\\nb")')
+  })
+})
+
+describe('implicit/irrelevant args toggles', () => {
+  it('toggleImplicitArgsCommand', () => {
+    expect(toggleImplicitArgsCommand()).toBe('(ToggleImplicitArgs)')
+  })
+
+  it('toggleIrrelevantArgsCommand', () => {
+    expect(toggleIrrelevantArgsCommand()).toBe('(ToggleIrrelevantArgs)')
   })
 })

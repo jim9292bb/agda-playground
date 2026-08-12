@@ -56,6 +56,8 @@ import {
   moduleContentsToplevelCommand,
   refineCommand,
   searchAboutToplevelCommand,
+  toggleImplicitArgsCommand,
+  toggleIrrelevantArgsCommand,
   whyInScopeCommand,
   whyInScopeToplevelCommand,
 } from '$lib/agda/commands'
@@ -220,6 +222,16 @@ test = true
 
 let width = $state(0)
 let isMobile = $derived(width < 540)
+
+// Mirrors Agda's own display option, flipped optimistically when the user
+// toggles it: `ToggleImplicitArgs`/`ToggleIrrelevantArgs` never fail (Agda
+// just flips a TC-state option server-side, see InteractionTop.hs), so
+// there is no meaningful "rejected" case to reconcile against -- unlike
+// `alsRouter`'s own `showImplicitArgs`/`showIrrelevantArgs` fields (a
+// plain, non-`$state` class in transport.js), this needs to be reactive
+// for the Settings panel checkbox to actually update on click.
+let showImplicitArgs = $state(false)
+let showIrrelevantArgs = $state(false)
 
 let goalsPanelPosition = $state(loadGoalsPanelPosition())
 // Mobile always stacks the editor above the right column regardless of this
@@ -626,6 +638,17 @@ function runAgdaShortcutDefinition(shortcut, view) {
       runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) =>
         inferCommand('Simplified', requireGoal(context), input))
       break
+    case 'toggle-implicit-args':
+      // Goal-independent: no content, no cursor-in-goal requirement --
+      // `context` is unused, matching agda-mode-vscode's own scope (only
+      // Toggle is exposed there, see commands.js's toggleImplicitArgsCommand).
+      showImplicitArgs = !showImplicitArgs
+      runAgdaShortcut(shortcut.label, view, () => toggleImplicitArgsCommand())
+      break
+    case 'toggle-irrelevant-args':
+      showIrrelevantArgs = !showIrrelevantArgs
+      runAgdaShortcut(shortcut.label, view, () => toggleIrrelevantArgsCommand())
+      break
   }
 }
 
@@ -871,6 +894,24 @@ function saveShortcutOverrides() {
   shortcutOverrideMessage = Object.keys(cleaned).length
     ? 'Shortcut overrides saved.'
     : 'Shortcut overrides cleared.'
+}
+
+/** @param {string} id */
+function runAgdaShortcutById(id) {
+  if (!agdaController.editorView) return
+  const shortcut = findAgdaShortcutById(id, activeAgdaShortcutRegistry)
+  if (shortcut) {
+    runAgdaShortcutDefinition(shortcut, agdaController.editorView)
+    agdaController.editorView.focus()
+  }
+}
+
+function toggleImplicitArgsFromSettings() {
+  runAgdaShortcutById('toggle-implicit-args')
+}
+
+function toggleIrrelevantArgsFromSettings() {
+  runAgdaShortcutById('toggle-irrelevant-args')
 }
 
 function resetShortcutOverrides() {
@@ -1164,6 +1205,10 @@ $effect(() => {
   {goalsPanelPosition}
   onSetGoalsPanelPosition={setGoalsPanelPosition}
   {agdaController}
+  {showImplicitArgs}
+  {showIrrelevantArgs}
+  onToggleImplicitArgs={toggleImplicitArgsFromSettings}
+  onToggleIrrelevantArgs={toggleIrrelevantArgsFromSettings}
   {deployProfiles}
   {runtimeSummary}
   {shortcutDrafts}

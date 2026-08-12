@@ -82,6 +82,8 @@ import {
   moduleContentsToplevelCommand,
   refineCommand,
   searchAboutToplevelCommand,
+  toggleImplicitArgsCommand,
+  toggleIrrelevantArgsCommand,
   whyInScopeCommand,
   whyInScopeToplevelCommand,
 } from '$lib/agda/commands'
@@ -293,6 +295,12 @@ ${wrapAsLiterate('one : N\none = s z\n')}`,
 
 let width = $state(0)
 let isMobile = $derived(width < 540)
+
+// See src/routes/+page.svelte's own copy of these two fields for why this
+// is a local optimistic mirror rather than reading alsRouter's own
+// showImplicitArgs/showIrrelevantArgs fields directly.
+let showImplicitArgs = $state(false)
+let showIrrelevantArgs = $state(false)
 
 let goalsPanelPosition = $state(loadGoalsPanelPosition())
 // Mobile always stacks the editor above the right column regardless of this
@@ -950,6 +958,14 @@ function runAgdaShortcutDefinition(shortcut) {
       runAgdaShortcutWithInputPrompt(shortcut.label, (context, input) =>
         inferCommand('Simplified', requireGoal(context), input))
       break
+    case 'toggle-implicit-args':
+      showImplicitArgs = !showImplicitArgs
+      runAgdaShortcut(shortcut.label, () => toggleImplicitArgsCommand())
+      break
+    case 'toggle-irrelevant-args':
+      showIrrelevantArgs = !showIrrelevantArgs
+      runAgdaShortcut(shortcut.label, () => toggleIrrelevantArgsCommand())
+      break
   }
 }
 
@@ -1309,6 +1325,20 @@ function saveShortcutOverrides() {
     : 'Shortcut overrides cleared.'
 }
 
+/** @param {string} id */
+function runAgdaShortcutById(id) {
+  const shortcut = findAgdaShortcutById(id, activeAgdaShortcutRegistry)
+  if (shortcut) runAgdaShortcutDefinition(shortcut)
+}
+
+function toggleImplicitArgsFromSettings() {
+  runAgdaShortcutById('toggle-implicit-args')
+}
+
+function toggleIrrelevantArgsFromSettings() {
+  runAgdaShortcutById('toggle-irrelevant-args')
+}
+
 function resetShortcutOverrides() {
   shortcutOverrides = {}
   shortcutDrafts = {}
@@ -1638,6 +1668,10 @@ $effect(() => {
   {goalsPanelPosition}
   onSetGoalsPanelPosition={setGoalsPanelPosition}
   {agdaController}
+  {showImplicitArgs}
+  {showIrrelevantArgs}
+  onToggleImplicitArgs={toggleImplicitArgsFromSettings}
+  onToggleIrrelevantArgs={toggleIrrelevantArgsFromSettings}
   {deployProfiles}
   {runtimeSummary}
   {shortcutDrafts}
