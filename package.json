@@ -63,7 +63,8 @@
     "test:browser:literate-cell-sync-race": "scripts/browser-test-literate-cell-sync-race.sh",
     "test:browser:literate-hover": "scripts/browser-test-literate-hover.sh",
     "test:browser:literate-goal-navigation": "scripts/browser-test-literate-goal-navigation.sh",
-    "test:browser:plfa-basic": "scripts/browser-test-plfa-basic.sh"
+    "test:browser:plfa-basic": "scripts/browser-test-plfa-basic.sh",
+    "test:browser:plfa-hover": "scripts/browser-test-plfa-hover.sh"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
