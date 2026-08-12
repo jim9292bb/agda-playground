@@ -65,7 +65,8 @@
     "test:browser:literate-goal-navigation": "scripts/browser-test-literate-goal-navigation.sh",
     "test:browser:plfa-basic": "scripts/browser-test-plfa-basic.sh",
     "test:browser:plfa-hover": "scripts/browser-test-plfa-hover.sh",
-    "test:browser:plfa-goal-navigation": "scripts/browser-test-plfa-goal-navigation.sh"
+    "test:browser:plfa-goal-navigation": "scripts/browser-test-plfa-goal-navigation.sh",
+    "test:browser:plfa-chapter-switching": "scripts/browser-test-plfa-chapter-switching.sh"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
