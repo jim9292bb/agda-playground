@@ -403,21 +403,17 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       const cmPosition = focusAgdaUtf8Position(editorView, position)
       controller.lastJumpToError = { filepath, position, cmPosition }
     },
-    ClearHighlighting({ tokenBased }) {
+    ClearHighlighting() {
       if (!shouldAcceptEditorResponse('ClearHighlighting')) return
-      // Agda (~2.8)'s codebase does not contain any instance of (Resp_ClearHighlighting TokenBased)
-      if (tokenBased === 'TokenBased') {
-        throw new Error('(ClearHighlighting TokenBased) is not implemented')
-        // editorView.dispatch({
-        //   effects: clearHighlight.of(true),
-        // })
-      } else {
-        // clear not-only-token-based
-        editorView.dispatch({
-          effects: clearHighlight.of(false),
-        })
-        acceptCurrentDocumentVersion()
-      }
+      // agda-mode-vscode does not distinguish TokenBased from
+      // NotOnlyTokenBased -- its protocol parser collapses both into the
+      // same ClearHighlighting response and always does a full reset
+      // (Response.res, State__Response.res). Match that here rather than
+      // treating them differently.
+      editorView.dispatch({
+        effects: clearHighlight.of(false),
+      })
+      acceptCurrentDocumentVersion()
     },
     HighlightingInfo({ direct, info }) {
       if (!shouldAcceptEditorResponse('HighlightingInfo')) return

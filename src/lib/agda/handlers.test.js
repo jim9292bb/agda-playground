@@ -437,19 +437,18 @@ describe('ResponseJSONRaw > ClearRunningInfo / RunningInfo', () => {
 })
 
 describe('ResponseJSONRaw > ClearHighlighting', () => {
-  it('throws for the (unimplemented-by-Agda) TokenBased variant', () => {
-    const { handlers } = makeSetup('')
-    expect(() =>
-      handlers.ResponseJSONRaw?.(/** @type {any} */ ({ kind: 'ClearHighlighting', tokenBased: 'TokenBased' }))
-    ).toThrow(/not implemented/)
-  })
-
-  it('dispatches clearHighlight and accepts the current document version for NotOnlyTokenBased', () => {
-    const { view, controller, handlers } = makeSetup('')
-    handlers.ResponseJSONRaw?.(/** @type {any} */ ({ kind: 'ClearHighlighting', tokenBased: 'NotOnlyTokenBased' }))
-    expect(view.dispatchLog).toHaveLength(1)
-    expect(controller.activeDocumentVersion).toBe(0)
-  })
+  // agda-mode-vscode doesn't distinguish TokenBased from NotOnlyTokenBased --
+  // both collapse into the same ClearHighlighting response and always do a
+  // full reset (Response.res, State__Response.res) -- match that.
+  it.each(['TokenBased', 'NotOnlyTokenBased'])(
+    'dispatches clearHighlight and accepts the current document version for %s',
+    tokenBased => {
+      const { view, controller, handlers } = makeSetup('')
+      handlers.ResponseJSONRaw?.(/** @type {any} */ ({ kind: 'ClearHighlighting', tokenBased }))
+      expect(view.dispatchLog).toHaveLength(1)
+      expect(controller.activeDocumentVersion).toBe(0)
+    }
+  )
 })
 
 describe('ResponseJSONRaw > InteractionPoints', () => {

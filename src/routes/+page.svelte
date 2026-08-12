@@ -743,7 +743,12 @@ function codeMirror(el) {
       EditorState.changeFilter.of(tr => {
         for (const e of tr.effects) {
           if (e.is(emitRunningInfo)) {
-            textboxContent += e.value.message
+            // agda-mode-vscode only surfaces debugLevel 1 RunningInfo messages
+            // in the user-visible panel; anything more verbose goes to an
+            // internal-only DebugBuffer never shown to the user by default
+            // (State__Response.res). Match that instead of dumping every
+            // debug level into the visible log.
+            if (e.value.debugLevel <= 1) textboxContent += e.value.message
           } else if (e.is(clearRunningInfo)) {
             // Highlighting commands may clear Agda's running-info buffer after
             // loading succeeds; keep the visible load log until the next Load.
