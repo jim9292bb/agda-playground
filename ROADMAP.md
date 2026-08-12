@@ -418,6 +418,19 @@ program construction.
       previously the only implemented command with no browser test on either
       the als-demo or agda-mode-vscode side (see
       docs/AGDA_MODE_VSCODE_MAPPING.md's Test Coverage by Command table).
+- [x] Verified `/literate`'s own separate Next/Previous goal implementation
+      (`focusAdjacentGoal`/`focusGoal`/`focusGlobalPosition` in its
+      `+page.svelte` -- has to translate a goal's hidden-document position
+      into "which visible cell, and what local position within it," then
+      move DOM focus there; a different, more involved code path than the
+      single-buffer `/` route's) -- found to have no browser test coverage
+      at all while auditing `/literate`/`/plfa` for other position-
+      translation bugs like the hover one above. Manually verified correct
+      (forward/backward across a cell boundary, wrap-around both
+      directions, DOM focus actually lands on the target cell), then locked
+      in with `npm run test:browser:literate-goal-navigation`. `/plfa`'s
+      identical implementation (confirmed byte-identical to `/literate`'s)
+      is covered by code parity only, same as its hover fix.
 - [x] Show goal ids in the editor as CodeMirror decorations.
 - [x] Highlight the active goal.
 - [x] Keep the Goals panel synchronized after edits, Load, Give, Refine, and Case split.
