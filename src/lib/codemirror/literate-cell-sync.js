@@ -85,6 +85,35 @@ export function translateGlobalChangesToCells(cellOffsets, changes) {
 }
 
 /**
+ * Translates a position local to one cell's own visible EditorView into the
+ * corresponding position in the hidden composite document -- used by hover
+ * tooltips (see lsp-hover.ts's `hoverTooltipsForCell`), which query Agda by
+ * position and must speak the hidden view's coordinates, not any one cell's
+ * local ones.
+ * @param {CellContentOffset} cellOffset this cell's own current offset entry
+ * @param {number} localPos
+ * @returns {number | null} null if `localPos` falls outside this cell's content
+ */
+export function cellPositionToGlobal(cellOffset, localPos) {
+  const globalPos = cellOffset.from + localPos
+  return globalPos >= cellOffset.from && globalPos <= cellOffset.to ? globalPos : null
+}
+
+/**
+ * The reverse of `cellPositionToGlobal`: translates a hidden-document
+ * position back into a position local to whichever cell it falls within.
+ * @param {CellContentOffset[]} cellOffsets
+ * @param {number} globalPos
+ * @returns {{cellId: string, localPos: number} | null} null if `globalPos`
+ *   doesn't fall within any cell's content (e.g. it's inside a synthesized
+ *   fence)
+ */
+export function globalPositionToCell(cellOffsets, globalPos) {
+  const entry = cellOffsets.find(o => globalPos >= o.from && globalPos <= o.to)
+  return entry ? { cellId: entry.cellId, localPos: globalPos - entry.from } : null
+}
+
+/**
  * Clips a `RangeSet<Decoration>` to `[windowFrom, windowTo)` and re-anchors
  * it so `windowFrom` becomes local position 0 -- the core operation behind
  * projecting goal/highlighting decorations computed on the hidden

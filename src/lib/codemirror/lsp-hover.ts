@@ -34,7 +34,49 @@ interface LSPPluginPriv extends LSPPlugin {
 /// tooltips when the user hovers over the code with their pointer,
 /// and displays a tooltip when the server provides one.
 export function hoverTooltips(config?: Parameters<typeof hoverTooltip>[1]): Extension {
-  return hoverTooltip(lspTooltipSource, config)
+  return hoverTooltip((view, pos, _side) => {
+    const plugin = LSPPlugin.get(view)
+    if (!plugin) return Promise.resolve(null)
+    return lspTooltipSourceCore({
+      plugin: plugin as LSPPluginPriv,
+      doc: view.state.doc,
+      toQueryPos: p => p,
+      toResultPos: p => p,
+    }, pos)
+  }, config)
+}
+
+/// Same as `hoverTooltips()`, but for a CodeMirror view whose own document
+/// isn't what Agda actually knows about -- the N-EditorView notebook routes
+/// (`/literate`, `/plfa`) query the language server through a hidden
+/// composite `EditorView` holding the one logical assembled document, while
+/// the user hovers over one of N separate, visible per-cell EditorViews
+/// (see `literate-cell-sync.js`'s module doc). `getMapping` is called fresh
+/// on every hover (not once at extension-creation time) so it can read the
+/// current cell offsets; it returns null if this cell can't currently be
+/// mapped (e.g. it was just deleted).
+export function hoverTooltipsForCell(
+  getMapping: () => {
+    hiddenView: EditorView,
+    /** cell-local position -> hidden-document position, or null if out of range */
+    toGlobal: (localPos: number) => number | null,
+    /** hidden-document position -> cell-local position, or null if it falls outside this cell */
+    toLocal: (globalPos: number) => number | null,
+  } | null,
+  config?: Parameters<typeof hoverTooltip>[1]
+): Extension {
+  return hoverTooltip((_view, pos, _side) => {
+    const mapping = getMapping()
+    if (!mapping) return Promise.resolve(null)
+    const plugin = LSPPlugin.get(mapping.hiddenView)
+    if (!plugin) return Promise.resolve(null)
+    return lspTooltipSourceCore({
+      plugin: plugin as LSPPluginPriv,
+      doc: mapping.hiddenView.state.doc,
+      toQueryPos: mapping.toGlobal,
+      toResultPos: mapping.toLocal,
+    }, pos)
+  }, config)
 }
 
 function hoverRequest(plugin: LSPPluginPriv, pos: number) {
@@ -59,9 +101,25 @@ function isAgdaInternalError(result: lsp.Hover | null) {
     text.includes('__IMPOSSIBLE_VERBOSE__')
 }
 
-function lspTooltipSource(view: EditorView, pos: number, _side: -1 | 1): Promise<Tooltip | null> {
-  const plugin = LSPPlugin.get(view)
-  if (!plugin) return Promise.resolve(null)
+interface HoverPositionMapping {
+  plugin: LSPPluginPriv
+  /** the document the LSP plugin's own view holds -- what `result.range`
+   *  (an LSP position) is relative to, NOT necessarily the hovered view's
+   *  own document (see `hoverTooltipsForCell`) */
+  doc: Text
+  /** hovered-view-local position -> the position to actually query Agda
+   *  with (identity for a plain single-view hover; cell-local -> hidden
+   *  composite document for `hoverTooltipsForCell`) */
+  toQueryPos: (localPos: number) => number | null
+  /** the reverse of `toQueryPos`, applied to `result.range`'s endpoints so
+   *  the tooltip is anchored at the right position in the hovered view */
+  toResultPos: (queryPos: number) => number | null
+}
+
+function lspTooltipSourceCore(mapping: HoverPositionMapping, localPos: number): Promise<Tooltip | null> {
+  const { plugin, doc, toQueryPos, toResultPos } = mapping
+  const queryPos = toQueryPos(localPos)
+  if (queryPos == null) return Promise.resolve(null)
 
   // add a soft timeout to show a loading message before the info loads
   let timer: ReturnType<typeof setTimeout>
@@ -71,12 +129,19 @@ function lspTooltipSource(view: EditorView, pos: number, _side: -1 | 1): Promise
 
   // TODO: allow to skip the request if the cursor is not at an identifier
 
-  const hoverPromise = hoverRequest(plugin as LSPPluginPriv, pos)
+  const hoverPromise = hoverRequest(plugin, queryPos)
     .then(result => isAgdaInternalError(result) ? null : result)
     .catch(error => {
       console.warn('Agda hover request failed', error)
       return null
     })
+
+  // Maps one endpoint of `result.range` (an LSP position in `doc`'s
+  // coordinates) back to the hovered view's local coordinates, falling back
+  // to `localPos` if there's no range or the mapping fails (e.g. Agda's
+  // range briefly straddles a cell boundary mid-edit).
+  const resolveRangeEndpoint = (position: lsp.Position | undefined) =>
+    position ? (toResultPos(fromPosition(doc, position)) ?? localPos) : localPos
 
   return Promise.race([
     timeoutPromise.then(() => true),
@@ -85,7 +150,7 @@ function lspTooltipSource(view: EditorView, pos: number, _side: -1 | 1): Promise
     if (timedOut) {
       const dummyTooltip = {
         // XXX: these values are updated after the hover promise is resolved
-        pos, end: pos,
+        pos: localPos, end: localPos,
         create() {
           const elt = document.createElement("div")
           elt.className = "cm-lsp-hover-tooltip cm-lsp-documentation cm-lsp-hover-tooltip--loading"
@@ -94,10 +159,10 @@ function lspTooltipSource(view: EditorView, pos: number, _side: -1 | 1): Promise
           hoverPromise.then(result => {
             elt.classList.remove("cm-lsp-hover-tooltip--loading")
             if (result) {
-              dummyTooltip.pos = result.range ? fromPosition(view.state.doc, result.range.start) : pos
-              dummyTooltip.end = result.range ? fromPosition(view.state.doc, result.range.end) : pos
+              dummyTooltip.pos = resolveRangeEndpoint(result.range?.start)
+              dummyTooltip.end = resolveRangeEndpoint(result.range?.end)
 
-              elt.innerHTML = renderTooltipContent(plugin as LSPPluginPriv, result.contents)
+              elt.innerHTML = renderTooltipContent(plugin, result.contents)
             } else {
               // should remove?
               elt.innerHTML = ''
@@ -114,12 +179,12 @@ function lspTooltipSource(view: EditorView, pos: number, _side: -1 | 1): Promise
       return hoverPromise.then(result => {
         if (!result) return null
         return {
-          pos: result.range ? fromPosition(view.state.doc, result.range.start) : pos,
-          end: result.range ? fromPosition(view.state.doc, result.range.end) : pos,
+          pos: resolveRangeEndpoint(result.range?.start),
+          end: resolveRangeEndpoint(result.range?.end),
           create() {
             const elt = document.createElement("div")
             elt.className = "cm-lsp-hover-tooltip cm-lsp-documentation"
-            elt.innerHTML = renderTooltipContent(plugin as LSPPluginPriv, result.contents)
+            elt.innerHTML = renderTooltipContent(plugin, result.contents)
             return {dom: elt}
           },
           // above: true

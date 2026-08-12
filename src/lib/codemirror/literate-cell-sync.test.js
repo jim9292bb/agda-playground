@@ -9,6 +9,8 @@ import { createMarkdownCell, createCodeCell, computeCellContentOffsets, assemble
 import {
   translateCellChangesToGlobal,
   translateGlobalChangesToCells,
+  cellPositionToGlobal,
+  globalPositionToCell,
   projectRangeSetToWindow,
   projectGoalsToCells,
   projectHighlightToCells,
@@ -58,6 +60,41 @@ describe('translateGlobalChangesToCells', () => {
     const changes = changesFor(doc, { from: offsets[0].to, to: offsets[1].from + 1, insert: 'x' })
     const byCell = translateGlobalChangesToCells(offsets, changes)
     expect(byCell.size).toBe(0)
+  })
+})
+
+describe('cellPositionToGlobal / globalPositionToCell', () => {
+  const md = createMarkdownCell('intro')
+  const code = createCodeCell('foo : Set')
+  const cells = [md, code]
+  const offsets = computeCellContentOffsets(cells)
+  const codeOffset = offsets[1]
+
+  it('translates a local position inside the cell to the matching global position', () => {
+    expect(cellPositionToGlobal(codeOffset, 4)).toBe(codeOffset.from + 4)
+  })
+
+  it('accepts the boundary positions (start and end of the cell content)', () => {
+    expect(cellPositionToGlobal(codeOffset, 0)).toBe(codeOffset.from)
+    expect(cellPositionToGlobal(codeOffset, code.text.length)).toBe(codeOffset.to)
+  })
+
+  it('returns null for a local position past the end of the cell content', () => {
+    expect(cellPositionToGlobal(codeOffset, code.text.length + 1)).toBeNull()
+  })
+
+  it('round-trips through globalPositionToCell back to the same cell and local position', () => {
+    const globalPos = cellPositionToGlobal(codeOffset, 4)
+    expect(globalPositionToCell(offsets, /** @type {number} */ (globalPos))).toEqual({
+      cellId: code.id,
+      localPos: 4,
+    })
+  })
+
+  it('returns null for a global position inside a synthesized fence, not any cell\'s content', () => {
+    // codeOffset.from - 1 lands inside the code fence opener ("```agda\n"),
+    // before the cell's own content starts.
+    expect(globalPositionToCell(offsets, codeOffset.from - 1)).toBeNull()
   })
 })
 

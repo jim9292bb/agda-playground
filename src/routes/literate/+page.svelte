@@ -44,12 +44,15 @@ import {
   fromCellSync,
   translateCellChangesToGlobal,
   translateGlobalChangesToCells,
+  cellPositionToGlobal,
+  globalPositionToCell,
   projectGoalsToCells,
   projectHighlightToCells,
   setCellGoalDecorations,
   setCellHighlightDecorations,
   cellDecorationOverlays,
 } from '$lib/codemirror/literate-cell-sync'
+import { hoverTooltipsForCell } from '$lib/codemirror/lsp-hover'
 import {
   advanceAgdaChord,
   agdaShortcutRegistry,
@@ -1112,6 +1115,28 @@ function cellSyncExtensions(cellId, cellType) {
 }
 
 /**
+ * Hover position mapping for `hoverTooltipsForCell`, re-derived on every
+ * hover (not cached) so it always reflects the current `cells` array --
+ * mirrors the same `computeCellContentOffsets` lookup goal/highlight
+ * projection already does, just for a single position instead of a
+ * RangeSet. Returns null if this cell no longer exists (e.g. deleted).
+ * @param {string} cellId
+ */
+function cellHoverMapping(cellId) {
+  const offsets = computeCellContentOffsets(cells)
+  const entry = offsets.find(o => o.cellId === cellId)
+  if (!entry) return null
+  return {
+    hiddenView,
+    toGlobal: (/** @type {number} */ localPos) => cellPositionToGlobal(entry, localPos),
+    toLocal: (/** @type {number} */ globalPos) => {
+      const resolved = globalPositionToCell(offsets, globalPos)
+      return resolved && resolved.cellId === cellId ? resolved.localPos : null
+    },
+  }
+}
+
+/**
  * Full extension list for one cell's own visible EditorView. Rendering
  * (LiterateCellEditor.svelte) is a dedicated child component, not an
  * inline `{@attach}` inside the parent's `{#each cells as cell (cell.id)}`
@@ -1132,6 +1157,11 @@ function cellExtensions(cellId, cellType) {
     basicTheme,
     agdaInputMethod(),
     ...cellSyncExtensions(cellId, cellType),
+    // Markdown cells aren't Agda source -- Agda's own hover response for a
+    // position in one would be meaningless (it'd resolve to whatever
+    // adjacent code cell that position happens to land nearest to in the
+    // assembled document).
+    ...(cellType === 'code' ? [hoverTooltipsForCell(() => cellHoverMapping(cellId))] : []),
     // basicSetup deliberately doesn't bind Tab to indentation (Tab moves
     // focus by default, for accessibility) -- opt in explicitly. Placed
     // last so any Agda Tab binding (agdaKeymap/agdaChordKeymap, above)

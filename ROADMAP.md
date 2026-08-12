@@ -245,14 +245,27 @@ Done:
       the `hiddenView` dispatch (commit `7e8b4bb`); regression-tested with
       `npm run test:browser:literate-cell-sync-race`, verified red on the
       pre-fix code and green on the fix (commit `72bedeb`).
-
-Known gaps / not yet done:
-
-- [ ] Hover tooltips (`src/lib/codemirror/`'s lsp-hover-related extensions)
-      haven't been individually re-verified against the cell-local ↔
-      hidden-document offset translation the N-EditorView rewrite
-      introduced — flagged as a risk during the rewrite, not yet resolved
-      one way or the other.
+- [x] Fixed hover tooltips not working at all in `/literate`/`/plfa`: the
+      risk flagged below ("not yet re-verified") turned out to be a real,
+      confirmed bug, not just an unverified one.
+      `agdaController.lspClientCompartment` (which carries `hoverTooltips()`)
+      was only added to the hidden composite `EditorView`'s own extensions
+      -- never rendered, never hovered -- while each code cell's own visible
+      `cellExtensions()` (what the user actually points at) had no LSP
+      hover wiring at all. Found by directly reading both routes' extension
+      lists after the user asked whether hover currently worked there.
+      Fixed by adding `hoverTooltipsForCell` (new export in `lsp-hover.ts`,
+      sharing the same request/render logic as the existing single-view
+      `hoverTooltips()` via a shared `lspTooltipSourceCore`) to each code
+      cell, translating cell-local ↔ hidden-document positions both ways
+      via two new pure helpers in `literate-cell-sync.js`
+      (`cellPositionToGlobal`/`globalPositionToCell`). Regression-tested
+      live in `/literate` with `npm run test:browser:literate-hover`
+      (verified red on the pre-fix code: no tooltip appeared at all; green
+      on the fix, tooltip correctly anchored at the hovered character)
+      plus 5 new unit tests for the two pure helpers. `/plfa`'s identical
+      fix is verified by code parity and `npm run check` only -- no
+      `/plfa`-specific browser test harness exists yet (see the gap below).
 - [ ] No cell-based browser regression coverage exists for `/plfa`
       specifically (chapter switching, cross-chapter `open import`
       resolution) beyond the ad hoc "all 25 chapters Load" verification done
