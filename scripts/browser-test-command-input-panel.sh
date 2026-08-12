@@ -86,4 +86,16 @@ assert_no_command_prompt
 assert_editor_focused
 assert_log_contains "Case split cancelled." "Cancel does not send command"
 
+# ── Escape also cancels, matching agda-mode-vscode's Prompt.res ──────────────
+press_agda_chord "c" "KeyC"
+ab wait 1000
+
+assert_command_prompt "Input for Case split"
+press_prompt_key "Escape" "Escape"
+ab wait 500
+
+assert_no_command_prompt
+assert_editor_focused
+assert_log_contains "Case split cancelled." "Escape cancels the command prompt"
+
 echo "browser-test-command-input-panel: PASS"

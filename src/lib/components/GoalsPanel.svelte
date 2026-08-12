@@ -54,7 +54,8 @@ function agdaInputAction(el) {
           bind:value={commandInputPrompt.value}
           autocomplete="off"
           spellcheck="false"
-          placeholder="Agda expression or name" />
+          placeholder="Agda expression or name"
+          onkeydown={(/** @type {KeyboardEvent} */ event) => { if (event.key === 'Escape') { event.preventDefault(); onCancelCommandInput() } }} />
         <button type="submit">Run</button>
         <button type="button" onclick={onCancelCommandInput}>Cancel</button>
       </div>
