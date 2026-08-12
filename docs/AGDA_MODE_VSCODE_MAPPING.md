@@ -76,15 +76,15 @@ file, no `ert-deftest` anywhere in the Agda repo).
 | `C-c C-a` | Auto | `core-commands`, `auto` | `Test__Auto.res` | `Auto-IndexedDatatypes`, `Auto-Modules`, `Allto`, `test/interaction/Auto/`, `Mimer-BasicLogic`, `Mimer-Misc` |
 | `C-c C-m` | Elaborate and give | `core-commands` | `Test__ElaborateAndGive.res` | `ElaborateGive` |
 | `C-c C-h` | Helper function type | `core-commands` | `Test__HelperFunctionType.res` | — |
-| `C-c C-f` | Next goal | — | — | n/a (browser/editor-side navigation, not a distinct Agda command) |
-| `C-c C-b` | Previous goal | — | — | n/a (same as above) |
-| `C-c C-t` | Goal type | — | `Test__GoalType.res` | — |
+| `C-c C-f` | Next goal | `goal-navigation` | — | n/a (browser/editor-side navigation, not a distinct Agda command) |
+| `C-c C-b` | Previous goal | `goal-navigation` | — | n/a (same as above) |
+| `C-c C-t` | Goal type | `goal-type-and-compute` | `Test__GoalType.res` | — |
 | `C-c C-e` | Context | `goal-details` | `Test__Context.res` | — |
-| `C-c C-,` | Goal type and context | — | `Test__GoalTypeAndContext.res` | — |
+| `C-c C-,` | Goal type and context | `goal-type-and-compute` | `Test__GoalTypeAndContext.res` | — |
 | `C-c C-.` | Goal type, context, inferred type | `goal-details` | `Test__GoalTypeContextAndInferredType.res` | — |
 | `C-c C-;` | Goal type, context, checked type | `goal-details` | `Test__GoalTypeContextAndCheckedType.res` | — |
 | `C-c C-d` | Infer type | `goal-details` | `Test__InferType.res` | `InferIrrelevant` |
-| `C-c C-n` | Compute normal form | — | `Test__ComputeNormalForm.res` | `ComputeUsingShowInstance`, `EvalInTopLevel` |
+| `C-c C-n` | Compute normal form | `goal-type-and-compute` | `Test__ComputeNormalForm.res` | `ComputeUsingShowInstance`, `EvalInTopLevel` |
 | `C-c C-z` | Search about | `query-shortcuts` | `Test__SearchAbout.res` | — |
 | `C-c C-o` | Module contents | `query-shortcuts`, `module-contents-submodules` | `Test__ModuleContents.res` | — |
 | `C-c C-w` | Why in scope | `query-shortcuts` | `Test__WhyInScope.res` | — |
@@ -98,11 +98,12 @@ covered on the agda-mode-vscode side:
 | Solve constraints (`Cmd_solveAll`/`Cmd_solveOne`) | `Test__SolveConstraints.res` | `SolveAll` is typed in `app.d.ts` but not wired to any shortcut. |
 | Show goals (`AllGoalsWarnings`) | `Test__ShowGoals.res` | Rendered automatically after Load/edits, not behind its own shortcut -- no dedicated als-demo script isolates it. |
 
-Known gaps worth closing first if adding als-demo browser tests: **Next
-goal**/**Previous goal** navigation and **Compute normal form** have no
-dedicated script on either the als-demo or agda-mode-vscode side; **Goal
-type** and **Goal type and context** (the two-key-shorter variants of the
-`goal-details` combos already tested) have no als-demo script.
+All commands now have als-demo browser test coverage. Every als-demo query
+result in this table has also been directly compared against a live
+`vscode-test-web` run of real `agda-mode-vscode` + ALS-WASM (not just the
+statically-referenced `Test__*.res` assertions) -- see
+`/home/jim/agda-scratchpad/agda-command-behavior-reference.md` for that
+sweep's per-command notes.
 
 ## Browser Constraints
 

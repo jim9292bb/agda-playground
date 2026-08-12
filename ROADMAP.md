@@ -400,6 +400,11 @@ program construction.
 - [x] Move the editor cursor into the selected goal when a goal is clicked.
 - [x] Add Next goal command.
 - [x] Add Previous goal command.
+- [x] Add browser regression coverage for Next/Previous goal navigation
+      (`test:browser:goal-navigation`), including wrap-around at both ends --
+      previously the only implemented command with no browser test on either
+      the als-demo or agda-mode-vscode side (see
+      docs/AGDA_MODE_VSCODE_MAPPING.md's Test Coverage by Command table).
 - [x] Show goal ids in the editor as CodeMirror decorations.
 - [x] Highlight the active goal.
 - [x] Keep the Goals panel synchronized after edits, Load, Give, Refine, and Case split.
