@@ -516,7 +516,6 @@ function lookupUnicodeAtCursor(view) {
     ? `${char}  (${uLabel})\nNo Agda input sequences found.`
     : `${char}  (${uLabel})\n${sequences.map(s => '\\' + s).join('  ')}`
   agdaController.appendQueryResult('Unicode Lookup', content)
-  selectedMessageTab = 'queries'
 }
 
 /**
@@ -1012,6 +1011,24 @@ let activeGoalDetailRequestKey = $state('')
 let activeGoalDetailStatus = $state(/** @type {'idle' | 'loading' | 'ready' | 'error'} */('idle'))
 let activeGoalDetailError = $state('')
 let selectedMessageTab = $state(/** @type {'log' | 'queries' | 'errors'} */('log'))
+let previousQueryResultCount = 0
+let previousDiagnosticCount = 0
+
+// Auto-switch the Messages tab to whichever kind of result just arrived --
+// matches agda-mode-vscode's single-panel model (State__View.Panel.display
+// always shows the latest response). Edge-triggered on a genuine increase
+// (not a level check) so clearing results/diagnostics, or the user manually
+// switching tabs when nothing new has happened, never fights the user.
+$effect(() => {
+  const count = agdaController.queryResults.length
+  if (count > previousQueryResultCount) selectedMessageTab = 'queries'
+  previousQueryResultCount = count
+})
+$effect(() => {
+  const count = agdaDiagnostics.length
+  if (count > previousDiagnosticCount) selectedMessageTab = 'errors'
+  previousDiagnosticCount = count
+})
 let commandsPanelVisible = $state(false)
 let goalsSplitRatio = $state(0.65)
 /** @type {HTMLElement | undefined} */
