@@ -1,5 +1,5 @@
 <script>
-import { onDestroy, tick, untrack } from 'svelte'
+import { onDestroy, onMount, tick, untrack } from 'svelte'
 
 import { SPSC } from 'spsc'
 // import { SplitPane } from '@rich_harris/svelte-split-pane'
@@ -1196,6 +1196,18 @@ function selectPlfaChapter(chapter) {
   selectedChapterId = chapter.id
   replaceScratchpadSource(chapter.source)
 }
+
+// Deep-link support: ?chapter=<id> (e.g. ?chapter=Naturals) opens straight
+// into that chapter, mirroring plfa.github.io's own per-chapter URLs so a
+// link from the official site or course material can point directly at the
+// interactive version. An unknown/missing id is silently ignored, leaving
+// the default welcome content.
+onMount(() => {
+  const chapterId = new URL(window.location.href).searchParams.get('chapter')
+  if (!chapterId) return
+  const chapter = plfaChapters.find(c => c.id === chapterId)
+  if (chapter) selectPlfaChapter(chapter)
+})
 
 function openSettingsPanel() {
   shortcutDrafts = { ...shortcutOverrides }
