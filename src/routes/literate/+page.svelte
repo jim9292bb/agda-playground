@@ -1884,7 +1884,7 @@ $effect(() => {
 
 .literate-cell-code {
   background: #f0f8ff;
-  border: 2px solid rgba(0, 0, 0, 0.15);
+  border: 1px solid #000000;
   padding: 6px 0;
 }
 
