@@ -1898,11 +1898,11 @@ $effect(() => {
    border at all times (rather than no border) so gaining the focus color
    doesn't shift layout. */
 .literate-cell-code.literate-cell-focused {
-  border-color: var(--quiet-primary-stroke, #3b3aab);
+  border-color: #0b57d0;
 }
 
 .literate-cell-markdown.literate-cell-focused {
-  border-color: var(--quiet-primary-stroke, #3b3aab);
+  border-color: #0b57d0;
 }
 
 .literate-markdown-render {
