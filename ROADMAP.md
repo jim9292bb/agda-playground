@@ -560,7 +560,12 @@ Goal: the default experience should support demos and short practice sessions.
 - [x] Include examples for natural numbers, case split, auto, refine, queries, Cubical import, and standard-library import.
 - [x] Keep examples as single buffers, not as multi-file projects.
 - [x] Apply selected examples immediately without a separate example load or reset button.
-- [ ] Keep debug output hidden by default.
+- [x] Keep debug output hidden by default. `RunningInfo` messages with
+  `debugLevel > 1` are filtered out of the visible Log across all three
+  routes, matching agda-mode-vscode's split between its user-facing panel
+  (`debugLevel <= 1`) and its internal-only `DebugBuffer` -- see
+  handlers.js/`+page.svelte`'s `changeFilter` and the "Fix two behavioral
+  conflicts with agda-mode-vscode" commit.
 - [ ] Make shortcut help easier to scan for beginners.
 
 ## Browser Regression Suite
