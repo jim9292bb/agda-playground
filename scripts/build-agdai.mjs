@@ -196,11 +196,20 @@ async function buildAgdai(lib, agdaBin, libraryFile) {
     await buildWithCmdLoad(lib, agdaBin, graph, includeDir, libraryFile)
   }
 
-  const srcBuild = join(libSrcRoot, '_build')
-  const destBuild = join(lib.agdaiDir, '_build')
+  // Scoped to _build/<versionStr>, not the whole _build/ tree: Agda namespaces
+  // its own build cache by version inside the library's source directory, so
+  // libSrcRoot/_build accumulates a subfolder per Agda binary ever used to
+  // compile this same checked-out source (e.g. from an earlier run against a
+  // different --agda-bin). Copying the whole tree would carry every stale
+  // version's .agdai files into agdaiDir/_build alongside the one just
+  // built -- this happened for real (standard-library-2.1.1 and -2.2 both
+  // shipped 2.6.4.3 and 2.8.0 leftovers bundled with their 2.7.0.1 release
+  // zips) and inflated those release assets by ~35%.
+  const srcBuild = join(libSrcRoot, '_build', versionStr)
+  const destBuild = join(lib.agdaiDir, '_build', versionStr)
   await rm(destBuild, { recursive: true, force: true })
   await cp(srcBuild, destBuild, { recursive: true })
-  console.log(`[${lib.name}] .agdai written to ${relative(REPO_ROOT, destBuild)}/`)
+  console.log(`[${lib.name}] .agdai written to ${relative(REPO_ROOT, dirname(destBuild))}/`)
 }
 
 async function main() {
