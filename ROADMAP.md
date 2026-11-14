@@ -78,8 +78,15 @@ runtime architecture.
 - [ ] Evaluate persistent IndexedDB caching for extracted stdlib and Cubical files.
 - [ ] Evaluate lazy library extraction instead of eager JSZip inflation.
 - [ ] Evaluate prebuilt `.agdai` interface caches for selected teaching examples.
-- [ ] Resolve the `runno-direct-fs` raw ALS `ResponseEnd` blocker or replace it with a better direct baseline.
-- [ ] Evaluate direct in-memory FS or memfs-style architecture experiments against Runno drive proxy overhead.
+- [x] Resolve the `runno-direct-fs` raw ALS `ResponseEnd` blocker or replace it with a better direct baseline. — moot:
+      replaced by a better direct baseline instead of resolved —
+      `browser-wasi-shim-memfs` became the sole backend and every Runno
+      backend/adapter was removed, so there is no `runno-direct-fs` path left
+      to unblock.
+- [x] Evaluate direct in-memory FS or memfs-style architecture experiments against Runno drive proxy overhead. — moot:
+      done by the `browser-wasi-shim-memfs` / `-overlay-snapshot` comparison
+      below; the memfs architecture won and Runno was removed entirely, so
+      there is no Runno drive proxy overhead left to measure against.
 - [x] Add a `vscode-wasm-memfs` dependency/artifact probe and blocker report.
 - [x] Add a benchmarkable `browser-wasi-shim-memfs` runtime/filesystem adapter.
 - [x] Add a benchmarkable `browser-wasi-shim-overlay-snapshot` runtime/filesystem adapter.
@@ -523,7 +530,11 @@ external editor setup.
 - [x] Replace the input sequence with the chosen Unicode symbol.
 - [x] Ensure Agda shortcuts still have priority while the editor is focused.
 - [x] Support Agda Unicode input inside the command input prompt.
-- [ ] Add a lookup command similar to `C-x C-=`.
+- [x] Add a lookup command similar to `C-x C-=`. Implemented as the reserved
+      chord `__unicode-lookup` (`C-x =`) in `src/lib/agda/shortcuts.js`: shows
+      the character under the cursor, its code point, and every Agda input
+      sequence that produces it in the Queries panel. Covered by
+      `npm run test:browser:unicode-lookup`.
 - [x] Browser-test Unicode input method flows.
 
 ## Normalization and Command Variants
