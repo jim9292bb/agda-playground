@@ -22,7 +22,6 @@ import { agdaInputMethod } from '$lib/codemirror/agda-input'
 import { agdaSupport } from '$lib/agda'
 import { getAgdaDocumentVersion, getAgdaGoals, mergeGoalInfos } from '$lib/agda/goal-state'
 import { getGoalAtPosition, getGoalRangeById } from '$lib/agda/goals'
-import { getAgdaShortcutContext } from '$lib/agda/shortcut-context'
 import {
   runAgdaShortcut as runAgdaShortcutShared,
   runAgdaShortcutWithInputPrompt as runAgdaShortcutWithInputPromptShared,
@@ -40,29 +39,12 @@ import {
 } from '$lib/agda/shortcuts'
 import { lookupChar, formatCodePoint } from '$lib/agda/input-lookup'
 import {
-  autoOneCommand,
-  contextCommand,
-  computeCommand,
-  computeToplevelCommand,
-  elaborateGiveCommand,
-  giveCommand,
-  goalTypeCommand,
   goalTypeContextCommand,
-  goalTypeContextCheckCommand,
-  goalTypeContextInferCommand,
-  helperFunctionCommand,
-  inferCommand,
-  inferToplevelCommand,
-  makeCaseCommand,
-  moduleContentsCommand,
-  moduleContentsToplevelCommand,
-  refineCommand,
-  searchAboutToplevelCommand,
-  toggleImplicitArgsCommand,
-  toggleIrrelevantArgsCommand,
-  whyInScopeCommand,
-  whyInScopeToplevelCommand,
 } from '$lib/agda/commands'
+import {
+  clearPendingAgdaGoal as clearPendingAgdaGoalFor,
+  dispatchAgdaShortcut,
+} from '$lib/agda/shortcut-actions'
 
 import { clearGoals, clearRunningInfo, emitRunningInfo, removeGoalInfo, setGoalInfo } from '$lib/agda/effects'
 import { triggerPrefetch } from '$lib/agda/prefetch'
@@ -308,19 +290,9 @@ function runLoadShortcut() {
   })()
 }
 
-/** @param {ReturnType<typeof getAgdaShortcutContext>} context */
-function requireGoal(context) {
-  if (!context.goal) throw new Error('Place the cursor inside a goal first.')
-  return context.goal
-}
-
 /** @param {string} label */
 function clearPendingAgdaGoal(label) {
-  if (label === 'Case split' && agdaController.alsRouter) {
-    agdaController.alsRouter.pendingCaseSplitGoal = undefined
-  } else if ((label === 'Give' || label === 'Auto' || label === 'Elaborate and give') && agdaController.alsRouter) {
-    agdaController.alsRouter.pendingGiveGoal = undefined
-  }
+  clearPendingAgdaGoalFor(agdaController.alsRouter, label)
 }
 
 /**
@@ -523,142 +495,15 @@ function lookupUnicodeAtCursor(view) {
  * @param {EditorView} view
  */
 function runAgdaShortcutDefinition(shortcut, view) {
-  switch (shortcut.id) {
-    case 'load':
-      runLoadShortcut()
-      break
-    case 'next-goal':
-      focusAdjacentGoal(view, 1)
-      break
-    case 'previous-goal':
-      focusAdjacentGoal(view, -1)
-      break
-    case 'goal-type':
-      runAgdaShortcut(shortcut.label, view, context => goalTypeCommand('Simplified', requireGoal(context)))
-      break
-    case 'context':
-      runAgdaShortcut(shortcut.label, view, context => contextCommand('Simplified', requireGoal(context)))
-      break
-    case 'goal-type-context':
-      runAgdaShortcut(shortcut.label, view, context => goalTypeContextCommand('Simplified', requireGoal(context)))
-      break
-    case 'goal-type-context-infer':
-      runAgdaShortcut(shortcut.label, view, context => {
-        const goal = requireGoal(context)
-        if (!context.input.trim()) {
-          return goalTypeContextCommand('Simplified', goal)
-        }
-        return goalTypeContextInferCommand('Simplified', goal, context.input)
-      })
-      break
-    case 'goal-type-context-check':
-      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) =>
-        goalTypeContextCheckCommand('Simplified', requireGoal(context), input))
-      break
-    case 'search-about':
-      runAgdaShortcutWithInputPrompt(shortcut.label, view, (_context, input) =>
-        searchAboutToplevelCommand('Simplified', input))
-      break
-    case 'module-contents':
-      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) => {
-        const goal = context.goal
-        return goal
-          ? moduleContentsCommand('Simplified', goal, input)
-          : moduleContentsToplevelCommand('Simplified', input)
-      })
-      break
-    case 'why-in-scope':
-      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) => {
-        const goal = context.goal
-        return goal
-          ? whyInScopeCommand(goal, input)
-          : whyInScopeToplevelCommand(input)
-      })
-      break
-    case 'give':
-      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) => {
-        const goal = requireGoal(context)
-        if (agdaController.alsRouter) {
-          agdaController.alsRouter.pendingGiveGoal = goal
-        }
-        return giveCommand(goal, context.range, input)
-      })
-      break
-    case 'refine':
-      // Unlike Give/Elaborate-give/Why-in-scope, Refine's own Agda command
-      // (Cmd_refine_or_intro) has meaningful behavior for *empty* content --
-      // it falls back to "intro" (auto-introduce a constructor), succeeding
-      // outright when the goal type has exactly one constructor. Always
-      // sending (never prompting first, unlike runAgdaShortcutWithInputPrompt)
-      // lets Agda's own IntroNotFound/IntroConstructorUnknown responses
-      // surface instead of a client-side prompt overriding that behavior.
-      runAgdaShortcut(shortcut.label, view, context => {
-        const goal = requireGoal(context)
-        if (agdaController.alsRouter) {
-          agdaController.alsRouter.pendingGiveGoal = goal
-        }
-        return refineCommand(goal, context.range, context.input)
-      })
-      break
-    case 'auto':
-      runAgdaShortcut(shortcut.label, view, context => {
-        const goal = requireGoal(context)
-        if (agdaController.alsRouter) {
-          agdaController.alsRouter.pendingGiveGoal = goal
-        }
-        return autoOneCommand('AsIs', goal, context.range, context.input)
-      })
-      break
-    case 'elaborate-give':
-      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) => {
-        const goal = requireGoal(context)
-        if (agdaController.alsRouter) {
-          agdaController.alsRouter.pendingGiveGoal = goal
-        }
-        return elaborateGiveCommand('Simplified', goal, input)
-      })
-      break
-    case 'helper-function':
-      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) =>
-        helperFunctionCommand('AsIs', requireGoal(context), input))
-      break
-    case 'case-split':
-      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) => {
-        const goal = requireGoal(context)
-        if (agdaController.alsRouter) {
-          agdaController.alsRouter.pendingCaseSplitGoal = goal
-        }
-        return makeCaseCommand(goal, context.range, input)
-      })
-      break
-    case 'compute':
-      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) => {
-        const goal = context.goal
-        return goal
-          ? computeCommand('DefaultCompute', goal, input)
-          : computeToplevelCommand('DefaultCompute', input)
-      })
-      break
-    case 'infer':
-      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) => {
-        const goal = context.goal
-        return goal
-          ? inferCommand('Simplified', goal, input)
-          : inferToplevelCommand('Simplified', input)
-      })
-      break
-    case 'toggle-implicit-args':
-      // Goal-independent: no content, no cursor-in-goal requirement --
-      // `context` is unused, matching agda-mode-vscode's own scope (only
-      // Toggle is exposed there, see commands.js's toggleImplicitArgsCommand).
-      showImplicitArgs = !showImplicitArgs
-      runAgdaShortcut(shortcut.label, view, () => toggleImplicitArgsCommand())
-      break
-    case 'toggle-irrelevant-args':
-      showIrrelevantArgs = !showIrrelevantArgs
-      runAgdaShortcut(shortcut.label, view, () => toggleIrrelevantArgsCommand())
-      break
-  }
+  dispatchAgdaShortcut(shortcut, {
+    load: runLoadShortcut,
+    focusAdjacentGoal: direction => focusAdjacentGoal(view, direction),
+    run: (label, command) => runAgdaShortcut(label, view, command),
+    runWithInputPrompt: (label, command) => runAgdaShortcutWithInputPrompt(label, view, command),
+    getAlsRouter: () => agdaController.alsRouter,
+    toggleShowImplicitArgs: () => { showImplicitArgs = !showImplicitArgs },
+    toggleShowIrrelevantArgs: () => { showIrrelevantArgs = !showIrrelevantArgs },
+  })
 }
 
 const agdaKeymap = keymap.of(agdaShortcutRegistry.flatMap(shortcut =>
