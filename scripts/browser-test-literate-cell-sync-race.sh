@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/browser-literate-common.sh"
 
 # Regression test for the cell<->hidden-view offset staleness bug fixed in
-# cellSyncExtensions' updateListener (src/routes/literate/+page.svelte):
+# cellSyncExtensions' updateListener (src/lib/components/NotebookPage.svelte):
 # `cells[idx].text` used to be written *after* dispatching the local edit to
 # `hiddenView`, but EditorView.dispatch() re-enters
 # hiddenViewUpdateListener synchronously before returning -- so that
