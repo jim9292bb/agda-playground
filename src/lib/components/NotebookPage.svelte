@@ -1031,8 +1031,9 @@ function clearScratchpadInteractionState() {
  * Tears down every mounted cell view and rebuilds the cell array + hidden
  * view from `source`.
  * @param {string} source
+ * @param {string} what what was loaded, for the log ("Example", "Chapter", "File")
  */
-function replaceScratchpadSource(source) {
+function replaceScratchpadSource(source, what) {
   for (const view of cellViews.values()) view.destroy()
   cellViews.clear()
   editingMarkdownCellId = null
@@ -1046,7 +1047,7 @@ function replaceScratchpadSource(source) {
   })
   localStorage.setItem(agdaController.docStorageKey, source)
   clearScratchpadInteractionState()
-  textboxContent = 'Example loaded into editor. Click Load to type-check it.\n'
+  textboxContent = `${what} loaded into editor. Click Load to type-check it.\n`
 }
 
 /**
@@ -1054,9 +1055,10 @@ function replaceScratchpadSource(source) {
  * (examples picker, PLFA chapter picker, `?chapter=` deep links), reached via
  * `bind:this`.
  * @param {string} source
+ * @param {string} [what] what is being loaded, for the log message
  */
-export function loadSource(source) {
-  replaceScratchpadSource(source)
+export function loadSource(source, what = 'Example') {
+  replaceScratchpadSource(source, what)
 }
 
 function openSettingsPanel() {
@@ -1089,7 +1091,7 @@ function openAgdaFile(event) {
   const reader = new FileReader()
   reader.onload = () => {
     const text = /** @type {string} */ (reader.result)
-    replaceScratchpadSource(text)
+    replaceScratchpadSource(text, 'File')
   }
   reader.readAsText(file)
   input.value = ''

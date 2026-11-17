@@ -42,7 +42,7 @@ let notebook = $state()
 /** @param {PlfaChapter} chapter */
 function selectPlfaChapter(chapter) {
   selectedChapterId = chapter.id
-  notebook?.loadSource(chapter.source)
+  notebook?.loadSource(chapter.source, 'Chapter')
 }
 
 // Deep-link support: ?chapter=<id> (e.g. ?chapter=Naturals) opens straight
