@@ -74,7 +74,7 @@ export function requireGoal(context) {
 export function clearPendingAgdaGoal(alsRouter, label) {
   if (label === 'Case split' && alsRouter) {
     alsRouter.pendingCaseSplitGoal = undefined
-  } else if ((label === 'Give' || label === 'Auto' || label === 'Elaborate and give') && alsRouter) {
+  } else if ((label === 'Give' || label === 'Refine' || label === 'Auto' || label === 'Elaborate and give') && alsRouter) {
     alsRouter.pendingGiveGoal = undefined
   }
 }

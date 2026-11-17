@@ -166,6 +166,16 @@ describe('clearPendingAgdaGoal', () => {
     expect(router.pendingCaseSplitGoal).toBeUndefined()
   })
 
+  it('clears pendingGiveGoal for every shortcut that sets it', () => {
+    for (const id of ['give', 'refine', 'auto', 'elaborate-give']) {
+      const d = dispatch(id)
+      d.command(inGoal, 'x')
+      expect(d.router.pendingGiveGoal, id).toBe(goal)
+      clearPendingAgdaGoal(d.router, d.label)
+      expect(d.router.pendingGiveGoal, id).toBeUndefined()
+    }
+  })
+
   it('tolerates a missing router', () => {
     expect(() => clearPendingAgdaGoal(undefined, 'Give')).not.toThrow()
   })
