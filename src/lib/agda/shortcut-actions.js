@@ -57,7 +57,9 @@ import {
  *   input first when there is none (the prompt then owns `hooks`).
  * @prop {() => ALSMessageRouter | undefined} getAlsRouter
  * @prop {() => void} toggleShowImplicitArgs
- *   Flips the host's own UI state mirroring Agda's display option.
+ *   Flips the host's own UI state mirroring Agda's display option. Only
+ *   called once Agda has actually accepted the toggle, so the two can't
+ *   drift apart when Agda isn't running yet or the command fails.
  * @prop {() => void} toggleShowIrrelevantArgs
  */
 
@@ -213,12 +215,10 @@ export function dispatchAgdaShortcut(shortcut, host) {
       // Goal-independent: no content, no cursor-in-goal requirement --
       // `context` is unused, matching agda-mode-vscode's own scope (only
       // Toggle is exposed there, see commands.js's toggleImplicitArgsCommand).
-      host.toggleShowImplicitArgs()
-      host.run(shortcut.label, () => toggleImplicitArgsCommand())
+      host.run(shortcut.label, () => toggleImplicitArgsCommand(), { onSuccess: host.toggleShowImplicitArgs })
       break
     case 'toggle-irrelevant-args':
-      host.toggleShowIrrelevantArgs()
-      host.run(shortcut.label, () => toggleIrrelevantArgsCommand())
+      host.run(shortcut.label, () => toggleIrrelevantArgsCommand(), { onSuccess: host.toggleShowIrrelevantArgs })
       break
   }
 }

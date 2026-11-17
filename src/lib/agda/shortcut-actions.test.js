@@ -152,14 +152,17 @@ describe('dispatchAgdaShortcut', () => {
     expect(d.router.pendingGiveGoal).toBeUndefined()
   })
 
-  it('toggles flip the host display state and send the toggle command', () => {
-    const implicit = dispatch('toggle-implicit-args')
-    expect(implicit.calls[0]).toEqual(['toggleImplicit'])
-    expect(implicit.command(noGoal)).toBe(toggleImplicitArgsCommand())
-
-    const irrelevant = dispatch('toggle-irrelevant-args')
-    expect(irrelevant.calls[0]).toEqual(['toggleIrrelevant'])
-    expect(irrelevant.command(noGoal)).toBe(toggleIrrelevantArgsCommand())
+  it.each([
+    ['toggle-implicit-args', 'toggleImplicit', toggleImplicitArgsCommand()],
+    ['toggle-irrelevant-args', 'toggleIrrelevant', toggleIrrelevantArgsCommand()],
+  ])('%s sends the toggle and flips host display state only on success', (id, flip, expected) => {
+    const d = dispatch(id)
+    expect(d.command(noGoal)).toBe(expected)
+    expect(d.calls.map(c => c[0])).toEqual(['run'])
+    d.hooks.onFailure?.()
+    expect(d.calls.map(c => c[0])).toEqual(['run'])
+    d.hooks.onSuccess?.()
+    expect(d.calls.map(c => c[0])).toEqual(['run', flip])
   })
 })
 

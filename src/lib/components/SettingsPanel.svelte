@@ -135,11 +135,11 @@ $effect(() => {
                 <span>Agda Unicode input method</span>
               </label>
               <label class="settings-toggle-row">
-                <input type="checkbox" checked={showImplicitArgs} onchange={onToggleImplicitArgs} />
+                <input type="checkbox" checked={showImplicitArgs} onclick={event => { event.preventDefault(); onToggleImplicitArgs() }} />
                 <span>Show implicit arguments (Ctrl-c Ctrl-x Ctrl-h)</span>
               </label>
               <label class="settings-toggle-row">
-                <input type="checkbox" checked={showIrrelevantArgs} onchange={onToggleIrrelevantArgs} />
+                <input type="checkbox" checked={showIrrelevantArgs} onclick={event => { event.preventDefault(); onToggleIrrelevantArgs() }} />
                 <span>Show irrelevant arguments (Ctrl-c Ctrl-x Ctrl-i)</span>
               </label>
               {#if !isMobile}

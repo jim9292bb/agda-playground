@@ -26,7 +26,7 @@ assert_log_contains "Toggle implicit arguments finished." "toggle implicit args 
 
 echo "PASS toggle implicit arguments chord dispatches command"
 
-# Settings panel checkbox should reflect the optimistic state flip.
+# Settings panel checkbox should reflect the state flipped once Agda accepted the toggle.
 click_button "Settings"
 ab eval "(() => {
   const editorTab = Array.from(document.querySelectorAll('.settings-segmented-control button'))
