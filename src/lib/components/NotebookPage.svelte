@@ -66,10 +66,7 @@ import { lookupChar, formatCodePoint } from '$lib/agda/input-lookup'
 import {
   goalTypeContextCommand,
 } from '$lib/agda/commands'
-import {
-  clearPendingAgdaGoal as clearPendingAgdaGoalFor,
-  dispatchAgdaShortcut,
-} from '$lib/agda/shortcut-actions'
+import { dispatchAgdaShortcut } from '$lib/agda/shortcut-actions'
 
 import { clearGoals, clearRunningInfo, emitRunningInfo, removeGoalInfo, setGoalInfo } from '$lib/agda/effects'
 import { triggerPrefetch } from '$lib/agda/prefetch'
@@ -420,12 +417,13 @@ async function literatePresync() {
 /**
  * @param {string} label
  * @param {(context: import('$lib/agda/shortcut-context').AgdaShortcutContext) => string | Promise<void>} command
+ * @param {import('$lib/agda/run-shortcut').AgdaShortcutHooks} [hooks]
  */
-function runAgdaShortcut(label, command) {
+function runAgdaShortcut(label, command, hooks) {
   runAgdaShortcutShared({
     label, view: hiddenView, agdaController, goalInfos,
     appendLog: msg => textboxContent += msg,
-    clearPendingGoal: clearPendingAgdaGoal,
+    hooks,
     presync: literatePresync,
     command,
   })
@@ -434,12 +432,13 @@ function runAgdaShortcut(label, command) {
 /**
  * @param {string} label
  * @param {(context: import('$lib/agda/shortcut-context').AgdaShortcutContext, input: string) => string | Promise<void>} command
+ * @param {import('$lib/agda/run-shortcut').AgdaShortcutHooks} [hooks]
  */
-function runAgdaShortcutWithInputPrompt(label, command) {
+function runAgdaShortcutWithInputPrompt(label, command, hooks) {
   runAgdaShortcutWithInputPromptShared({
     label, view: hiddenView, agdaController, goalInfos,
     appendLog: msg => textboxContent += msg,
-    clearPendingGoal: clearPendingAgdaGoal,
+    hooks,
     presync: literatePresync,
     command,
     onNeedsInput: openCommandInputPrompt,
@@ -530,14 +529,9 @@ function deleteCell(cellId) {
   }
 }
 
-/** @param {string} label */
-function clearPendingAgdaGoal(label) {
-  clearPendingAgdaGoalFor(agdaController.alsRouter, label)
-}
-
 /**
  * Matches run-shortcut.js's shared `onNeedsInput` callback shape
- * (label, view, context, command) -- `view` isn't needed here (the active
+ * (label, view, context, command, hooks) -- `view` isn't needed here (the active
  * cell is tracked via `activeCellId`/`cellViews` instead) but the parameter
  * stays so this satisfies the shared interface without changing it (also
  * used, unmodified, by the single-buffer `/` route).
@@ -545,8 +539,9 @@ function clearPendingAgdaGoal(label) {
  * @param {import('@codemirror/view').EditorView} _view
  * @param {import('$lib/agda/shortcut-context').AgdaShortcutContext} context
  * @param {(context: import('$lib/agda/shortcut-context').AgdaShortcutContext, input: string) => string | Promise<void>} command
+ * @param {import('$lib/agda/run-shortcut').AgdaShortcutHooks} hooks
  */
-function openCommandInputPrompt(label, _view, context, command) {
+function openCommandInputPrompt(label, _view, context, command, hooks) {
   commandInputError = ''
   commandInputPrompt = {
     label,
@@ -554,6 +549,7 @@ function openCommandInputPrompt(label, _view, context, command) {
     documentVersion: getAgdaDocumentVersion(hiddenView.state),
     command,
     context,
+    hooks,
   }
   textboxContent += `${label}: enter command input in the Goals panel.\n`
   void tick().then(() => commandInputElement?.focus())
@@ -590,9 +586,10 @@ function submitCommandInputPrompt() {
       textboxContent += `${prompt.label}...\n`
       const interaction = await prompt.command(prompt.context, input)
       if (interaction) await agdaController.runAgdaInteraction(interaction)
+      prompt.hooks.onSuccess?.()
       textboxContent += `${prompt.label} finished.\n`
     } catch (err) {
-      clearPendingAgdaGoal(prompt.label)
+      prompt.hooks.onFailure?.()
       textboxContent += `${prompt.label} failed: ${err instanceof Error ? err.message : String(err)}\n`
     } finally {
       cellViews.get(activeCellId ?? '')?.focus()
@@ -1275,6 +1272,7 @@ let commandInputPrompt = $state(/** @type {null | {
   documentVersion: number,
   context: import('$lib/agda/shortcut-context').AgdaShortcutContext,
   command: (context: import('$lib/agda/shortcut-context').AgdaShortcutContext, input: string) => string | Promise<void>,
+  hooks: import('$lib/agda/run-shortcut').AgdaShortcutHooks,
 }} */(null))
 let commandInputError = $state('')
 /** @type {HTMLInputElement | undefined} */

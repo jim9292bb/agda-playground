@@ -9,20 +9,32 @@ import { getAgdaShortcutContext } from './shortcut-context'
  */
 
 /**
+ * Side effects tied to how a command run ends. Neither is called when the
+ * command is never sent at all (Agda not active, or waiting on the input
+ * prompt -- the prompt carries the hooks and calls them itself).
+ * @typedef {object} AgdaShortcutHooks
+ * @prop {() => void} [onSuccess]
+ *   Called once Agda has accepted the interaction, before "<label> finished."
+ *   is logged.
+ * @prop {() => void} [onFailure]
+ *   Called when building or running the interaction throws.
+ */
+
+/**
  * @param {{
  *   label: string,
  *   view: EditorView,
  *   agdaController: AgdaController,
  *   goalInfos: GoalInfo[],
  *   appendLog: (text: string) => void,
- *   clearPendingGoal: (label: string) => void,
+ *   hooks?: AgdaShortcutHooks,
  *   presync?: (view: EditorView) => Promise<void>,
  *   command: (context: AgdaShortcutContext) => string | Promise<void>,
  * }} opts
  */
 export function runAgdaShortcut(opts) {
-  const { label, view, agdaController, goalInfos, appendLog, clearPendingGoal, presync, command } = opts
-  void (async () => {
+  const { label, view, agdaController, goalInfos, appendLog, hooks = {}, presync, command } = opts
+  return (async () => {
     if (agdaController.alsWorkerStatus !== 'active') {
       appendLog(`${label} failed: Agda is not active.\n`)
       return
@@ -34,9 +46,10 @@ export function runAgdaShortcut(opts) {
       const context = getAgdaShortcutContext(view, agdaController.currentFilePath, goalInfos, agdaController.receivedNumericAgdaVersion)
       const interaction = await command(context)
       if (interaction) await agdaController.runAgdaInteraction(interaction)
+      hooks.onSuccess?.()
       appendLog(`${label} finished.\n`)
     } catch (err) {
-      clearPendingGoal(label)
+      hooks.onFailure?.()
       appendLog(`${label} failed: ${err instanceof Error ? err.message : String(err)}\n`)
     }
   })()
@@ -49,7 +62,7 @@ export function runAgdaShortcut(opts) {
  *   agdaController: AgdaController,
  *   goalInfos: GoalInfo[],
  *   appendLog: (text: string) => void,
- *   clearPendingGoal: (label: string) => void,
+ *   hooks?: AgdaShortcutHooks,
  *   presync?: (view: EditorView) => Promise<void>,
  *   command: (context: AgdaShortcutContext, input: string) => string | Promise<void>,
  *   onNeedsInput: (
@@ -57,12 +70,13 @@ export function runAgdaShortcut(opts) {
  *     view: EditorView,
  *     context: AgdaShortcutContext,
  *     command: (context: AgdaShortcutContext, input: string) => string | Promise<void>,
+ *     hooks: AgdaShortcutHooks,
  *   ) => void,
  * }} opts
  */
 export function runAgdaShortcutWithInputPrompt(opts) {
-  const { label, view, agdaController, goalInfos, appendLog, clearPendingGoal, presync, command, onNeedsInput } = opts
-  void (async () => {
+  const { label, view, agdaController, goalInfos, appendLog, hooks = {}, presync, command, onNeedsInput } = opts
+  return (async () => {
     if (agdaController.alsWorkerStatus !== 'active') {
       appendLog(`${label} failed: Agda is not active.\n`)
       return
@@ -72,16 +86,17 @@ export function runAgdaShortcutWithInputPrompt(opts) {
       await (presync ? presync(view) : agdaController.syncSourceFileToDrive())
       const context = getAgdaShortcutContext(view, agdaController.currentFilePath, goalInfos, agdaController.receivedNumericAgdaVersion)
       if (!context.input.trim()) {
-        onNeedsInput(label, view, context, command)
+        onNeedsInput(label, view, context, command, hooks)
         return
       }
 
       appendLog(`${label}...\n`)
       const interaction = await command(context, context.input)
       if (interaction) await agdaController.runAgdaInteraction(interaction)
+      hooks.onSuccess?.()
       appendLog(`${label} finished.\n`)
     } catch (err) {
-      clearPendingGoal(label)
+      hooks.onFailure?.()
       appendLog(`${label} failed: ${err instanceof Error ? err.message : String(err)}\n`)
     }
   })()

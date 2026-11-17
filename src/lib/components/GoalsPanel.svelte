@@ -9,6 +9,7 @@ import { attachAgdaIM } from '$lib/codemirror/agda-input-dom'
  *   documentVersion: number,
  *   context: import('$lib/agda/shortcut-context').AgdaShortcutContext,
  *   command: (context: import('$lib/agda/shortcut-context').AgdaShortcutContext, input: string) => string | Promise<void>,
+ *   hooks: import('$lib/agda/run-shortcut').AgdaShortcutHooks,
  * },
  * commandInputError: string,
  * panelGoalInfos: { id: number | string, range?: string, type?: string, context?: string }[],

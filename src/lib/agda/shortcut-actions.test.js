@@ -24,7 +24,7 @@ import {
   whyInScopeCommand,
   whyInScopeToplevelCommand,
 } from './commands'
-import { clearPendingAgdaGoal, dispatchAgdaShortcut } from './shortcut-actions'
+import { dispatchAgdaShortcut } from './shortcut-actions'
 import { agdaShortcutRegistry } from './shortcuts'
 
 const goal = { id: 3, from: 10, to: 17, text: '{! x !}' }
@@ -40,8 +40,8 @@ function makeHost() {
   const host = {
     load: () => calls.push(['load']),
     focusAdjacentGoal: direction => calls.push(['focus', direction]),
-    run: (label, command) => calls.push(['run', label, command]),
-    runWithInputPrompt: (label, command) => calls.push(['prompt', label, command]),
+    run: (label, command, hooks) => calls.push(['run', label, command, hooks]),
+    runWithInputPrompt: (label, command, hooks) => calls.push(['prompt', label, command, hooks]),
     getAlsRouter: () => router,
     toggleShowImplicitArgs: () => calls.push(['toggleImplicit']),
     toggleShowIrrelevantArgs: () => calls.push(['toggleIrrelevant']),
@@ -56,7 +56,14 @@ function dispatch(id) {
   const env = makeHost()
   dispatchAgdaShortcut(shortcut, env.host)
   const commandCall = env.calls.find(c => c[0] === 'run' || c[0] === 'prompt')
-  return { ...env, kind: commandCall?.[0], label: commandCall?.[1], command: commandCall?.[2] }
+  return {
+    ...env,
+    kind: commandCall?.[0],
+    label: commandCall?.[1],
+    command: commandCall?.[2],
+    /** @type {import('./run-shortcut').AgdaShortcutHooks} */
+    hooks: commandCall?.[3] ?? {},
+  }
 }
 
 describe('dispatchAgdaShortcut', () => {
@@ -156,27 +163,49 @@ describe('dispatchAgdaShortcut', () => {
   })
 })
 
-describe('clearPendingAgdaGoal', () => {
-  it('clears the bookkeeping a failed Give / Case split set up', () => {
-    const router = /** @type {any} */ ({ pendingGiveGoal: goal, pendingCaseSplitGoal: goal })
-    clearPendingAgdaGoal(router, 'Give')
-    expect(router.pendingGiveGoal).toBeUndefined()
-    expect(router.pendingCaseSplitGoal).toBe(goal)
-    clearPendingAgdaGoal(router, 'Case split')
-    expect(router.pendingCaseSplitGoal).toBeUndefined()
-  })
-
-  it('clears pendingGiveGoal for every shortcut that sets it', () => {
-    for (const id of ['give', 'refine', 'auto', 'elaborate-give']) {
+describe('pending-goal cleanup hooks', () => {
+  it.each(['give', 'refine', 'auto', 'elaborate-give'])(
+    '%s clears pendingGiveGoal on failure, not on success', id => {
       const d = dispatch(id)
       d.command(inGoal, 'x')
-      expect(d.router.pendingGiveGoal, id).toBe(goal)
-      clearPendingAgdaGoal(d.router, d.label)
-      expect(d.router.pendingGiveGoal, id).toBeUndefined()
+      d.router.pendingCaseSplitGoal = goal
+      d.hooks.onSuccess?.()
+      expect(d.router.pendingGiveGoal).toBe(goal)
+      d.hooks.onFailure?.()
+      expect(d.router.pendingGiveGoal).toBeUndefined()
+      expect(d.router.pendingCaseSplitGoal).toBe(goal)
+    })
+
+  it('case-split clears pendingCaseSplitGoal on failure, not on success', () => {
+    const d = dispatch('case-split')
+    d.command(inGoal, 'x')
+    d.router.pendingGiveGoal = goal
+    d.hooks.onSuccess?.()
+    expect(d.router.pendingCaseSplitGoal).toBe(goal)
+    d.hooks.onFailure?.()
+    expect(d.router.pendingCaseSplitGoal).toBeUndefined()
+    expect(d.router.pendingGiveGoal).toBe(goal)
+  })
+
+  it('every shortcut that sets a pending goal also passes an onFailure that clears it', () => {
+    for (const shortcut of agdaShortcutRegistry) {
+      const d = dispatch(shortcut.id)
+      if (!d.command) continue
+      try { d.command(inGoal, 'x') } catch { /* toplevel-only commands are fine */ }
+      const pending = d.router.pendingGiveGoal ?? d.router.pendingCaseSplitGoal
+      if (!pending) continue
+      expect(d.hooks.onFailure, shortcut.id).toBeTypeOf('function')
+      d.hooks.onFailure?.()
+      expect(d.router.pendingGiveGoal ?? d.router.pendingCaseSplitGoal, shortcut.id).toBeUndefined()
     }
   })
 
   it('tolerates a missing router', () => {
-    expect(() => clearPendingAgdaGoal(undefined, 'Give')).not.toThrow()
+    const shortcut = agdaShortcutRegistry.find(s => s.id === 'give')
+    if (!shortcut) throw new Error('no give shortcut')
+    const { host, calls } = makeHost()
+    host.getAlsRouter = () => undefined
+    dispatchAgdaShortcut(shortcut, host)
+    expect(() => calls[0][3].onFailure()).not.toThrow()
   })
 })

@@ -41,10 +41,7 @@ import { lookupChar, formatCodePoint } from '$lib/agda/input-lookup'
 import {
   goalTypeContextCommand,
 } from '$lib/agda/commands'
-import {
-  clearPendingAgdaGoal as clearPendingAgdaGoalFor,
-  dispatchAgdaShortcut,
-} from '$lib/agda/shortcut-actions'
+import { dispatchAgdaShortcut } from '$lib/agda/shortcut-actions'
 
 import { clearGoals, clearRunningInfo, emitRunningInfo, removeGoalInfo, setGoalInfo } from '$lib/agda/effects'
 import { triggerPrefetch } from '$lib/agda/prefetch'
@@ -250,12 +247,13 @@ const basicTheme = EditorView.theme({
  * @param {string} label
  * @param {EditorView} view
  * @param {(context: import('$lib/agda/shortcut-context').AgdaShortcutContext) => string | Promise<void>} command
+ * @param {import('$lib/agda/run-shortcut').AgdaShortcutHooks} [hooks]
  */
-function runAgdaShortcut(label, view, command) {
+function runAgdaShortcut(label, view, command, hooks) {
   runAgdaShortcutShared({
     label, view, agdaController, goalInfos,
     appendLog: msg => textboxContent += msg,
-    clearPendingGoal: clearPendingAgdaGoal,
+    hooks,
     command,
   })
 }
@@ -264,12 +262,13 @@ function runAgdaShortcut(label, view, command) {
  * @param {string} label
  * @param {EditorView} view
  * @param {(context: import('$lib/agda/shortcut-context').AgdaShortcutContext, input: string) => string | Promise<void>} command
+ * @param {import('$lib/agda/run-shortcut').AgdaShortcutHooks} [hooks]
  */
-function runAgdaShortcutWithInputPrompt(label, view, command) {
+function runAgdaShortcutWithInputPrompt(label, view, command, hooks) {
   runAgdaShortcutWithInputPromptShared({
     label, view, agdaController, goalInfos,
     appendLog: msg => textboxContent += msg,
-    clearPendingGoal: clearPendingAgdaGoal,
+    hooks,
     command,
     onNeedsInput: openCommandInputPrompt,
   })
@@ -290,18 +289,14 @@ function runLoadShortcut() {
   })()
 }
 
-/** @param {string} label */
-function clearPendingAgdaGoal(label) {
-  clearPendingAgdaGoalFor(agdaController.alsRouter, label)
-}
-
 /**
  * @param {string} label
  * @param {EditorView} view
  * @param {import('$lib/agda/shortcut-context').AgdaShortcutContext} context
  * @param {(context: import('$lib/agda/shortcut-context').AgdaShortcutContext, input: string) => string | Promise<void>} command
+ * @param {import('$lib/agda/run-shortcut').AgdaShortcutHooks} hooks
  */
-function openCommandInputPrompt(label, view, context, command) {
+function openCommandInputPrompt(label, view, context, command, hooks) {
   commandInputError = ''
   commandInputPrompt = {
     label,
@@ -309,6 +304,7 @@ function openCommandInputPrompt(label, view, context, command) {
     documentVersion: getAgdaDocumentVersion(view.state),
     command,
     context,
+    hooks,
   }
   textboxContent += `${label}: enter command input in the Goals panel.\n`
   void tick().then(() => commandInputElement?.focus())
@@ -346,9 +342,10 @@ function submitCommandInputPrompt() {
       textboxContent += `${prompt.label}...\n`
       const interaction = await prompt.command(prompt.context, input)
       if (interaction) await agdaController.runAgdaInteraction(interaction)
+      prompt.hooks.onSuccess?.()
       textboxContent += `${prompt.label} finished.\n`
     } catch (err) {
-      clearPendingAgdaGoal(prompt.label)
+      prompt.hooks.onFailure?.()
       textboxContent += `${prompt.label} failed: ${err instanceof Error ? err.message : String(err)}\n`
     } finally {
       view.focus()
@@ -498,8 +495,8 @@ function runAgdaShortcutDefinition(shortcut, view) {
   dispatchAgdaShortcut(shortcut, {
     load: runLoadShortcut,
     focusAdjacentGoal: direction => focusAdjacentGoal(view, direction),
-    run: (label, command) => runAgdaShortcut(label, view, command),
-    runWithInputPrompt: (label, command) => runAgdaShortcutWithInputPrompt(label, view, command),
+    run: (label, command, hooks) => runAgdaShortcut(label, view, command, hooks),
+    runWithInputPrompt: (label, command, hooks) => runAgdaShortcutWithInputPrompt(label, view, command, hooks),
     getAlsRouter: () => agdaController.alsRouter,
     toggleShowImplicitArgs: () => { showImplicitArgs = !showImplicitArgs },
     toggleShowIrrelevantArgs: () => { showIrrelevantArgs = !showIrrelevantArgs },
@@ -907,6 +904,7 @@ let commandInputPrompt = $state(/** @type {null | {
   documentVersion: number,
   context: import('$lib/agda/shortcut-context').AgdaShortcutContext,
   command: (context: import('$lib/agda/shortcut-context').AgdaShortcutContext, input: string) => string | Promise<void>,
+  hooks: import('$lib/agda/run-shortcut').AgdaShortcutHooks,
 }} */(null))
 let commandInputError = $state('')
 /** @type {HTMLInputElement | undefined} */

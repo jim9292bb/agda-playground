@@ -38,6 +38,7 @@ import {
 /** @import { AgdaShortcutContext } from './shortcut-context' */
 /** @import { AgdaShortcutDefinition } from './shortcuts' */
 /** @import { ALSMessageRouter } from './transport' */
+/** @import { AgdaShortcutHooks } from './run-shortcut' */
 
 /**
  * @typedef {(context: AgdaShortcutContext) => string | Promise<void>} AgdaShortcutCommand
@@ -48,11 +49,12 @@ import {
  * @typedef {object} AgdaShortcutHost
  * @prop {() => void} load
  * @prop {(direction: 1 | -1) => void} focusAdjacentGoal
- * @prop {(label: string, command: AgdaShortcutCommand) => void} run
- *   Runs `command` with the current shortcut context straight away.
- * @prop {(label: string, command: AgdaPromptedShortcutCommand) => void} runWithInputPrompt
+ * @prop {(label: string, command: AgdaShortcutCommand, hooks?: AgdaShortcutHooks) => void} run
+ *   Runs `command` with the current shortcut context straight away, calling
+ *   `hooks.onSuccess` / `hooks.onFailure` depending on how it ends.
+ * @prop {(label: string, command: AgdaPromptedShortcutCommand, hooks?: AgdaShortcutHooks) => void} runWithInputPrompt
  *   Runs `command` with the goal's own content as input, or prompts for
- *   input first when there is none.
+ *   input first when there is none (the prompt then owns `hooks`).
  * @prop {() => ALSMessageRouter | undefined} getAlsRouter
  * @prop {() => void} toggleShowImplicitArgs
  *   Flips the host's own UI state mirroring Agda's display option.
@@ -66,20 +68,6 @@ export function requireGoal(context) {
 }
 
 /**
- * Undoes the pending-goal bookkeeping a failed command set up, so a later
- * unrelated response isn't applied to that goal.
- * @param {ALSMessageRouter | undefined} alsRouter
- * @param {string} label
- */
-export function clearPendingAgdaGoal(alsRouter, label) {
-  if (label === 'Case split' && alsRouter) {
-    alsRouter.pendingCaseSplitGoal = undefined
-  } else if ((label === 'Give' || label === 'Refine' || label === 'Auto' || label === 'Elaborate and give') && alsRouter) {
-    alsRouter.pendingGiveGoal = undefined
-  }
-}
-
-/**
  * @param {AgdaShortcutDefinition} shortcut
  * @param {AgdaShortcutHost} host
  */
@@ -88,6 +76,22 @@ export function dispatchAgdaShortcut(shortcut, host) {
   const setPendingGiveGoal = goal => {
     const router = host.getAlsRouter()
     if (router) router.pendingGiveGoal = goal
+  }
+  // A failed command must undo the pending-goal bookkeeping it set up, so a
+  // later unrelated GiveAction/MakeCase response isn't applied to that goal.
+  /** @type {AgdaShortcutHooks} */
+  const clearPendingGiveGoalOnFailure = {
+    onFailure: () => {
+      const router = host.getAlsRouter()
+      if (router) router.pendingGiveGoal = undefined
+    },
+  }
+  /** @type {AgdaShortcutHooks} */
+  const clearPendingCaseSplitGoalOnFailure = {
+    onFailure: () => {
+      const router = host.getAlsRouter()
+      if (router) router.pendingCaseSplitGoal = undefined
+    },
   }
 
   switch (shortcut.id) {
@@ -147,7 +151,7 @@ export function dispatchAgdaShortcut(shortcut, host) {
         const goal = requireGoal(context)
         setPendingGiveGoal(goal)
         return giveCommand(goal, context.range, input)
-      })
+      }, clearPendingGiveGoalOnFailure)
       break
     case 'refine':
       // Unlike Give/Elaborate-give/Why-in-scope, Refine's own Agda command
@@ -161,21 +165,21 @@ export function dispatchAgdaShortcut(shortcut, host) {
         const goal = requireGoal(context)
         setPendingGiveGoal(goal)
         return refineCommand(goal, context.range, context.input)
-      })
+      }, clearPendingGiveGoalOnFailure)
       break
     case 'auto':
       host.run(shortcut.label, context => {
         const goal = requireGoal(context)
         setPendingGiveGoal(goal)
         return autoOneCommand('AsIs', goal, context.range, context.input)
-      })
+      }, clearPendingGiveGoalOnFailure)
       break
     case 'elaborate-give':
       host.runWithInputPrompt(shortcut.label, (context, input) => {
         const goal = requireGoal(context)
         setPendingGiveGoal(goal)
         return elaborateGiveCommand('Simplified', goal, input)
-      })
+      }, clearPendingGiveGoalOnFailure)
       break
     case 'helper-function':
       host.runWithInputPrompt(shortcut.label, (context, input) =>
@@ -187,7 +191,7 @@ export function dispatchAgdaShortcut(shortcut, host) {
         const router = host.getAlsRouter()
         if (router) router.pendingCaseSplitGoal = goal
         return makeCaseCommand(goal, context.range, input)
-      })
+      }, clearPendingCaseSplitGoalOnFailure)
       break
     case 'compute':
       host.runWithInputPrompt(shortcut.label, (context, input) => {
