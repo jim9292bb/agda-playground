@@ -104,6 +104,7 @@ Then in another terminal:
 
 ```sh
 npm run test:browser                    # full suite
+npm run test:browser:notebook           # /literate and /plfa only (also part of the full suite)
 npm run test:browser:core-commands      # targeted
 ```
 
