@@ -23,6 +23,7 @@ import { agdaSupport } from '$lib/agda'
 import { getAgdaDocumentVersion, getAgdaGoals, mergeGoalInfos } from '$lib/agda/goal-state'
 import { getGoalAtPosition, getGoalRangeById } from '$lib/agda/goals'
 import {
+  runAgdaCommand,
   runAgdaShortcut as runAgdaShortcutShared,
   runAgdaShortcutWithInputPrompt as runAgdaShortcutWithInputPromptShared,
 } from '$lib/agda/run-shortcut'
@@ -339,14 +340,13 @@ function submitCommandInputPrompt() {
     commandInputError = ''
     commandInputPrompt = null
     try {
-      textboxContent += `${prompt.label}...\n`
-      const interaction = await prompt.command(prompt.context, input)
-      if (interaction) await agdaController.runAgdaInteraction(interaction)
-      prompt.hooks.onSuccess?.()
-      textboxContent += `${prompt.label} finished.\n`
-    } catch (err) {
-      prompt.hooks.onFailure?.()
-      textboxContent += `${prompt.label} failed: ${err instanceof Error ? err.message : String(err)}\n`
+      await runAgdaCommand({
+        label: prompt.label,
+        agdaController,
+        appendLog: msg => textboxContent += msg,
+        hooks: prompt.hooks,
+        build: () => prompt.command(prompt.context, input),
+      })
     } finally {
       view.focus()
     }

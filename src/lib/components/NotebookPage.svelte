@@ -25,6 +25,7 @@ import { agdaGoalState, getAgdaDocumentVersion, getAgdaGoals, mergeGoalInfos } f
 import { highlightState } from '$lib/agda/highlight'
 import { getGoalAtPosition, getGoalRangeById } from '$lib/agda/goals'
 import {
+  runAgdaCommand,
   runAgdaShortcut as runAgdaShortcutShared,
   runAgdaShortcutWithInputPrompt as runAgdaShortcutWithInputPromptShared,
 } from '$lib/agda/run-shortcut'
@@ -215,11 +216,6 @@ function cleanShortcutOverrides(overrides) {
 let width = $state(0)
 let isMobile = $derived(width < 540)
 
-// See src/routes/+page.svelte's own copy of these two fields for why this
-// is a local optimistic mirror rather than reading alsRouter's own
-// showImplicitArgs/showIrrelevantArgs fields directly.
-let showImplicitArgs = $state(false)
-let showIrrelevantArgs = $state(false)
 
 let goalsPanelPosition = $state(loadGoalsPanelPosition())
 // Mobile always stacks the editor above the right column regardless of this

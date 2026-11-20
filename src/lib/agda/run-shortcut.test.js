@@ -3,7 +3,7 @@
 import { EditorState, EditorSelection } from '@codemirror/state'
 import { offsetTracking } from '$lib/codemirror/offsets'
 import { agdaGoalState } from './goal-state'
-import { runAgdaShortcut, runAgdaShortcutWithInputPrompt } from './run-shortcut'
+import { runAgdaCommand, runAgdaShortcut, runAgdaShortcutWithInputPrompt } from './run-shortcut'
 
 /** @param {string} doc @param {number} cursor */
 function fakeView(doc, cursor) {
@@ -112,5 +112,29 @@ describe('runAgdaShortcutWithInputPrompt', () => {
     const { events, common } = makeEnv({ active: false })
     await runAgdaShortcutWithInputPrompt({ ...common, command: () => 'CMD', onNeedsInput: vi.fn() })
     expect(events).toEqual(['log:Thing failed: Agda is not active.'])
+  })
+})
+
+describe('runAgdaCommand', () => {
+  it('an onSuccess that throws is not reported as a failed command', async () => {
+    const { events, common } = makeEnv()
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await runAgdaCommand({
+      ...common,
+      hooks: {
+        onSuccess: () => { events.push('onSuccess'); throw new Error('boom') },
+        onFailure: () => events.push('onFailure'),
+      },
+      build: () => 'CMD',
+    })
+    expect(events).toEqual(['log:Thing...', 'interaction:CMD', 'onSuccess', 'log:Thing finished.'])
+    expect(consoleError).toHaveBeenCalledOnce()
+    consoleError.mockRestore()
+  })
+
+  it('logs and calls onFailure when the interaction rejects', async () => {
+    const { events, common } = makeEnv({ interaction: async () => { throw new Error('no') } })
+    await runAgdaCommand({ ...common, build: () => 'CMD' })
+    expect(events).toEqual(['log:Thing...', 'interaction:CMD', 'onFailure', 'log:Thing failed: no'])
   })
 })

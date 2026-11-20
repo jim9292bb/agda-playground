@@ -203,6 +203,35 @@ describe('pending-goal cleanup hooks', () => {
     }
   })
 
+  it('a failure before setting a goal leaves an in-flight command\'s pending goal alone', () => {
+    const give = dispatch('give')
+    give.command(inGoal, 'x')
+    expect(give.router.pendingGiveGoal).toBe(goal)
+
+    // A second Auto with the cursor outside any goal throws in requireGoal
+    // before setting anything -- its onFailure must not clear Give's goal.
+    const auto = dispatch('auto')
+    auto.host.getAlsRouter = () => give.router
+    expect(() => auto.command(noGoal)).toThrow()
+    auto.hooks.onFailure?.()
+    expect(give.router.pendingGiveGoal).toBe(goal)
+  })
+
+  it('a failure after a later command overwrote the field leaves the newer goal alone', () => {
+    const first = dispatch('give')
+    first.command(inGoal, 'x')
+    const second = dispatch('refine')
+    second.host.getAlsRouter = () => first.router
+    const otherGoal = { ...goal, id: 4 }
+    second.command({ ...inGoal, goal: otherGoal })
+    expect(first.router.pendingGiveGoal).toBe(otherGoal)
+
+    first.hooks.onFailure?.()
+    expect(first.router.pendingGiveGoal).toBe(otherGoal)
+    second.hooks.onFailure?.()
+    expect(first.router.pendingGiveGoal).toBeUndefined()
+  })
+
   it('tolerates a missing router', () => {
     const shortcut = agdaShortcutRegistry.find(s => s.id === 'give')
     if (!shortcut) throw new Error('no give shortcut')
