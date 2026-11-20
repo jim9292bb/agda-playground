@@ -6,8 +6,8 @@
  * Shared by the main playground (src/routes/+page.svelte) and the notebook
  * routes (src/lib/components/NotebookPage.svelte). Everything that genuinely
  * differs between them -- which EditorView a command runs against, how Load
- * truncates/syncs, how goal navigation moves the cursor, where the
- * implicit/irrelevant display toggles live -- comes in through the `host`.
+ * truncates/syncs, how goal navigation moves the cursor -- comes in
+ * through the `host`.
  */
 
 import {
@@ -56,11 +56,6 @@ import {
  *   Runs `command` with the goal's own content as input, or prompts for
  *   input first when there is none (the prompt then owns `hooks`).
  * @prop {() => ALSMessageRouter | undefined} getAlsRouter
- * @prop {() => void} toggleShowImplicitArgs
- *   Flips the host's own UI state mirroring Agda's display option. Only
- *   called once Agda has actually accepted the toggle, so the two can't
- *   drift apart when Agda isn't running yet or the command fails.
- * @prop {() => void} toggleShowIrrelevantArgs
  */
 
 /** @param {AgdaShortcutContext} context */
@@ -225,10 +220,13 @@ export function dispatchAgdaShortcut(shortcut, host) {
       // Goal-independent: no content, no cursor-in-goal requirement --
       // `context` is unused, matching agda-mode-vscode's own scope (only
       // Toggle is exposed there, see commands.js's toggleImplicitArgsCommand).
-      host.run(shortcut.label, () => toggleImplicitArgsCommand(), { onSuccess: host.toggleShowImplicitArgs })
+      // The UI's checkbox state isn't flipped here: Agda answers with a
+      // Status response carrying its actual setting, which the controller
+      // mirrors (AgdaController.showImplicitArgs).
+      host.run(shortcut.label, () => toggleImplicitArgsCommand())
       break
     case 'toggle-irrelevant-args':
-      host.run(shortcut.label, () => toggleIrrelevantArgsCommand(), { onSuccess: host.toggleShowIrrelevantArgs })
+      host.run(shortcut.label, () => toggleIrrelevantArgsCommand())
       break
   }
 }

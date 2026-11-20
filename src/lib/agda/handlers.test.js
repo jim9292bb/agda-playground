@@ -51,6 +51,11 @@ function makeController() {
     appendQueryResult(/** @type {string} */ label, /** @type {string} */ content) {
       this.queryResults.push({ label, content })
     },
+    /** @type {{showImplicitArgs: boolean, showIrrelevantArgs: boolean}[]} */
+    displayOptionChanges: [],
+    onDisplayOptionsChange(/** @type {{showImplicitArgs: boolean, showIrrelevantArgs: boolean}} */ options) {
+      this.displayOptionChanges.push(options)
+    },
   }
 }
 
@@ -70,6 +75,13 @@ describe('ResponseStatus', () => {
     expect(controller.checked).toBe(true)
     expect(controller.showImplicitArgs).toBe(true)
   })
+
+  it('reports the display options, keeping the irrelevant flag it lacks', () => {
+    const { controller, handlers } = makeSetup('')
+    controller.showIrrelevantArgs = true
+    handlers.ResponseStatus?.([false, true])
+    expect(controller.displayOptionChanges).toEqual([{ showImplicitArgs: true, showIrrelevantArgs: true }])
+  })
 })
 
 describe('ResponseJSONRaw > Status', () => {
@@ -82,6 +94,7 @@ describe('ResponseJSONRaw > Status', () => {
     expect(controller.checked).toBe(true)
     expect(controller.showImplicitArgs).toBe(false)
     expect(controller.showIrrelevantArgs).toBe(true)
+    expect(controller.displayOptionChanges).toEqual([{ showImplicitArgs: false, showIrrelevantArgs: true }])
   })
 })
 

@@ -13,6 +13,7 @@ import { focusAgdaUtf8Position, parseAgdaDiagnostic } from './diagnostics'
  * @prop {boolean} checked
  * @prop {boolean} showImplicitArgs
  * @prop {boolean} showIrrelevantArgs
+ * @prop {(options: {showImplicitArgs: boolean, showIrrelevantArgs: boolean}) => void} onDisplayOptionsChange
  * @prop {boolean} suppressAgdaInternalErrors
  * @prop {boolean} suppressDisplayInfo
  * @prop {string | null} lastAgdaInternalError
@@ -286,7 +287,8 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
     ResponseStatus([checked, showImplicitArgs]) {
       controller.checked = checked
       controller.showImplicitArgs = showImplicitArgs
-      // controller.showIrrelevantArgs = showIrrelevantArgs
+      // The non-raw ResponseStatus doesn't carry showIrrelevantArgs.
+      controller.onDisplayOptionsChange({ showImplicitArgs, showIrrelevantArgs: controller.showIrrelevantArgs })
     },
     ResponseClearHighlightingTokenBased() {
       // @ts-expect-error: synthetic response object omits the schema's `kind` discriminant
@@ -330,6 +332,7 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       controller.checked = checked
       controller.showImplicitArgs = showImplicitArguments
       controller.showIrrelevantArgs = showIrrelevantArguments
+      controller.onDisplayOptionsChange({ showImplicitArgs: showImplicitArguments, showIrrelevantArgs: showIrrelevantArguments })
     },
     ClearRunningInfo() {
       editorView.dispatch({ effects: clearRunningInfo.of() })

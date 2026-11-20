@@ -43,8 +43,6 @@ function makeHost() {
     run: (label, command, hooks) => calls.push(['run', label, command, hooks]),
     runWithInputPrompt: (label, command, hooks) => calls.push(['prompt', label, command, hooks]),
     getAlsRouter: () => router,
-    toggleShowImplicitArgs: () => calls.push(['toggleImplicit']),
-    toggleShowIrrelevantArgs: () => calls.push(['toggleIrrelevant']),
   }
   return { host, calls, router }
 }
@@ -153,16 +151,13 @@ describe('dispatchAgdaShortcut', () => {
   })
 
   it.each([
-    ['toggle-implicit-args', 'toggleImplicit', toggleImplicitArgsCommand()],
-    ['toggle-irrelevant-args', 'toggleIrrelevant', toggleIrrelevantArgsCommand()],
-  ])('%s sends the toggle and flips host display state only on success', (id, flip, expected) => {
+    ['toggle-implicit-args', toggleImplicitArgsCommand()],
+    ['toggle-irrelevant-args', toggleIrrelevantArgsCommand()],
+  ])('%s only sends the toggle (display state comes from Agda\'s Status reply)', (id, expected) => {
     const d = dispatch(id)
+    expect(d.kind).toBe('run')
     expect(d.command(noGoal)).toBe(expected)
-    expect(d.calls.map(c => c[0])).toEqual(['run'])
-    d.hooks.onFailure?.()
-    expect(d.calls.map(c => c[0])).toEqual(['run'])
-    d.hooks.onSuccess?.()
-    expect(d.calls.map(c => c[0])).toEqual(['run', flip])
+    expect(d.hooks).toEqual({})
   })
 })
 

@@ -8,8 +8,6 @@ import { agdaShortcutRegistry, formatAgdaShortcutHelpBinding } from '$lib/agda/s
  * goalsPanelPosition: 'bottom' | 'right',
  * onSetGoalsPanelPosition: (pos: 'bottom' | 'right') => void,
  * agdaController: import('$lib/controller.svelte').AgdaController,
- * showImplicitArgs: boolean,
- * showIrrelevantArgs: boolean,
  * onToggleImplicitArgs: () => void,
  * onToggleIrrelevantArgs: () => void,
  * deployProfiles: import('$lib/controller.svelte').DeployProfile[],
@@ -30,8 +28,6 @@ let {
   goalsPanelPosition,
   onSetGoalsPanelPosition,
   agdaController,
-  showImplicitArgs,
-  showIrrelevantArgs,
   onToggleImplicitArgs,
   onToggleIrrelevantArgs,
   deployProfiles,
@@ -45,6 +41,8 @@ let {
   onSetShortcutDraft,
   onClearShortcutDraft,
 } = $props()
+
+const agdaActive = $derived(agdaController.alsWorkerStatus === 'active')
 
 const settingsSegments = [
   { id: 'general', label: 'General' },
@@ -134,14 +132,21 @@ $effect(() => {
                 <input type="checkbox" disabled />
                 <span>Agda Unicode input method</span>
               </label>
+              <!-- Both checkboxes show Agda's own setting as last reported by
+                   its Status response (AgdaController.showImplicitArgs), so a
+                   click only sends the toggle: preventDefault keeps the
+                   browser from checking the box before Agda has answered. -->
               <label class="settings-toggle-row">
-                <input type="checkbox" checked={showImplicitArgs} onclick={event => { event.preventDefault(); onToggleImplicitArgs() }} />
+                <input type="checkbox" checked={agdaController.showImplicitArgs} disabled={!agdaActive} onclick={event => { event.preventDefault(); onToggleImplicitArgs() }} />
                 <span>Show implicit arguments (Ctrl-c Ctrl-x Ctrl-h)</span>
               </label>
               <label class="settings-toggle-row">
-                <input type="checkbox" checked={showIrrelevantArgs} onclick={event => { event.preventDefault(); onToggleIrrelevantArgs() }} />
+                <input type="checkbox" checked={agdaController.showIrrelevantArgs} disabled={!agdaActive} onclick={event => { event.preventDefault(); onToggleIrrelevantArgs() }} />
                 <span>Show irrelevant arguments (Ctrl-c Ctrl-x Ctrl-i)</span>
               </label>
+              {#if !agdaActive}
+                <p class="settings-note">Implicit/irrelevant argument display can be changed once Agda has started.</p>
+              {/if}
               {#if !isMobile}
                 <label class="settings-field">
                   <span>Goals panel position</span>

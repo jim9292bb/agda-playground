@@ -115,6 +115,14 @@ export class AgdaController {
    *  first. */
   onJumpToError: ((position: number) => void) | undefined = undefined
   iotcmStatus = $state<AgdaIOTCMStatus>('init')
+  /** Agda's own implicit/irrelevant-argument display options, exactly as
+   *  last reported by a Status response (Agda answers every Toggle with
+   *  one) -- the source of truth for the Settings checkboxes. Reset to
+   *  Agda's defaults (off) whenever a new ALS process starts (see
+   *  _startALSWASM), since a restarted or profile-switched Agda doesn't
+   *  keep the old setting. */
+  showImplicitArgs = $state(false)
+  showIrrelevantArgs = $state(false)
   performanceEntries = $state<PerformanceEntry[]>([])
   queryResults = $state<Array<{ id: number; label: string; content: string }>>([])
   private _nextQueryId = 0
@@ -296,6 +304,14 @@ export class AgdaController {
 
   async _startALSWASM() {
     this.alsWorkerStatus = 'active'
+    // Every run is a fresh Agda process with its display options at their
+    // defaults -- including a Restart, which reuses this worker *and* router
+    // (startALSWASM's isInitialized() path), so reset both here rather than
+    // where the router is created.
+    this.alsRouter!.showImplicitArgs = false
+    this.alsRouter!.showIrrelevantArgs = false
+    this.showImplicitArgs = false
+    this.showIrrelevantArgs = false
 
     this._ensureBackend().resetBuffers()
     this.runningWASM = this._ensureBackend().run()
@@ -333,6 +349,10 @@ export class AgdaController {
 
     router.intercept(lspClientReadable, lspClientWritable)
     router.appendQueryResult = (label, content) => this.appendQueryResult(label, content)
+    router.onDisplayOptionsChange = ({ showImplicitArgs, showIrrelevantArgs }) => {
+      this.showImplicitArgs = showImplicitArgs
+      this.showIrrelevantArgs = showIrrelevantArgs
+    }
     router.currentFilePath = this.currentFilePath
     router.onJumpToError = this.onJumpToError
 

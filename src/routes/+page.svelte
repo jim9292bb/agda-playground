@@ -205,15 +205,6 @@ test = true
 let width = $state(0)
 let isMobile = $derived(width < 540)
 
-// Mirrors Agda's own display option, flipped optimistically when the user
-// toggles it: `ToggleImplicitArgs`/`ToggleIrrelevantArgs` never fail (Agda
-// just flips a TC-state option server-side, see InteractionTop.hs), so
-// there is no meaningful "rejected" case to reconcile against -- unlike
-// `alsRouter`'s own `showImplicitArgs`/`showIrrelevantArgs` fields (a
-// plain, non-`$state` class in transport.js), this needs to be reactive
-// for the Settings panel checkbox to actually update on click.
-let showImplicitArgs = $state(false)
-let showIrrelevantArgs = $state(false)
 
 let goalsPanelPosition = $state(loadGoalsPanelPosition())
 // Mobile always stacks the editor above the right column regardless of this
@@ -498,8 +489,6 @@ function runAgdaShortcutDefinition(shortcut, view) {
     run: (label, command, hooks) => runAgdaShortcut(label, view, command, hooks),
     runWithInputPrompt: (label, command, hooks) => runAgdaShortcutWithInputPrompt(label, view, command, hooks),
     getAlsRouter: () => agdaController.alsRouter,
-    toggleShowImplicitArgs: () => { showImplicitArgs = !showImplicitArgs },
-    toggleShowIrrelevantArgs: () => { showIrrelevantArgs = !showIrrelevantArgs },
   })
 }
 
@@ -714,6 +703,9 @@ function openAgdaFile(event) {
     const view = agdaController.editorView
     if (!view) return
     view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } })
+    // The editor no longer holds any example, so the picker shouldn't
+    // highlight one.
+    selectedExampleId = ''
   }
   reader.readAsText(file)
   input.value = ''
@@ -1080,8 +1072,6 @@ $effect(() => {
   {goalsPanelPosition}
   onSetGoalsPanelPosition={setGoalsPanelPosition}
   {agdaController}
-  {showImplicitArgs}
-  {showIrrelevantArgs}
   onToggleImplicitArgs={toggleImplicitArgsFromSettings}
   onToggleIrrelevantArgs={toggleIrrelevantArgsFromSettings}
   {deployProfiles}

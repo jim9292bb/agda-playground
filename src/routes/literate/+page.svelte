@@ -125,7 +125,8 @@ function selectScratchpadExample(exampleId) {
   appSwitcherCurrent="notebook"
   storageNamespace="literate"
   sourceFileName="source.lagda.md"
-  {defaultSource}>
+  {defaultSource}
+  onSourceReplaced={() => { selectedExampleId = '' }}>
   {#snippet picker()}
     <HeaderExamplePicker examples={scratchpadExamples} {selectedExampleId} onSelect={selectScratchpadExample} />
   {/snippet}

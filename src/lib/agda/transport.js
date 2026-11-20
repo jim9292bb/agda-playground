@@ -52,6 +52,12 @@ export class ALSMessageRouter {
     this.activeDocumentVersion = null
     /** @type {(label: string, content: string) => void} */
     this.appendQueryResult = (_label, _content) => {}
+    /**
+     * Called whenever a Status response updates showImplicitArgs /
+     * showIrrelevantArgs, so the controller can mirror them reactively.
+     * @type {(options: {showImplicitArgs: boolean, showIrrelevantArgs: boolean}) => void}
+     */
+    this.onDisplayOptionsChange = _options => {}
     // Both set by AgdaController.makeALSTransport right after construction,
     // from its own currentFilePath/onJumpToError -- kept as plain fields
     // here (not constructor params) since this class is otherwise

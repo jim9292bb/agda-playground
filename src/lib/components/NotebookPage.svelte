@@ -80,7 +80,9 @@ import 'katex/dist/katex.min.css'
 // what genuinely differs between those two routes comes in as props: the
 // header picker (examples vs. PLFA chapters) is a snippet the route renders
 // with its own selection state, and the route drives content changes through
-// the exported `loadSource()`. All per-route persistence keys are derived from
+// the exported `loadSource()` -- when the notebook replaces its document on
+// its own (Open file), `onSourceReplaced` tells the route to drop that
+// selection. All per-route persistence keys are derived from
 // `storageNamespace` and `sourceFileName`, which must stay exactly what each
 // route used before this component existed -- changing either silently orphans
 // users' saved documents, shortcut overrides, and Goals panel position.
@@ -92,6 +94,7 @@ import 'katex/dist/katex.min.css'
  * defaultSource: string,
  * initialProfileLabel?: string,
  * picker?: import('svelte').Snippet,
+ * onSourceReplaced?: () => void,
  * }} */
 let {
   title,
@@ -101,6 +104,7 @@ let {
   defaultSource,
   initialProfileLabel,
   picker,
+  onSourceReplaced,
 } = $props()
 
 // Mount-time configuration: which Agda file, storage slot, starting content and
@@ -579,14 +583,13 @@ function submitCommandInputPrompt() {
     commandInputError = ''
     commandInputPrompt = null
     try {
-      textboxContent += `${prompt.label}...\n`
-      const interaction = await prompt.command(prompt.context, input)
-      if (interaction) await agdaController.runAgdaInteraction(interaction)
-      prompt.hooks.onSuccess?.()
-      textboxContent += `${prompt.label} finished.\n`
-    } catch (err) {
-      prompt.hooks.onFailure?.()
-      textboxContent += `${prompt.label} failed: ${err instanceof Error ? err.message : String(err)}\n`
+      await runAgdaCommand({
+        label: prompt.label,
+        agdaController,
+        appendLog: msg => textboxContent += msg,
+        hooks: prompt.hooks,
+        build: () => prompt.command(prompt.context, input),
+      })
     } finally {
       cellViews.get(activeCellId ?? '')?.focus()
     }
@@ -760,8 +763,6 @@ function runAgdaShortcutDefinition(shortcut) {
     run: runAgdaShortcut,
     runWithInputPrompt: runAgdaShortcutWithInputPrompt,
     getAlsRouter: () => agdaController.alsRouter,
-    toggleShowImplicitArgs: () => { showImplicitArgs = !showImplicitArgs },
-    toggleShowIrrelevantArgs: () => { showIrrelevantArgs = !showIrrelevantArgs },
   })
 }
 
@@ -1088,6 +1089,7 @@ function openAgdaFile(event) {
   reader.onload = () => {
     const text = /** @type {string} */ (reader.result)
     replaceScratchpadSource(text, 'File')
+    onSourceReplaced?.()
   }
   reader.readAsText(file)
   input.value = ''
@@ -1487,8 +1489,6 @@ $effect(() => {
   {goalsPanelPosition}
   onSetGoalsPanelPosition={setGoalsPanelPosition}
   {agdaController}
-  {showImplicitArgs}
-  {showIrrelevantArgs}
   onToggleImplicitArgs={toggleImplicitArgsFromSettings}
   onToggleIrrelevantArgs={toggleIrrelevantArgsFromSettings}
   {deployProfiles}

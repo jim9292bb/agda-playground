@@ -66,7 +66,8 @@ onMount(() => {
   storageNamespace="plfa"
   sourceFileName="source-plfa.lagda.md"
   initialProfileLabel={plfaProfile?.label}
-  {defaultSource}>
+  {defaultSource}
+  onSourceReplaced={() => { selectedChapterId = null }}>
   {#snippet picker()}
     <PlfaChapterPicker chapters={plfaChapters} {selectedChapterId} onSelect={selectPlfaChapter} />
   {/snippet}
