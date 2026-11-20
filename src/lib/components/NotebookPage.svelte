@@ -25,7 +25,6 @@ import { agdaGoalState, getAgdaDocumentVersion, getAgdaGoals, mergeGoalInfos } f
 import { highlightState } from '$lib/agda/highlight'
 import { getGoalAtPosition, getGoalRangeById } from '$lib/agda/goals'
 import {
-  runAgdaCommand,
   runAgdaShortcut as runAgdaShortcutShared,
   runAgdaShortcutWithInputPrompt as runAgdaShortcutWithInputPromptShared,
 } from '$lib/agda/run-shortcut'
@@ -68,6 +67,7 @@ import {
 } from '$lib/agda/commands'
 import { dispatchAgdaShortcut } from '$lib/agda/shortcut-actions'
 import { ShortcutOverridesState } from '$lib/agda/shortcut-overrides-state.svelte'
+import { CommandInputState } from '$lib/agda/command-input-state.svelte'
 
 import { clearGoals, clearRunningInfo, emitRunningInfo, removeGoalInfo, setGoalInfo } from '$lib/agda/effects'
 import { triggerPrefetch } from '$lib/agda/prefetch'
@@ -411,7 +411,7 @@ function runAgdaShortcutWithInputPrompt(label, command, hooks) {
     hooks,
     presync: literatePresync,
     command,
-    onNeedsInput: openCommandInputPrompt,
+    onNeedsInput: commandInputState.open,
   })
 }
 
@@ -497,73 +497,6 @@ function deleteCell(cellId) {
     activeCellId = cells[nextIdx]?.id ?? null
     void tick().then(() => cellViews.get(activeCellId ?? '')?.focus())
   }
-}
-
-/**
- * Matches run-shortcut.js's shared `onNeedsInput` callback shape
- * (label, view, context, command, hooks) -- `view` isn't needed here (the active
- * cell is tracked via `activeCellId`/`cellViews` instead) but the parameter
- * stays so this satisfies the shared interface without changing it (also
- * used, unmodified, by the single-buffer `/` route).
- * @param {string} label
- * @param {import('@codemirror/view').EditorView} _view
- * @param {import('$lib/agda/shortcut-context').AgdaShortcutContext} context
- * @param {(context: import('$lib/agda/shortcut-context').AgdaShortcutContext, input: string) => string | Promise<void>} command
- * @param {import('$lib/agda/run-shortcut').AgdaShortcutHooks} hooks
- */
-function openCommandInputPrompt(label, _view, context, command, hooks) {
-  commandInputError = ''
-  commandInputPrompt = {
-    label,
-    value: '',
-    documentVersion: getAgdaDocumentVersion(hiddenView.state),
-    command,
-    context,
-    hooks,
-  }
-  textboxContent += `${label}: enter command input in the Goals panel.\n`
-  void tick().then(() => commandInputElement?.focus())
-}
-
-function cancelCommandInputPrompt() {
-  const label = commandInputPrompt?.label
-  commandInputPrompt = null
-  if (label) textboxContent += `${label} cancelled.\n`
-  cellViews.get(activeCellId ?? '')?.focus()
-}
-
-function submitCommandInputPrompt() {
-  void (async () => {
-    const prompt = commandInputPrompt
-    if (!prompt) return
-
-    const input = prompt.value.trim()
-    if (!input) {
-      commandInputError = 'Enter an expression before submitting.'
-      return
-    }
-
-    if (getAgdaDocumentVersion(hiddenView.state) !== prompt.documentVersion) {
-      commandInputPrompt = null
-      textboxContent += `${prompt.label} failed: Reload or retry because the editor changed while the prompt was open.\n`
-      cellViews.get(activeCellId ?? '')?.focus()
-      return
-    }
-
-    commandInputError = ''
-    commandInputPrompt = null
-    try {
-      await runAgdaCommand({
-        label: prompt.label,
-        agdaController,
-        appendLog: msg => textboxContent += msg,
-        hooks: prompt.hooks,
-        build: () => prompt.command(prompt.context, input),
-      })
-    } finally {
-      cellViews.get(activeCellId ?? '')?.focus()
-    }
-  })()
 }
 
 function getActiveGoalId() {
@@ -988,8 +921,7 @@ function clearScratchpadInteractionState() {
   activeGoalDetailRequestKey = ''
   activeGoalDetailStatus = 'idle'
   activeGoalDetailError = ''
-  commandInputPrompt = null
-  commandInputError = ''
+  commandInputState.clear()
   settingsPanelVisible = false
   hiddenView.dispatch({ effects: clearGoals.of() })
 }
@@ -1101,8 +1033,7 @@ async function performLoad(blockIndex) {
   activeGoalDetailRequestKey = ''
   activeGoalDetailStatus = 'idle'
   activeGoalDetailError = ''
-  commandInputPrompt = null
-  commandInputError = ''
+  commandInputState.clear()
   hiddenView.dispatch({ effects: clearGoals.of() })
 
   const prefetchFn = agdaController.backend?.prefetchAgdai?.bind(agdaController.backend)
@@ -1189,17 +1120,12 @@ let chordTable = $derived([
       .filter(binding => binding.kind === 'chord')
       .map(binding => ({ id: shortcut.id, steps: chordStepsOf(binding) }))),
 ])
-let commandInputPrompt = $state(/** @type {null | {
-  label: string,
-  value: string,
-  documentVersion: number,
-  context: import('$lib/agda/shortcut-context').AgdaShortcutContext,
-  command: (context: import('$lib/agda/shortcut-context').AgdaShortcutContext, input: string) => string | Promise<void>,
-  hooks: import('$lib/agda/run-shortcut').AgdaShortcutHooks,
-}} */(null))
-let commandInputError = $state('')
-/** @type {HTMLInputElement | undefined} */
-let commandInputElement = $state(/** @type {HTMLInputElement | undefined} */(undefined))
+const commandInputState = new CommandInputState({
+  agdaController,
+  getDocState: () => hiddenView.state,
+  focusEditor: () => cellViews.get(activeCellId ?? '')?.focus(),
+  appendLog: msg => textboxContent += msg,
+})
 
 $effect(() => {
   const goalId = activeGoalId
@@ -1346,15 +1272,15 @@ $effect(() => {
         {#if effectiveGoalsPosition === 'bottom'}
           <GoalsPanel
             position={effectiveGoalsPosition}
-            {commandInputPrompt}
-            {commandInputError}
+            commandInputPrompt={commandInputState.prompt}
+            commandInputError={commandInputState.error}
             {panelGoalInfos}
             {activeGoalId}
             {activeGoalDetailStatus}
             {activeGoalDetailError}
-            bind:commandInputElement
-            onSubmitCommandInput={submitCommandInputPrompt}
-            onCancelCommandInput={cancelCommandInputPrompt}
+            bind:commandInputElement={commandInputState.element}
+            onSubmitCommandInput={commandInputState.submit}
+            onCancelCommandInput={commandInputState.cancel}
             onFocusGoal={focusGoal}
           />
         {/if}
@@ -1373,15 +1299,15 @@ $effect(() => {
           <div class="right-goals-stack">
             <GoalsPanel
               position={effectiveGoalsPosition}
-              {commandInputPrompt}
-              {commandInputError}
+              commandInputPrompt={commandInputState.prompt}
+              commandInputError={commandInputState.error}
               {panelGoalInfos}
               {activeGoalId}
               {activeGoalDetailStatus}
               {activeGoalDetailError}
-              bind:commandInputElement
-              onSubmitCommandInput={submitCommandInputPrompt}
-              onCancelCommandInput={cancelCommandInputPrompt}
+              bind:commandInputElement={commandInputState.element}
+              onSubmitCommandInput={commandInputState.submit}
+              onCancelCommandInput={commandInputState.cancel}
               onFocusGoal={focusGoal}
             />
             <MessagesPanel position={effectiveGoalsPosition} {agdaController} {textboxContent} {agdaDiagnostics} bind:selectedMessageTab />
