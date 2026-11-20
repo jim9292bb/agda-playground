@@ -14,11 +14,20 @@ ROOT_KEY='agda-playground.shortcut-overrides.v1'
 
 literate_open_app
 
+# Seeded values below are valid overrides (validateAgdaShortcutOverrides
+# accepts them), so the test never depends on an invalid saved state.
+# Both keys are removed on exit, pass or fail, so a failed assertion can't
+# leave a rebound Load key in the shared agent-browser profile.
+cleanup_override_keys() {
+  ab eval "(() => { localStorage.removeItem('$LIT_KEY'); localStorage.removeItem('$ROOT_KEY'); return { ok: true } })()" >/dev/null || true
+}
+trap cleanup_override_keys EXIT
+
 # Seed a saved override for this namespace plus a sentinel in `/`'s key,
 # then reload so the page picks the override up at startup.
 ab eval "(() => {
-  localStorage.setItem('$LIT_KEY', JSON.stringify({ load: 'C-c C-x' }))
-  localStorage.setItem('$ROOT_KEY', JSON.stringify({ load: 'C-c C-w' }))
+  localStorage.setItem('$LIT_KEY', JSON.stringify({ load: 'C-c C-g' }))
+  localStorage.setItem('$ROOT_KEY', JSON.stringify({ load: 'C-c C-j' }))
   return { ok: true }
 })()"
 ab reload >/dev/null
@@ -45,8 +54,8 @@ ab eval "(() => {
   const row = $LOAD_ROW
   if (!row) throw new Error('Load row missing')
   const draft = row.querySelector('input').value
-  if (draft !== 'C-c C-x') throw new Error('Expected saved literate override as draft, got: ' + JSON.stringify(draft))
-  if (!row.textContent.includes('Effective: C-c C-x')) throw new Error('Effective binding not overridden: ' + row.textContent)
+  if (draft !== 'C-c C-g') throw new Error('Expected saved literate override as draft, got: ' + JSON.stringify(draft))
+  if (!row.textContent.includes('Effective: C-c C-g')) throw new Error('Effective binding not overridden: ' + row.textContent)
   return { ok: true }
 })()"
 echo "PASS override loaded from the literate namespace"
@@ -61,7 +70,7 @@ ab eval "(async () => {
   const lit = JSON.parse(localStorage.getItem('$LIT_KEY') ?? 'null')
   const root = JSON.parse(localStorage.getItem('$ROOT_KEY') ?? 'null')
   if (lit?.load !== 'C-c C-y') throw new Error('Literate key not saved: ' + JSON.stringify(lit))
-  if (root?.load !== 'C-c C-w') throw new Error('Root key was touched: ' + JSON.stringify(root))
+  if (root?.load !== 'C-c C-j') throw new Error('Root key was touched: ' + JSON.stringify(root))
   const msg = document.querySelector('.settings-message')?.textContent.trim()
   if (msg !== 'Shortcut overrides saved.') throw new Error('Unexpected message: ' + msg)
   return { ok: true }
@@ -73,7 +82,7 @@ ab eval "(async () => {
   await new Promise(r => setTimeout(r, 100))
   if (localStorage.getItem('$LIT_KEY') !== null) throw new Error('Literate key not removed')
   const root = JSON.parse(localStorage.getItem('$ROOT_KEY') ?? 'null')
-  if (root?.load !== 'C-c C-w') throw new Error('Root key was touched by reset: ' + JSON.stringify(root))
+  if (root?.load !== 'C-c C-j') throw new Error('Root key was touched by reset: ' + JSON.stringify(root))
   const msg = document.querySelector('.settings-message')?.textContent.trim()
   if (msg !== 'Shortcut overrides reset to defaults.') throw new Error('Unexpected message: ' + msg)
   const draft = ($LOAD_ROW).querySelector('input').value
@@ -81,8 +90,5 @@ ab eval "(async () => {
   return { ok: true }
 })()"
 echo "PASS reset clears only the literate key"
-
-# Leave no state behind for later tests.
-ab eval "(() => { localStorage.removeItem('$LIT_KEY'); localStorage.removeItem('$ROOT_KEY'); return { ok: true } })()"
 
 echo "browser-test-literate-shortcut-overrides: PASS"

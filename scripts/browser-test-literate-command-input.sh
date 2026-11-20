@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/browser-literate-common.sh
 source "$SCRIPT_DIR/browser-literate-common.sh"
 
-# Notebook counterpart of test:browser:command-input-panel. /literate's
+# Notebook counterpart of test:browser:command-input. /literate's
 # command-input prompt differs from `/`'s in two places: the document
 # version it snapshots comes from the hidden composite view (not any one
 # cell's), and focus returns to the active cell's own EditorView.

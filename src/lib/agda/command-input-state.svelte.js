@@ -67,7 +67,10 @@ export class CommandInputState {
    */
   open = (label, _view, context, command, hooks) => {
     const state = this.#getDocState()
-    if (!state) return
+    if (!state) {
+      this.#appendLog(`${label} failed: the editor is not ready.\n`)
+      return
+    }
     this.error = ''
     this.prompt = {
       label,
