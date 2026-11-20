@@ -201,3 +201,10 @@ export function toggleImplicitArgsCommand() {
 export function toggleIrrelevantArgsCommand() {
   return '(ToggleIrrelevantArgs)'
 }
+
+/** Interrupts the command Agda is currently running. Must be sent outside
+ *  the controller's command queue (which would wait behind the very command
+ *  being aborted), so callers wrap it in IOTCM themselves. */
+export function abortCommand() {
+  return '(Cmd_abort)'
+}

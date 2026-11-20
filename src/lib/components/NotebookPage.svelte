@@ -56,18 +56,18 @@ import {
   advanceAgdaChord,
   agdaShortcutRegistry,
   chordStepsOf,
-  createAgdaShortcutRegistry,
   displayKey,
   findAgdaShortcutById,
   formatAgdaShortcutHelpBinding,
   reservedChordSequences,
-  validateAgdaShortcutOverrides,
 } from '$lib/agda/shortcuts'
 import { lookupChar, formatCodePoint } from '$lib/agda/input-lookup'
 import {
+  abortCommand,
   goalTypeContextCommand,
 } from '$lib/agda/commands'
 import { dispatchAgdaShortcut } from '$lib/agda/shortcut-actions'
+import { ShortcutOverridesState } from '$lib/agda/shortcut-overrides-state.svelte'
 
 import { clearGoals, clearRunningInfo, emitRunningInfo, removeGoalInfo, setGoalInfo } from '$lib/agda/effects'
 import { triggerPrefetch } from '$lib/agda/prefetch'
@@ -175,46 +175,16 @@ async function onDeploymentProfileChange(profileLabel) {
 
 const LS_SHORTCUT_OVERRIDES_KEY = `agda-playground-${initialConfig.storageNamespace}.shortcut-overrides.v1`
 const LS_GOALS_PANEL_POSITION_KEY = `agda-playground-${initialConfig.storageNamespace}.goals-panel-position.v1`
-const agdaShortcutIds = new Set(agdaShortcutRegistry.map(shortcut => shortcut.id))
 
 /** @param {string} source @returns {import('$lib/agda/literate-cells').LiterateCell[]} */
 function cellsFromSource(source) {
   return cellsFromParsedBlocks(source, parseLiterateBlocks(source))
 }
 
-/** @returns {Record<string, string>} */
-function loadShortcutOverrides() {
-  if (typeof localStorage === 'undefined') return {}
-  try {
-    const raw = localStorage.getItem(LS_SHORTCUT_OVERRIDES_KEY)
-    if (!raw) return {}
-    const parsed = JSON.parse(raw)
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
-    return Object.fromEntries(
-      Object.entries(parsed)
-        .filter(([, value]) => typeof value === 'string')
-    )
-  } catch {
-    return {}
-  }
-}
-
 /** @returns {'bottom' | 'right'} */
 function loadGoalsPanelPosition() {
   if (typeof localStorage === 'undefined') return 'right'
   return localStorage.getItem(LS_GOALS_PANEL_POSITION_KEY) === 'bottom' ? 'bottom' : 'right'
-}
-
-/**
- * @param {Record<string, string>} overrides
- * @returns {Record<string, string>}
- */
-function cleanShortcutOverrides(overrides) {
-  return Object.fromEntries(
-    Object.entries(overrides)
-      .map(([id, value]) => [id, value.trim()])
-      .filter(([id, value]) => agdaShortcutIds.has(id) && value)
-  )
 }
 
 let width = $state(0)
@@ -815,7 +785,7 @@ function handleAgdaChordKeydown(event) {
   } else if (result.id === '__abort') {
     sendAbort()
   } else {
-    const shortcut = findAgdaShortcutById(result.id, activeAgdaShortcutRegistry)
+    const shortcut = findAgdaShortcutById(result.id, shortcutOverrideState.registry)
     if (shortcut) runAgdaShortcutDefinition(shortcut)
   }
 
@@ -1059,8 +1029,7 @@ export function loadSource(source, what = 'Example') {
 }
 
 function openSettingsPanel() {
-  shortcutDrafts = { ...shortcutOverrides }
-  shortcutOverrideMessage = ''
+  shortcutOverrideState.beginEditing()
   settingsPanelVisible = true
 }
 
@@ -1095,42 +1064,9 @@ function openAgdaFile(event) {
   input.value = ''
 }
 
-/**
- * @param {string} id
- * @param {string} value
- */
-function setShortcutDraft(id, value) {
-  shortcutDrafts = { ...shortcutDrafts, [id]: value }
-  shortcutOverrideMessage = ''
-}
-
-/** @param {string} id */
-function clearShortcutDraft(id) {
-  const next = { ...shortcutDrafts }
-  delete next[id]
-  shortcutDrafts = next
-  shortcutOverrideMessage = ''
-}
-
-function saveShortcutOverrides() {
-  const cleaned = cleanShortcutOverrides(shortcutDrafts)
-  const validation = validateAgdaShortcutOverrides(cleaned)
-  if (!validation.valid) {
-    shortcutOverrideMessage = validation.errors.join(' ')
-    return
-  }
-
-  shortcutOverrides = cleaned
-  shortcutDrafts = { ...cleaned }
-  localStorage.setItem(LS_SHORTCUT_OVERRIDES_KEY, JSON.stringify(cleaned))
-  shortcutOverrideMessage = Object.keys(cleaned).length
-    ? 'Shortcut overrides saved.'
-    : 'Shortcut overrides cleared.'
-}
-
 /** @param {string} id */
 function runAgdaShortcutById(id) {
-  const shortcut = findAgdaShortcutById(id, activeAgdaShortcutRegistry)
+  const shortcut = findAgdaShortcutById(id, shortcutOverrideState.registry)
   if (shortcut) runAgdaShortcutDefinition(shortcut)
 }
 
@@ -1142,18 +1078,10 @@ function toggleIrrelevantArgsFromSettings() {
   runAgdaShortcutById('toggle-irrelevant-args')
 }
 
-function resetShortcutOverrides() {
-  shortcutOverrides = {}
-  shortcutDrafts = {}
-  localStorage.removeItem(LS_SHORTCUT_OVERRIDES_KEY)
-  shortcutOverrideMessage = 'Shortcut overrides reset to defaults.'
-}
-
-
 function sendAbort() {
   return /** @type {any} */(agdaController.lspClient).request('agda', {
     tag: 'CmdReq',
-    contents: `IOTCM ${JSON.stringify(agdaController.currentFilePath)} NonInteractive Direct (Cmd_abort)`,
+    contents: `IOTCM ${JSON.stringify(agdaController.currentFilePath)} NonInteractive Direct ${abortCommand()}`,
   })
 }
 
@@ -1212,7 +1140,6 @@ function syncAgdaDiagnostics() {
 }
 
 let textboxContent = $state('WIP')
-const initialShortcutOverrides = loadShortcutOverrides()
 let goalInfos = $state(/** @type {{id: number | string, range?: string, type?: string, context?: string}[]} */([]))
 let panelGoalInfos = $state(/** @type {{id: number | string, range?: string, type?: string, context?: string}[]} */([]))
 let agdaDiagnostics = $state(/** @type {import('$lib/agda/diagnostics').AgdaDiagnostic[]} */([]))
@@ -1254,14 +1181,10 @@ let settingsPanelVisible = $state(false)
 let aboutPanelVisible = $state(false)
 /** @type {HTMLInputElement} */
 let fileInput
-let shortcutOverrides = $state(initialShortcutOverrides)
-let shortcutDrafts = $state({ ...initialShortcutOverrides })
-let shortcutOverrideMessage = $state('')
-let activeAgdaShortcutRegistry = $derived(createAgdaShortcutRegistry(shortcutOverrides))
-let shortcutDraftValidation = $derived(validateAgdaShortcutOverrides(cleanShortcutOverrides(shortcutDrafts)))
+const shortcutOverrideState = new ShortcutOverridesState(LS_SHORTCUT_OVERRIDES_KEY)
 let chordTable = $derived([
   ...reservedChordSequences,
-  ...activeAgdaShortcutRegistry.flatMap(shortcut =>
+  ...shortcutOverrideState.registry.flatMap(shortcut =>
     shortcut.bindings
       .filter(binding => binding.kind === 'chord')
       .map(binding => ({ id: shortcut.id, steps: chordStepsOf(binding) }))),
@@ -1335,7 +1258,7 @@ $effect(() => {
           </button>
           {#if commandsPanelVisible}
             <div id="commands-panel" class="commands-panel" aria-label="Agda commands">
-              {#each activeAgdaShortcutRegistry as shortcut (shortcut.id)}
+              {#each shortcutOverrideState.registry as shortcut (shortcut.id)}
                 <button
                   type="button"
                   class="command-button"
@@ -1493,14 +1416,14 @@ $effect(() => {
   onToggleIrrelevantArgs={toggleIrrelevantArgsFromSettings}
   {deployProfiles}
   {runtimeSummary}
-  {shortcutDrafts}
-  {shortcutDraftValidation}
-  {shortcutOverrideMessage}
-  {activeAgdaShortcutRegistry}
-  onSaveShortcutOverrides={saveShortcutOverrides}
-  onResetShortcutOverrides={resetShortcutOverrides}
-  onSetShortcutDraft={setShortcutDraft}
-  onClearShortcutDraft={clearShortcutDraft}
+  shortcutDrafts={shortcutOverrideState.drafts}
+  shortcutDraftValidation={shortcutOverrideState.draftValidation}
+  shortcutOverrideMessage={shortcutOverrideState.message}
+  activeAgdaShortcutRegistry={shortcutOverrideState.registry}
+  onSaveShortcutOverrides={shortcutOverrideState.save}
+  onResetShortcutOverrides={shortcutOverrideState.reset}
+  onSetShortcutDraft={shortcutOverrideState.setDraft}
+  onClearShortcutDraft={shortcutOverrideState.clearDraft}
 />
 <AboutPanel bind:visible={aboutPanelVisible} {runtimeSummary} />
 {/snippet}
