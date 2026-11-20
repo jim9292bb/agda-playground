@@ -22,14 +22,38 @@ ab() {
   XDG_RUNTIME_DIR="$AGENT_BROWSER_RUNTIME" agent-browser "$@"
 }
 
+# Waits for a freshly (re)loaded page to have mounted `selector`.
+#
+# Not `wait --load networkidle`: since agent-browser 0.4x that also tracks
+# the ALS Web Worker's own traffic plus Vite's HMR connection, so the page
+# never goes idle and every wait times out. The app-level readiness signals
+# the tests actually need (Restart enabled, "Load finished." in the log) are
+# polled separately by start_als / load_agda anyway.
+wait_for_app_ready() {
+  local selector="${1:-.cm-content}"
+  ab wait --load load >/dev/null
+  ab wait "$selector" >/dev/null
+}
+
+# Clears the given localStorage keys, then reloads so each test starts from
+# a clean app state, even when the dev server has hot-reloaded between test
+# runs. `ab reload` (rather than an in-page location.reload()) waits for the
+# new navigation, so the next wait can't race against the old document.
+reset_storage_and_reload() {
+  local selector="$1"
+  shift
+  local keys_json
+  keys_json="$(node -e 'console.log(JSON.stringify(process.argv.slice(1)))' "$@")"
+  ab eval "(() => { for (const key of $keys_json) localStorage.removeItem(key) })()" >/dev/null
+  ab reload >/dev/null
+  wait_for_app_ready "$selector"
+}
+
 open_app() {
   ab open "$APP_URL"
-  ab wait --load networkidle
-  # Force a full reload so each test starts from a clean app state,
-  # even when the dev server has hot-reloaded between test runs.
+  wait_for_app_ready
   # Clear shortcut overrides so tests don't inherit state from a previous test run.
-  ab eval "localStorage.removeItem('agda-playground.shortcut-overrides.v1'); location.reload()"
-  ab wait --load networkidle
+  reset_storage_and_reload .cm-content 'agda-playground.shortcut-overrides.v1'
 }
 
 click_button() {

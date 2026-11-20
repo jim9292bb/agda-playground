@@ -22,12 +22,13 @@ source "$SCRIPT_DIR/browser-common.sh"
 
 plfa_open_app() {
   ab open "$APP_URL"
-  ab wait --load networkidle
+  wait_for_app_ready .literate-cell
   # /plfa uses its own localStorage namespace (AgdaController's
   # sourceFileName: 'source-plfa.lagda.md') so it doesn't share state with
   # the default route or /literate.
-  ab eval "localStorage.removeItem('agda-playground-plfa.shortcut-overrides.v1'); localStorage.removeItem('agda-web-ide-beta:doc:source-plfa.lagda.md'); location.reload()"
-  ab wait --load networkidle
+  reset_storage_and_reload .literate-cell \
+    'agda-playground-plfa.shortcut-overrides.v1' \
+    'agda-web-ide-beta:doc:source-plfa.lagda.md'
 }
 
 # Opens the "Chapters" dropdown and clicks the entry whose label *starts
@@ -53,7 +54,8 @@ select_plfa_chapter() {
     item.click()
     return { ok: true, prefix }
   })()"
-  ab wait --load networkidle
+  # Picking a chapter replaces the notebook in-page (no navigation).
+  ab wait .literate-cell >/dev/null
 }
 
 cell_count() {

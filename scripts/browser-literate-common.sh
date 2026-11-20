@@ -20,12 +20,13 @@ source "$SCRIPT_DIR/browser-common.sh"
 
 literate_open_app() {
   ab open "$APP_URL"
-  ab wait --load networkidle
+  wait_for_app_ready .literate-cell
   # /literate uses its own localStorage namespace (AgdaController.
   # docStorageKey and the *-literate shortcut-overrides/goals-panel-position
   # keys) so it doesn't share state with the default route.
-  ab eval "localStorage.removeItem('agda-playground-literate.shortcut-overrides.v1'); localStorage.removeItem('agda-web-ide-beta:doc:source.lagda.md'); location.reload()"
-  ab wait --load networkidle
+  reset_storage_and_reload .literate-cell \
+    'agda-playground-literate.shortcut-overrides.v1' \
+    'agda-web-ide-beta:doc:source.lagda.md'
 }
 
 cell_count() {
