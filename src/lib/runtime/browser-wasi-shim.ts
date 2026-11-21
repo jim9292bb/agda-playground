@@ -52,6 +52,9 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
   private _wasmLoadingProgress: WASMLoadingProgress | null = null
   private _agdaiFetchSab: SharedArrayBuffer | undefined
   private _agdaiFetchAbort = false
+  /** Bumped by terminate(), so an init() still in flight can tell it was
+   *  abandoned and stop before spawning a worker nobody will terminate. */
+  private _terminateGeneration = 0
   private _agdaiFetchCache = new Map<string, Uint8Array>()
   /** VFS library name -> static/agdai/ content-hash key (see interface.ts's
    *  ResolvedLibrary.agdaiKey). Built once in init() from the active
@@ -102,6 +105,7 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
   async init(options: BackendInitOptions): Promise<MessagePort> {
     const { agdaVersion, libraries, callbacks } = options
     const trace = createPerformanceTrace()
+    const generation = this._terminateGeneration
 
     this._nameToAgdaiKey = new Map(libraries.map(lib => [lib.name, lib.agdaiKey]))
 
@@ -158,6 +162,14 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
       trackLib(trace.measure('Read Agda builtins data', () => wasmAndData.dataFile.arrayBuffer())),
       Promise.all(libraries.map(lib => this._fetchLibraryZips(lib, trace, trackLib))),
     ])
+
+    // terminate() may have run while the zips were fetching: it found no
+    // worker to stop, so don't spawn one (or re-arm the .agdai listener) now.
+    // (terminate() also nulls _wasmLoadingProgress, which would otherwise
+    // make the spawn below throw a TypeError -- don't rely on that.)
+    if (generation !== this._terminateGeneration) {
+      throw new Error('backend terminated during init')
+    }
 
     this._agdaiFetchSab = new SharedArrayBuffer(AGDAI_SAB_SIZE)
     this._agdaiFetchAbort = false
@@ -308,6 +320,7 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
   }
 
   terminate(): void {
+    this._terminateGeneration++
     this._wasmLoadingProgress?.cancel?.()
     this._wasmLoadingProgress = null
 

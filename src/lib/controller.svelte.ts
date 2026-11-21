@@ -264,6 +264,12 @@ export class AgdaController {
     this.alsWorkerStatus = 'loading'
     this.performanceEntries = []
 
+    // switchProfile() can replace the backend while this init() is still in
+    // flight (the select is re-enabled once the WASM has downloaded, while
+    // library zips are still being fetched). From then on this init()'s
+    // callbacks and result belong to an abandoned session and must not touch
+    // the controller's state, which now tracks the new backend.
+    const isCurrent = () => this._backend === backend
     this._initializingBackend = backend
     const port1 = await backend.init({
       agdaVersion: this.activeProfile.als,
@@ -271,18 +277,25 @@ export class AgdaController {
       agdaBuffers: this.config.agdaBuffers,
       driveBuffers: this.config.driveBuffers,
       callbacks: {
-        onWASMLoadingProgressChange: (p) => { this.wasmLoadingProgress = p },
-        onWASMLoaded: () => { this.alsWorkerStatus = 'loaded' },
-        onVersionReceived: (ver) => { this.receivedALSVersion = ver },
-        onNumericAgdaVersionReceived: (ver) => { this.receivedNumericAgdaVersion = ver },
-        onLibraryFetchProgress: (fetched, total) => { this.wasmLibraryFetchProgress = { fetched, total } },
-        onDriveCreated: () => { this.driveIsCreated = true },
-        onPerformanceEntries: (entries) => { this.appendPerformanceEntries(entries) },
+        onWASMLoadingProgressChange: (p) => { if (isCurrent()) this.wasmLoadingProgress = p },
+        onWASMLoaded: () => { if (isCurrent()) this.alsWorkerStatus = 'loaded' },
+        onVersionReceived: (ver) => { if (isCurrent()) this.receivedALSVersion = ver },
+        onNumericAgdaVersionReceived: (ver) => { if (isCurrent()) this.receivedNumericAgdaVersion = ver },
+        onLibraryFetchProgress: (fetched, total) => { if (isCurrent()) this.wasmLibraryFetchProgress = { fetched, total } },
+        onDriveCreated: () => { if (isCurrent()) this.driveIsCreated = true },
+        onPerformanceEntries: (entries) => { if (isCurrent()) this.appendPerformanceEntries(entries) },
       },
     }).catch(() => null)
       .finally(() => {
         if (this._initializingBackend === backend) this._initializingBackend = undefined
       })
+
+    if (!isCurrent()) {
+      // The backend was terminated mid-init; terminate again in case its
+      // init() got as far as spawning a worker after that.
+      backend.terminate()
+      return
+    }
 
     if (port1 == null) {
       this.alsWorkerStatus = 'errored'
