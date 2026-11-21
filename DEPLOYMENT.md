@@ -2,13 +2,12 @@
 
 ## Quick start
 
-To deploy using this project's own shipped defaults — three ready-to-use
+To deploy using this project's own shipped defaults — two ready-to-use
 profiles, each pairing one ALS version with a compatible stdlib + Cubical
 version:
 
 - ALS 2.8.0 + stdlib 2.3 + Cubical 0.9 + agda-categories 0.3.0
 - ALS 2.7.0.1 + stdlib 2.2 + Cubical 0.8
-- ALS 2.6.4.3 + stdlib 2.1 + Cubical 0.7
 
 ```sh
 git clone https://github.com/jim9292bb/agda-playground.git
@@ -24,17 +23,17 @@ download only warns). `auto-configure` downloads the shipped libraries,
 creates `deploy.config.json`, and fetches prebuilt `.agdai` files. `setup`
 downloads the ALS runtime assets (wasm + agda-data) for every version in
 `deploy.config.json` straight into `static/als/` from this project's
-[`als-runtime` release](https://github.com/jim9292bb/agda-playground/releases/tag/als-runtime),
+[`als-runtime-v11` release](https://github.com/jim9292bb/agda-playground/releases/tag/als-runtime-v11),
 then packages everything into `static/`. To run locally instead of
 deploying, use `npm run dev` — the app will be available at `http://localhost:8099`.
 
-Add `-- --with-plfa` to also fetch a fourth profile for the `/plfa` route
+Add `-- --with-plfa` to also fetch a third profile for the `/plfa` route
 (`npm run auto-configure -- --with-plfa`): stdlib 2.1.1 + PLFA (ALS 2.7.0.1).
-Opt-in rather than a fifth default, since its prebuilt `.agdai` cache is much
+Opt-in rather than a third default, since its prebuilt `.agdai` cache is much
 heavier (~285MB) than the other profiles need. Fetches from
 `agda/agda-stdlib`, `plfa/plfa.github.io` (pinned commit), and this project's
 own `plfa-agdai-v1` release the same way the other profiles fetch from
-`als-runtime`/`cache-*` releases — see `als-demo/scripts/auto-configure.mjs`'s
+`als-runtime-v11`/`cache-*` releases — see `als-demo/scripts/auto-configure.mjs`'s
 `PLFA_LIBRARIES`/`PLFA_PROFILE`.
 
 ## Custom deployment
@@ -167,13 +166,18 @@ through `vite build`'s asset-copy step.)
 
 The `als` field in `deploy.config.json` accepts exactly the versions
 published as assets of this project's
-[`als-runtime` release](https://github.com/jim9292bb/agda-playground/releases/tag/als-runtime):
+[`als-runtime-v11` release](https://github.com/jim9292bb/agda-playground/releases/tag/als-runtime-v11):
 
 | `als` value | Agda / ALS version | Suggested libraries |
 |---|---|---|
 | `"2.8.0"` | Agda 2.8.0 | stdlib 2.3, cubical 0.9, agda-categories 0.3.0 |
 | `"2.7.0.1"` | Agda 2.7.0.1 | stdlib 2.1.1–2.3, cubical 0.8 |
-| `"2.6.4.3"` | Agda 2.6.4.3 | stdlib 2.1, cubical 0.7 |
+
+Agda 2.6.4.3 is no longer offered: upstream
+[agda/agda-language-server](https://github.com/agda/agda-language-server)
+dropped it in v11, the ALS release these WASM builds come from. Upstream v11
+also ships Agda 2.9.0 natively only, with no WASM build, so 2.9.0 isn't
+available here yet.
 
 Any other value makes `npm run setup` fail when it tries to download
 `als-<version>.wasm` from the release. To add a version, publish its
@@ -182,14 +186,6 @@ Any other value makes `npm run setup` fail when it tries to download
 
 **Known cross-version behavior differences:**
 
-- **Auto (`Cmd_autoOne`)**: Agda 2.7.0 replaced the old term synthesizer
-  _Agsy_ with a new implementation, _Mimer_ ([2.7.0 release notes](https://agda.readthedocs.io/en/v2.7.0/tools/auto.html),
-  marked `[Breaking]`). ALS 2.6.4.3 still uses Agsy; ALS 2.7.0.1 and 2.8.0
-  use Mimer. Mimer is strictly more capable — Agsy is known to fail on
-  goals Mimer solves instantly (confirmed: a trivial `idN n = {! !}` case
-  that 2.7.0.1/2.8.0 solve in under a second returns no solution on
-  2.6.4.3). Auto does not hang, it just may not find an answer that newer
-  versions do.
 - **Diagnostic message format**: Agda 2.7.0 changed error/warning position
   formatting from comma-separated (`7,16-17`) to period-separated with an
   embedded error code (`7.16-17: error: [NotInScope]`), to comply with the
@@ -241,7 +237,7 @@ their browser's local storage).
 | Field | Required | Description |
 |---|---|---|
 | `label` | yes | Display name in the profile selector. Must be unique — used as the profile's identity in the UI and local storage |
-| `als` | yes | Agda version number — must be one of the [supported ALS versions](#supported-als-versions). `npm run setup` downloads `als-<version>.wasm` and `agda-data.zip` for it from the `als-runtime` release into `static/als/<version>/` |
+| `als` | yes | Agda version number — must be one of the [supported ALS versions](#supported-als-versions). `npm run setup` downloads `als-<version>.wasm` and `agda-data.zip` for it from the `als-runtime-v11` release into `static/als/<version>/` |
 | `libraries` | yes | List of library entries — see below |
 | `plfa` | no | Set to `true` to mark this as the profile the `/plfa` route auto-selects and to make `AppSwitcher` show a "PLFA" link. A dedicated field rather than matching on `label` text, so relabeling a profile (e.g. bumping its version string) can never silently break PLFA detection. At most one profile should set this |
 

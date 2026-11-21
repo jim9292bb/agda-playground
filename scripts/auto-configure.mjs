@@ -10,7 +10,7 @@
  * graph tool is installed by npm install (scripts/ensure-graph-als.mjs).
  *
  * This is NOT a generic, deploy.config.json-driven downloader — the library
- * set is hardcoded to this project's shipped defaults across all three
+ * set is hardcoded to this project's shipped defaults across both
  * supported ALS versions (see SHIPPED_PROFILES below), plus one more
  * opt-in profile for the /plfa route (see PLFA_LIBRARIES/PLFA_PROFILE) —
  * opt-in because its prebuilt .agdai cache is much heavier (~285MB) than
@@ -44,7 +44,6 @@ const DEPLOY_ASSETS = resolve(REPO_ROOT, '.deploy-assets')
 // separate cache releases.
 const CACHE_RELEASE_2_8_0 = 'https://github.com/jim9292bb/agda-playground/releases/download/cache-2.8.0'
 const CACHE_RELEASE_2_7_0_1 = 'https://github.com/jim9292bb/agda-playground/releases/download/cache-2.7.0.1'
-const CACHE_RELEASE_2_6_4_3 = 'https://github.com/jim9292bb/agda-playground/releases/download/cache-2.6.4.3'
 
 // Hardcoded metadata for this project's shipped defaults.
 const SHIPPED_LIBRARIES = [
@@ -102,25 +101,6 @@ const SHIPPED_LIBRARIES = [
     // simply removed rather than reproducing cubical's own generation step.
     removeAfterFetch: ['Cubical/README.agda', 'Cubical/Talks/EPA2020.agda'],
   },
-  {
-    name: 'standard-library-2.1',
-    agdaLibFile: 'standard-library.agda-lib',
-    sourceUrl: 'https://github.com/agda/agda-stdlib/archive/refs/tags/v2.1.zip',
-    cacheRelease: CACHE_RELEASE_2_6_4_3,
-    releaseAssetPrefix: 'stdlib',
-    label: 'stdlib',
-    version: '2.1',
-  },
-  {
-    name: 'cubical-0.7',
-    agdaLibFile: 'cubical.agda-lib',
-    sourceUrl: 'https://github.com/agda/cubical/archive/refs/tags/v0.7.zip',
-    cacheRelease: CACHE_RELEASE_2_6_4_3,
-    releaseAssetPrefix: 'cubical',
-    label: 'cubical',
-    version: '0.7',
-    removeAfterFetch: ['Cubical/README.agda', 'Cubical/Talks/EPA2020.agda'], // see cubical-0.8's comment above
-  },
 ]
 
 const SHIPPED_PROFILES = [
@@ -133,11 +113,6 @@ const SHIPPED_PROFILES = [
     label: 'Standard Library v2.2 + Cubical v0.8 (ALS 2.7.0.1)',
     als: '2.7.0.1',
     libraries: ['standard-library-2.2', 'cubical-0.8'],
-  },
-  {
-    label: 'Standard Library v2.1 + Cubical v0.7 (ALS 2.6.4.3)',
-    als: '2.6.4.3',
-    libraries: ['standard-library-2.1', 'cubical-0.7'],
   },
 ]
 
