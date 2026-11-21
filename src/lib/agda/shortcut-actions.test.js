@@ -24,7 +24,7 @@ import {
   whyInScopeCommand,
   whyInScopeToplevelCommand,
 } from './commands'
-import { dispatchAgdaShortcut } from './shortcut-actions'
+import { computeModeForPrefix, dispatchAgdaShortcut, normalizationForPrefix } from './shortcut-actions'
 import { agdaShortcutRegistry } from './shortcuts'
 
 const goal = { id: 3, from: 10, to: 17, text: '{! x !}' }
@@ -47,12 +47,15 @@ function makeHost() {
   return { host, calls, router }
 }
 
-/** @param {string} id */
-function dispatch(id) {
+/**
+ * @param {string} id
+ * @param {number} [prefixCount]
+ */
+function dispatch(id, prefixCount) {
   const shortcut = agdaShortcutRegistry.find(s => s.id === id)
   if (!shortcut) throw new Error(`no shortcut ${id}`)
   const env = makeHost()
-  dispatchAgdaShortcut(shortcut, env.host)
+  dispatchAgdaShortcut(shortcut, env.host, prefixCount)
   const commandCall = env.calls.find(c => c[0] === 'run' || c[0] === 'prompt')
   return {
     ...env,
@@ -234,5 +237,78 @@ describe('pending-goal cleanup hooks', () => {
     host.getAlsRouter = () => undefined
     dispatchAgdaShortcut(shortcut, host)
     expect(() => calls[0][3].onFailure()).not.toThrow()
+  })
+})
+
+describe('C-u normalization prefix', () => {
+  const simplifiedFamily = ['goal-type', 'context', 'goal-type-context', 'goal-type-context-infer',
+    'goal-type-context-check', 'search-about', 'module-contents', 'elaborate-give', 'infer']
+
+  it('maps prefix counts like agda-mode-vscode (Simplified-default commands)', () => {
+    for (const id of simplifiedFamily) {
+      expect([0, 1, 2, 3].map(n => normalizationForPrefix(id, n)), id)
+        .toEqual(['Simplified', 'Instantiated', 'Normalised', 'HeadNormal'])
+    }
+  })
+
+  it('maps prefix counts like agda-mode-vscode (AsIs-default commands)', () => {
+    for (const id of ['auto', 'helper-function']) {
+      expect([0, 1, 2, 3].map(n => normalizationForPrefix(id, n)), id)
+        .toEqual(['AsIs', 'Simplified', 'Normalised', 'HeadNormal'])
+    }
+  })
+
+  it('maps Compute modes, keeping the last mode for a third C-u', () => {
+    expect([0, 1, 2, 3].map(computeModeForPrefix))
+      .toEqual(['DefaultCompute', 'IgnoreAbstract', 'UseShowInstance', 'UseShowInstance'])
+  })
+
+  it('clamps out-of-range counts', () => {
+    expect(normalizationForPrefix('goal-type', 7)).toBe('HeadNormal')
+    expect(normalizationForPrefix('goal-type', -1)).toBe('Simplified')
+  })
+
+  it('reports no normalization for commands that take none', () => {
+    for (const id of ['load', 'give', 'refine', 'case-split', 'why-in-scope', 'compute', 'toggle-implicit-args']) {
+      expect(normalizationForPrefix(id, 2), id).toBeNull()
+    }
+  })
+
+  it('sends the selected normalization and names it in the label', () => {
+    const goalType = dispatch('goal-type', 2)
+    expect(goalType.label).toBe('Goal type [Normalised]')
+    expect(goalType.command(inGoal)).toBe(goalTypeCommand('Normalised', goal))
+
+    const infer = dispatch('infer', 1)
+    expect(infer.label).toBe('Infer type [Instantiated]')
+    expect(infer.command(noGoal, 'x')).toBe(inferToplevelCommand('Instantiated', 'x'))
+
+    const auto = dispatch('auto', 1)
+    expect(auto.label).toBe('Auto [Simplified]')
+    expect(auto.command(inGoal)).toBe(autoOneCommand('Simplified', goal, 'RANGE', 'x'))
+
+    const helper = dispatch('helper-function', 3)
+    expect(helper.command(inGoal, 'x')).toBe(helperFunctionCommand('HeadNormal', goal, 'x'))
+
+    const compute = dispatch('compute', 1)
+    expect(compute.label).toBe('Compute [IgnoreAbstract]')
+    expect(compute.command(noGoal, 'x')).toBe(computeToplevelCommand('IgnoreAbstract', 'x'))
+  })
+
+  it('leaves labels and commands unchanged without a prefix', () => {
+    for (const shortcut of agdaShortcutRegistry) {
+      const unprefixed = dispatch(shortcut.id)
+      const zero = dispatch(shortcut.id, 0)
+      expect(zero.label, shortcut.id).toBe(unprefixed.label)
+      expect(unprefixed.label ?? shortcut.label, shortcut.id).toBe(shortcut.label)
+    }
+    expect(dispatch('goal-type').command(inGoal)).toBe(goalTypeCommand('Simplified', goal))
+    expect(dispatch('auto').command(inGoal)).toBe(autoOneCommand('AsIs', goal, 'RANGE', 'x'))
+  })
+
+  it('ignores the prefix for commands without variants', () => {
+    const give = dispatch('give', 2)
+    expect(give.label).toBe(dispatch('give').label)
+    expect(give.command(inGoal, 'x')).toBe(giveCommand(goal, 'RANGE', 'x'))
   })
 })

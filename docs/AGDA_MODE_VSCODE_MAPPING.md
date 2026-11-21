@@ -40,13 +40,31 @@ for this browser-hosted single-file Agda playground IDE. Use it before searching
 | `C-c C-o` | Module contents `[Simplified]` | `Cmd_show_module_contents Simplified goalId noRange content` or top-level variant |
 | `C-c C-w` | Why in scope | `Cmd_why_in_scope goalId noRange content` or top-level variant |
 
+## Normalization Prefix (`C-u`)
+
+As in agda-mode-vscode, pressing `C-u` 1-3 times before a shortcut picks that
+run's normalization (or Compute mode); it applies to that one run only. The
+log label names the variant, e.g. `Goal type [Normalised]`. Mapping and
+dispatch live in `src/lib/agda/shortcut-actions.js` (`normalizationForPrefix`,
+`computeModeForPrefix`); `C-u` cannot start a shortcut override.
+
+| Commands | none | `C-u` | `C-u C-u` | `C-u C-u C-u` |
+| --- | --- | --- | --- | --- |
+| Goal type, Context, Goal type and context, ...inferred type, ...checked type, Infer type, Search about, Module contents, Elaborate and give | `Simplified` | `Instantiated` | `Normalised` | `HeadNormal` |
+| Auto, Helper function type | `AsIs` | `Simplified` | `Normalised` | `HeadNormal` |
+| Compute normal form | `DefaultCompute` | `IgnoreAbstract` | `UseShowInstance` | `UseShowInstance` (agda-mode-vscode binds no third level) |
+
+Other shortcuts ignore the prefix. Not yet applicable: agda-mode-vscode's
+prefixed constraints/goals commands (`Cmd_constraints`, `Cmd_metas`,
+`Cmd_solveAll`), which this playground doesn't implement.
+
 ## Important Behavior
 
 - `C-c C-.` falls back to `Cmd_goal_type_context` when the active goal content is empty.
 - Commands that need content use the command input panel when the active goal or selection is empty.
 - `C-c C-z` is naturally prompt-based in agda-mode-vscode. In this playground, it uses selected text or the command input panel.
 - `C-c C-o` and `C-c C-w` support top-level selected text when the cursor is not inside a goal.
-- `C-u` normalization prefix variants are not implemented yet; they are tracked in the roadmap.
+- `C-u` normalization prefix: see "Normalization Prefix (`C-u`)" below.
 - Always keep command string construction in `src/lib/agda/commands.js`.
 - Keep shortcut definitions in `src/lib/agda/shortcuts.js`; UI code should dispatch by shortcut id rather than hard-coded key branches.
 

@@ -170,6 +170,19 @@ export function displayKey(key) {
   return key.length === 1 ? key : key[0].toUpperCase() + key.slice(1)
 }
 
+/**
+ * The pending-chord hint, e.g. "C-u C-u C-c" while a prefixed shortcut is
+ * half typed.
+ * @param {number} prefixCount pending `C-u` presses
+ * @param {ChordStep[]} progress chord steps typed so far
+ */
+export function formatChordHint(prefixCount, progress) {
+  return [
+    ...Array(prefixCount).fill('C-u'),
+    ...progress.map(step => `C-${displayKey(step.key)}`),
+  ].join(' ')
+}
+
 /** Two fixed chord sequences that are hardcoded elsewhere in the app
  *  (Unicode lookup, ALS abort) rather than dispatched through the regular
  *  shortcut registry. Not user-overridable and not shown in Settings, but
@@ -282,6 +295,22 @@ function isPrefixOf(shorter, longer) {
 }
 
 /**
+ * `C-u` -- Emacs's universal argument -- is not a chord of its own: pressed
+ * (up to MAX_PREFIX_COUNT times, see shortcut-actions.js) before a shortcut,
+ * it selects that shortcut's normalization variant, as in agda-mode-vscode.
+ * @param {KeyboardEvent} event
+ */
+export function isUniversalArgumentEvent(event) {
+  return event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey
+    && event.key.toLowerCase() === 'u'
+}
+
+/** @param {ChordStep[]} steps */
+function startsWithUniversalArgument(steps) {
+  return steps[0]?.ctrl === true && steps[0].key.toLowerCase() === 'u'
+}
+
+/**
  * @param {Record<string, string>} overrides
  * @returns {{valid: boolean, errors: string[]}}
  */
@@ -289,8 +318,11 @@ export function validateAgdaShortcutOverrides(overrides) {
   const errors = []
   for (const [id, value] of Object.entries(overrides)) {
     if (!value.trim()) continue
-    if (!parseAgdaChordBinding(value)) {
+    const binding = parseAgdaChordBinding(value)
+    if (!binding) {
       errors.push(`${id}: use a chord such as Ctrl-c Ctrl-g, Ctrl-x Ctrl-s, or Ctrl-c Ctrl-x Ctrl-a.`)
+    } else if (startsWithUniversalArgument(binding.steps ?? [])) {
+      errors.push(`${id}: Ctrl-u is reserved as the normalization prefix and cannot start a shortcut.`)
     }
   }
 

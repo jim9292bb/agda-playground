@@ -542,13 +542,21 @@ external editor setup.
 Goal: expose useful Agda command variants without copying VSCode's exact prefix
 UI when it does not fit the browser playground.
 
-- [ ] Support AsIs normalization.
-- [ ] Support Simplified normalization.
-- [ ] Support Instantiated normalization where supported.
-- [ ] Support Normalised normalization.
-- [ ] Support HeadNormal normalization.
-- [ ] Add a browser-friendly alternative to VSCode's `C-u` prefix flow.
-- [ ] Apply normalization variants to Goal type, Context, Auto, Compute, Search, and Constraints.
+- [x] Support AsIs normalization.
+- [x] Support Simplified normalization.
+- [x] Support Instantiated normalization where supported.
+- [x] Support Normalised normalization.
+- [x] Support HeadNormal normalization.
+- [x] Support VSCode's `C-u` prefix flow — kept as agda-mode-vscode's own
+      keyboard prefix (1-3 `C-u` presses before a shortcut, one run only),
+      no extra UI; see `docs/AGDA_MODE_VSCODE_MAPPING.md`'s "Normalization
+      Prefix" section. Regression-tested with
+      `npm run test:browser:normalization-prefix` (and its `/literate`
+      counterpart).
+- [x] Apply normalization variants to Goal type, Context, Auto, Compute, and Search
+      (plus the other query/give commands agda-mode-vscode prefixes).
+- [ ] Apply normalization variants to Constraints -- once the commands in
+      "Constraints and Metas" below exist.
 
 ## Constraints and Metas
 

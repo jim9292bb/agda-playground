@@ -55,7 +55,8 @@ import {
   advanceAgdaChord,
   agdaShortcutRegistry,
   chordStepsOf,
-  displayKey,
+  formatChordHint,
+  isUniversalArgumentEvent,
   findAgdaShortcutById,
   formatAgdaShortcutHelpBinding,
   reservedChordSequences,
@@ -65,7 +66,7 @@ import {
   abortCommand,
   goalTypeContextCommand,
 } from '$lib/agda/commands'
-import { dispatchAgdaShortcut } from '$lib/agda/shortcut-actions'
+import { dispatchAgdaShortcut, MAX_PREFIX_COUNT } from '$lib/agda/shortcut-actions'
 import { ShortcutOverridesState } from '$lib/agda/shortcut-overrides-state.svelte'
 import { CommandInputState } from '$lib/agda/command-input-state.svelte'
 
@@ -636,9 +637,12 @@ async function requestActiveGoalDetails(/** @type {number} */ goalId, /** @type 
 
 /** @type {import('$lib/agda/shortcuts').ChordStep[]} */
 let chordProgress = $state([])
+/** `C-u` presses waiting for the next shortcut (its normalization prefix). */
+let universalArgumentCount = $state(0)
 
 function clearChordProgress() {
   chordProgress = []
+  universalArgumentCount = 0
 }
 
 function lookupUnicodeAtCursor() {
@@ -658,15 +662,18 @@ function lookupUnicodeAtCursor() {
   agdaController.appendQueryResult('Unicode Lookup', content)
 }
 
-/** @param {import('$lib/agda/shortcuts').AgdaShortcutDefinition} shortcut */
-function runAgdaShortcutDefinition(shortcut) {
+/**
+ * @param {import('$lib/agda/shortcuts').AgdaShortcutDefinition} shortcut
+ * @param {number} [prefixCount] pending `C-u` presses
+ */
+function runAgdaShortcutDefinition(shortcut, prefixCount = 0) {
   dispatchAgdaShortcut(shortcut, {
     load: runLoadShortcut,
     focusAdjacentGoal,
     run: runAgdaShortcut,
     runWithInputPrompt: runAgdaShortcutWithInputPrompt,
     getAlsRouter: () => agdaController.alsRouter,
-  })
+  }, prefixCount)
 }
 
 const agdaKeymap = keymap.of(agdaShortcutRegistry.flatMap(shortcut =>
@@ -694,10 +701,21 @@ function handleAgdaChordKeydown(event) {
   // re-press Ctrl between chord keys without cancelling the chord.
   if (['Control', 'Alt', 'Shift', 'Meta'].includes(event.key)) return false
 
+  // `C-u` before a shortcut selects its normalization variant. Consumed here
+  // (also keeping it from the browser's view-source and CodeMirror's own
+  // Mod-u undoSelection) and only while no chord is in progress, as in
+  // agda-mode-vscode, where it is only a leading prefix.
+  if (chordProgress.length === 0 && isUniversalArgumentEvent(event)) {
+    universalArgumentCount = Math.min(universalArgumentCount + 1, MAX_PREFIX_COUNT)
+    event.preventDefault()
+    event.stopPropagation()
+    return true
+  }
+
   const result = advanceAgdaChord(chordProgress, event, chordTable)
 
   if (result.status === 'no-match') {
-    if (chordProgress.length === 0) return false
+    if (chordProgress.length === 0 && universalArgumentCount === 0) return false
     clearChordProgress()
     event.preventDefault()
     event.stopPropagation()
@@ -712,6 +730,7 @@ function handleAgdaChordKeydown(event) {
     return true
   }
 
+  const prefixCount = universalArgumentCount
   clearChordProgress()
   if (result.id === '__unicode-lookup') {
     lookupUnicodeAtCursor()
@@ -719,7 +738,7 @@ function handleAgdaChordKeydown(event) {
     sendAbort()
   } else {
     const shortcut = findAgdaShortcutById(result.id, shortcutOverrideState.registry)
-    if (shortcut) runAgdaShortcutDefinition(shortcut)
+    if (shortcut) runAgdaShortcutDefinition(shortcut, prefixCount)
   }
 
   return true
@@ -1260,9 +1279,9 @@ $effect(() => {
               </div>
             {/each}
           </div>
-          {#if chordProgress.length > 0}
+          {#if chordProgress.length > 0 || universalArgumentCount > 0}
             <div class="chord-hint" aria-live="polite" aria-label="Waiting for next chord key">
-              {chordProgress.map(step => `C-${displayKey(step.key)}`).join(' ')}
+              {formatChordHint(universalArgumentCount, chordProgress)}
             </div>
           {/if}
         </div>

@@ -2,6 +2,8 @@
 
 import {
   advanceAgdaChord,
+  formatChordHint,
+  isUniversalArgumentEvent,
   parseAgdaChordBinding,
   validateAgdaShortcutOverrides,
 } from './shortcuts'
@@ -97,6 +99,16 @@ describe('validateAgdaShortcutOverrides', () => {
     expect(result.errors.some(e => e.includes('__unicode-lookup'))).toBe(true)
   })
 
+  it('rejects an override that starts with the reserved C-u prefix', () => {
+    const result = validateAgdaShortcutOverrides({ load: 'C-u C-l' })
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(e => e.includes('Ctrl-u is reserved'))).toBe(true)
+  })
+
+  it('still allows u as a later chord step', () => {
+    expect(validateAgdaShortcutOverrides({ load: 'C-c C-u' }).valid).toBe(true)
+  })
+
   it('does not flag a valid, non-conflicting override', () => {
     const result = validateAgdaShortcutOverrides({ refine: 'C-c C-g' })
     expect(result).toEqual({ valid: true, errors: [] })
@@ -140,5 +152,25 @@ describe('advanceAgdaChord', () => {
     const result = advanceAgdaChord(afterX.progress, ctrlKeydown('a'), table)
     expect(result.status).toBe('complete')
     expect(result.id).toBe('abort')
+  })
+})
+
+describe('C-u prefix helpers', () => {
+  /** @param {Partial<KeyboardEvent>} init */
+  const key = init => /** @type {KeyboardEvent} */ ({ key: 'u', ctrlKey: false, altKey: false, metaKey: false, shiftKey: false, ...init })
+
+  it('recognizes only a bare Ctrl-u', () => {
+    expect(isUniversalArgumentEvent(key({ ctrlKey: true }))).toBe(true)
+    expect(isUniversalArgumentEvent(key({ ctrlKey: true, key: 'U' }))).toBe(true)
+    expect(isUniversalArgumentEvent(key({}))).toBe(false)
+    expect(isUniversalArgumentEvent(key({ ctrlKey: true, shiftKey: true }))).toBe(false)
+    expect(isUniversalArgumentEvent(key({ ctrlKey: true, altKey: true }))).toBe(false)
+    expect(isUniversalArgumentEvent(key({ ctrlKey: true, key: 'c' }))).toBe(false)
+  })
+
+  it('formats the pending hint with C-u presses first', () => {
+    expect(formatChordHint(0, [{ key: 'c', ctrl: true }])).toBe('C-c')
+    expect(formatChordHint(2, [])).toBe('C-u C-u')
+    expect(formatChordHint(1, [{ key: 'c', ctrl: true }])).toBe('C-u C-c')
   })
 })

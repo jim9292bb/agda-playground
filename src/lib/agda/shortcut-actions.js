@@ -58,6 +58,75 @@ import {
  * @prop {() => ALSMessageRouter | undefined} getAlsRouter
  */
 
+/** @typedef {import('./commands').Normalization} Normalization */
+/** @typedef {import('./commands').ComputeMode} ComputeMode */
+
+/** How many `C-u` presses a prefix can carry; extra presses are ignored. */
+export const MAX_PREFIX_COUNT = 3
+
+// `C-u` prefix count -> normalization, mirroring agda-mode-vscode's own
+// keybindings (package.json): most query commands default to Simplified,
+// while Auto and Helper function default to AsIs and so reach Simplified on
+// the first `C-u` instead of Instantiated.
+/** @type {readonly Normalization[]} */
+const SIMPLIFIED_FAMILY = ['Simplified', 'Instantiated', 'Normalised', 'HeadNormal']
+/** @type {readonly Normalization[]} */
+const AS_IS_FAMILY = ['AsIs', 'Simplified', 'Normalised', 'HeadNormal']
+// agda-mode-vscode binds only two `C-u` levels for Compute; a third press
+// keeps the second.
+/** @type {readonly ComputeMode[]} */
+const COMPUTE_MODES = ['DefaultCompute', 'IgnoreAbstract', 'UseShowInstance']
+
+const simplifiedFamilyIds = new Set([
+  'goal-type', 'context', 'goal-type-context', 'goal-type-context-infer',
+  'goal-type-context-check', 'search-about', 'module-contents',
+  'elaborate-give', 'infer',
+])
+const asIsFamilyIds = new Set(['auto', 'helper-function'])
+
+/** @param {number} prefixCount */
+function clampPrefix(prefixCount) {
+  return Math.max(0, Math.min(MAX_PREFIX_COUNT, Math.trunc(prefixCount) || 0))
+}
+
+/**
+ * The normalization a shortcut uses after `prefixCount` `C-u` presses, or
+ * null when the shortcut takes no normalization (the prefix is ignored).
+ * @param {string} shortcutId
+ * @param {number} prefixCount
+ * @returns {Normalization | null}
+ */
+export function normalizationForPrefix(shortcutId, prefixCount) {
+  const level = clampPrefix(prefixCount)
+  if (simplifiedFamilyIds.has(shortcutId)) return SIMPLIFIED_FAMILY[level]
+  if (asIsFamilyIds.has(shortcutId)) return AS_IS_FAMILY[level]
+  return null
+}
+
+/**
+ * Compute's mode after `prefixCount` `C-u` presses.
+ * @param {number} prefixCount
+ * @returns {ComputeMode}
+ */
+export function computeModeForPrefix(prefixCount) {
+  return COMPUTE_MODES[Math.min(clampPrefix(prefixCount), COMPUTE_MODES.length - 1)]
+}
+
+/**
+ * The log label for a run: unchanged without a prefix, so default runs log
+ * exactly as before; with one, the chosen variant is appended
+ * (e.g. "Goal type [Normalised]"), as agda-mode-vscode names its variants.
+ * @param {AgdaShortcutDefinition} shortcut
+ * @param {number} prefixCount
+ */
+function labelForPrefix(shortcut, prefixCount) {
+  if (clampPrefix(prefixCount) === 0) return shortcut.label
+  const variant = shortcut.id === 'compute'
+    ? computeModeForPrefix(prefixCount)
+    : normalizationForPrefix(shortcut.id, prefixCount)
+  return variant ? `${shortcut.label} [${variant}]` : shortcut.label
+}
+
 /** @param {AgdaShortcutContext} context */
 export function requireGoal(context) {
   if (!context.goal) throw new Error('Place the cursor inside a goal first.')
@@ -97,8 +166,13 @@ function pendingGoalBookkeeping(host, field) {
 /**
  * @param {AgdaShortcutDefinition} shortcut
  * @param {AgdaShortcutHost} host
+ * @param {number} [prefixCount] how many `C-u` presses preceded the
+ *   shortcut; selects the normalization (or Compute mode) variant, and is
+ *   ignored by shortcuts that have none.
  */
-export function dispatchAgdaShortcut(shortcut, host) {
+export function dispatchAgdaShortcut(shortcut, host, prefixCount = 0) {
+  const label = labelForPrefix(shortcut, prefixCount)
+  const norm = normalizationForPrefix(shortcut.id, prefixCount) ?? 'Simplified'
   const pendingGive = pendingGoalBookkeeping(host, 'pendingGiveGoal')
   const pendingCaseSplit = pendingGoalBookkeeping(host, 'pendingCaseSplitGoal')
 
@@ -113,41 +187,41 @@ export function dispatchAgdaShortcut(shortcut, host) {
       host.focusAdjacentGoal(-1)
       break
     case 'goal-type':
-      host.run(shortcut.label, context => goalTypeCommand('Simplified', requireGoal(context)))
+      host.run(label, context => goalTypeCommand(norm, requireGoal(context)))
       break
     case 'context':
-      host.run(shortcut.label, context => contextCommand('Simplified', requireGoal(context)))
+      host.run(label, context => contextCommand(norm, requireGoal(context)))
       break
     case 'goal-type-context':
-      host.run(shortcut.label, context => goalTypeContextCommand('Simplified', requireGoal(context)))
+      host.run(label, context => goalTypeContextCommand(norm, requireGoal(context)))
       break
     case 'goal-type-context-infer':
-      host.run(shortcut.label, context => {
+      host.run(label, context => {
         const goal = requireGoal(context)
         if (!context.input.trim()) {
-          return goalTypeContextCommand('Simplified', goal)
+          return goalTypeContextCommand(norm, goal)
         }
-        return goalTypeContextInferCommand('Simplified', goal, context.input)
+        return goalTypeContextInferCommand(norm, goal, context.input)
       })
       break
     case 'goal-type-context-check':
-      host.runWithInputPrompt(shortcut.label, (context, input) =>
-        goalTypeContextCheckCommand('Simplified', requireGoal(context), input))
+      host.runWithInputPrompt(label, (context, input) =>
+        goalTypeContextCheckCommand(norm, requireGoal(context), input))
       break
     case 'search-about':
-      host.runWithInputPrompt(shortcut.label, (_context, input) =>
-        searchAboutToplevelCommand('Simplified', input))
+      host.runWithInputPrompt(label, (_context, input) =>
+        searchAboutToplevelCommand(norm, input))
       break
     case 'module-contents':
-      host.runWithInputPrompt(shortcut.label, (context, input) => {
+      host.runWithInputPrompt(label, (context, input) => {
         const goal = context.goal
         return goal
-          ? moduleContentsCommand('Simplified', goal, input)
-          : moduleContentsToplevelCommand('Simplified', input)
+          ? moduleContentsCommand(norm, goal, input)
+          : moduleContentsToplevelCommand(norm, input)
       })
       break
     case 'why-in-scope':
-      host.runWithInputPrompt(shortcut.label, (context, input) => {
+      host.runWithInputPrompt(label, (context, input) => {
         const goal = context.goal
         return goal
           ? whyInScopeCommand(goal, input)
@@ -155,7 +229,7 @@ export function dispatchAgdaShortcut(shortcut, host) {
       })
       break
     case 'give':
-      host.runWithInputPrompt(shortcut.label, (context, input) => {
+      host.runWithInputPrompt(label, (context, input) => {
         const goal = requireGoal(context)
         pendingGive.set(goal)
         return giveCommand(goal, context.range, input)
@@ -169,51 +243,51 @@ export function dispatchAgdaShortcut(shortcut, host) {
       // sending (never prompting first, unlike runWithInputPrompt) lets
       // Agda's own IntroNotFound/IntroConstructorUnknown responses surface
       // instead of a client-side prompt overriding that behavior.
-      host.run(shortcut.label, context => {
+      host.run(label, context => {
         const goal = requireGoal(context)
         pendingGive.set(goal)
         return refineCommand(goal, context.range, context.input)
       }, pendingGive.hooks)
       break
     case 'auto':
-      host.run(shortcut.label, context => {
+      host.run(label, context => {
         const goal = requireGoal(context)
         pendingGive.set(goal)
-        return autoOneCommand('AsIs', goal, context.range, context.input)
+        return autoOneCommand(norm, goal, context.range, context.input)
       }, pendingGive.hooks)
       break
     case 'elaborate-give':
-      host.runWithInputPrompt(shortcut.label, (context, input) => {
+      host.runWithInputPrompt(label, (context, input) => {
         const goal = requireGoal(context)
         pendingGive.set(goal)
-        return elaborateGiveCommand('Simplified', goal, input)
+        return elaborateGiveCommand(norm, goal, input)
       }, pendingGive.hooks)
       break
     case 'helper-function':
-      host.runWithInputPrompt(shortcut.label, (context, input) =>
-        helperFunctionCommand('AsIs', requireGoal(context), input))
+      host.runWithInputPrompt(label, (context, input) =>
+        helperFunctionCommand(norm, requireGoal(context), input))
       break
     case 'case-split':
-      host.runWithInputPrompt(shortcut.label, (context, input) => {
+      host.runWithInputPrompt(label, (context, input) => {
         const goal = requireGoal(context)
         pendingCaseSplit.set(goal)
         return makeCaseCommand(goal, context.range, input)
       }, pendingCaseSplit.hooks)
       break
     case 'compute':
-      host.runWithInputPrompt(shortcut.label, (context, input) => {
+      host.runWithInputPrompt(label, (context, input) => {
         const goal = context.goal
         return goal
-          ? computeCommand('DefaultCompute', goal, input)
-          : computeToplevelCommand('DefaultCompute', input)
+          ? computeCommand(computeModeForPrefix(prefixCount), goal, input)
+          : computeToplevelCommand(computeModeForPrefix(prefixCount), input)
       })
       break
     case 'infer':
-      host.runWithInputPrompt(shortcut.label, (context, input) => {
+      host.runWithInputPrompt(label, (context, input) => {
         const goal = context.goal
         return goal
-          ? inferCommand('Simplified', goal, input)
-          : inferToplevelCommand('Simplified', input)
+          ? inferCommand(norm, goal, input)
+          : inferToplevelCommand(norm, input)
       })
       break
     case 'toggle-implicit-args':
@@ -223,10 +297,10 @@ export function dispatchAgdaShortcut(shortcut, host) {
       // The UI's checkbox state isn't flipped here: Agda answers with a
       // Status response carrying its actual setting, which the controller
       // mirrors (AgdaController.showImplicitArgs).
-      host.run(shortcut.label, () => toggleImplicitArgsCommand())
+      host.run(label, () => toggleImplicitArgsCommand())
       break
     case 'toggle-irrelevant-args':
-      host.run(shortcut.label, () => toggleIrrelevantArgsCommand())
+      host.run(label, () => toggleIrrelevantArgsCommand())
       break
   }
 }
