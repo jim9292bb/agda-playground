@@ -86,6 +86,8 @@ function formatDriveProxyStats(stats: DriveProxyStats): Record<string, unknown> 
 
 export class AgdaController {
   private _backend: RuntimeBackend | undefined
+  /** The backend whose init() startALSWASM() is awaiting, if any. */
+  private _initializingBackend: RuntimeBackend | undefined
   /** `${documentVersion}:${blockIndex}` of the block-truncated prefix
    *  currently loaded into ALS, `'ALL'` after a full loadAgdaFile(), or null
    *  before any load — see syncTruncatedSourceFileToDrive(). */
@@ -229,11 +231,21 @@ export class AgdaController {
   }
 
   async startALSWASM() {
+    const backend = this._ensureBackend()
+
+    // Single-flight while a backend is initializing: after a profile switch
+    // both switchProfile() and the page's auto-start $effect (which fires on
+    // alsWorkerStatus === 'initial') call this, and the wasmLoadingProgress
+    // check below only trips once the WASM fetch has resolved -- so without
+    // this, both ran backend.init(), spawning a second worker that leaked
+    // while sharing the first one's stdin/stdout buffers. Keyed on the
+    // backend rather than a flag so a switch that terminates a backend
+    // mid-init (its init() may then never settle) can still start the next.
+    if (this._initializingBackend === backend) return
+
     if (this.runningWASM) {
       throw new Error('WASM is already running')
     }
-
-    const backend = this._ensureBackend()
 
     if (backend.isInitialized()) {
       // Reusing the worker after stopALSWASM() (e.g. the Restart button,
@@ -252,6 +264,7 @@ export class AgdaController {
     this.alsWorkerStatus = 'loading'
     this.performanceEntries = []
 
+    this._initializingBackend = backend
     const port1 = await backend.init({
       agdaVersion: this.activeProfile.als,
       libraries: resolveProfileLibraries(this.activeProfile),
@@ -267,6 +280,9 @@ export class AgdaController {
         onPerformanceEntries: (entries) => { this.appendPerformanceEntries(entries) },
       },
     }).catch(() => null)
+      .finally(() => {
+        if (this._initializingBackend === backend) this._initializingBackend = undefined
+      })
 
     if (port1 == null) {
       this.alsWorkerStatus = 'errored'
