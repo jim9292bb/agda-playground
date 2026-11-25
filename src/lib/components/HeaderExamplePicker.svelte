@@ -21,7 +21,7 @@ const selectedLabel = $derived(examples.find(e => e.id === selectedExampleId)?.l
     aria-label={selectedLabel ? `Examples (current: ${selectedLabel})` : 'Examples'}
     onclick={() => { examplesMenuOpen = !examplesMenuOpen }}>
     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h9l5 5v13H5z"></path><path d="M14 3v5h5"></path></svg>
-    {selectedLabel ?? 'Examples'}
+    <span class="header-examples-label">{selectedLabel ?? 'Examples'}</span>
     <svg class="header-dropdown-arrow" class:open={examplesMenuOpen} viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden="true">
       <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
     </svg>
@@ -62,6 +62,12 @@ const selectedLabel = $derived(examples.find(e => e.id === selectedExampleId)?.l
   font-size: .72rem;
   white-space: nowrap;
   cursor: pointer;
+}
+
+.header-examples-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .header-examples-btn:hover {

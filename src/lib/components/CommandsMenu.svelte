@@ -12,8 +12,9 @@ import { formatAgdaShortcutHelpBinding } from '$lib/agda/shortcuts'
  * onRun: (shortcut: import('$lib/agda/shortcuts').AgdaShortcutDefinition) => void,
  * fileActions?: FileAction[],
  * activeGoalLabel?: string | null,
+ * compact?: boolean,
  * }} */
-let { registry, onRun, fileActions = [], activeGoalLabel = null } = $props()
+let { registry, onRun, fileActions = [], activeGoalLabel = null, compact = false } = $props()
 
 // Commands that act on the goal under the cursor; everything else works
 // anywhere in the file (several of those fall back to a top-level form
@@ -135,10 +136,14 @@ function onWindowKeydown(/** @type {KeyboardEvent} */ event) {
     aria-haspopup="dialog"
     aria-expanded={open}
     aria-controls="commands-menu"
+    aria-label={compact ? 'Commands' : undefined}
+    title={compact ? 'Commands' : undefined}
     onclick={() => (open ? closeMenu() : openMenu())}>
     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l6-6-6-6"></path><path d="M12 19h8"></path></svg>
-    Commands
-    <svg class="commands-menu-arrow" class:open viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+    {#if !compact}
+      Commands
+      <svg class="commands-menu-arrow" class:open viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+    {/if}
   </button>
   {#if open}
     <div class="commands-menu-backdrop" role="presentation" onclick={() => closeMenu({ restoreFocus: false })}></div>
@@ -146,6 +151,7 @@ function onWindowKeydown(/** @type {KeyboardEvent} */ event) {
       bind:this={panelEl}
       id="commands-menu"
       class="commands-menu"
+      class:compact
       role="dialog"
       aria-label="Agda commands"
       tabindex="-1"
@@ -229,6 +235,20 @@ function onWindowKeydown(/** @type {KeyboardEvent} */ event) {
   border-radius: 10px;
   background: var(--app-surface);
   box-shadow: 0 12px 32px var(--app-shadow);
+}
+
+/* Phones: the toggle is icon-only and the menu spans the screen under the header. */
+.commands-menu.compact {
+  position: fixed;
+  top: 52px;
+  left: 12px;
+  right: 12px;
+  width: auto;
+  max-height: calc(100vh - 140px);
+}
+
+.commands-menu-toggle[aria-label] {
+  padding: 4px 8px;
 }
 
 .commands-menu-search {

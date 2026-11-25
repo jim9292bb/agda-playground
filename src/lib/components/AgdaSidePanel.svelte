@@ -27,6 +27,7 @@ import SplitPane from '$lib/components/SplitPane.svelte'
  * textboxContent: string,
  * agdaDiagnostics: import('$lib/agda/diagnostics').AgdaDiagnostic[],
  * selectedMessageTab: 'log' | 'queries' | 'errors',
+ * mobileView?: 'goals' | 'messages' | null,
  * }} */
 let {
   agdaController,
@@ -46,6 +47,7 @@ let {
   textboxContent,
   agdaDiagnostics,
   selectedMessageTab = $bindable(),
+  mobileView = null,
 } = $props()
 
 /** @param {string} key */
@@ -71,33 +73,55 @@ $effect(() => {
 })
 </script>
 
+{#snippet goals()}
+  <GoalsPanel
+    {commandInputPrompt}
+    {commandInputError}
+    {panelGoalInfos}
+    {activeGoalId}
+    {activeGoalDetailStatus}
+    {activeGoalDetailError}
+    bind:commandInputElement
+    {onSubmitCommandInput}
+    {onCancelCommandInput}
+    {onFocusGoal}
+  />
+{/snippet}
+
+{#snippet messages()}
+  <MessagesPanel {agdaController} {textboxContent} {agdaDiagnostics} bind:selectedMessageTab />
+{/snippet}
+
+<!-- On phones (mobileView set) the page shows Goals and Messages one at a
+     time from its bottom tab bar, so there's no divider between them. -->
 <section class="agda-side-panel" aria-label="Agda panel">
-  <AgdaStatusPanel {agdaController} {deployProfiles} {onDeploymentProfileChange} />
-  <div class="agda-side-split">
-    <SplitPane
-      orientation="vertical"
-      bind:ratio={goalsShare}
-      dividerLabel="Resize goals and messages"
-      style="--divider-min-position: 20%; --divider-max-position: 85%;">
-      {#snippet start()}
-        <GoalsPanel
-          {commandInputPrompt}
-          {commandInputError}
-          {panelGoalInfos}
-          {activeGoalId}
-          {activeGoalDetailStatus}
-          {activeGoalDetailError}
-          bind:commandInputElement
-          {onSubmitCommandInput}
-          {onCancelCommandInput}
-          {onFocusGoal}
-        />
-      {/snippet}
-      {#snippet end()}
-        <MessagesPanel {agdaController} {textboxContent} {agdaDiagnostics} bind:selectedMessageTab />
-      {/snippet}
-    </SplitPane>
-  </div>
+  {#if mobileView}
+    <!-- Both stay mounted (Messages keeps its log and scroll position);
+         only the one whose tab is up shows. -->
+    <div class="agda-side-mobile-pane" hidden={mobileView !== 'goals'}>
+      <AgdaStatusPanel {agdaController} {deployProfiles} {onDeploymentProfileChange} />
+      <div class="agda-side-split">{@render goals()}</div>
+    </div>
+    <div class="agda-side-mobile-pane" hidden={mobileView !== 'messages'}>
+      {@render messages()}
+    </div>
+  {:else}
+    <AgdaStatusPanel {agdaController} {deployProfiles} {onDeploymentProfileChange} />
+    <div class="agda-side-split">
+      <SplitPane
+        orientation="vertical"
+        bind:ratio={goalsShare}
+        dividerLabel="Resize goals and messages"
+        style="--divider-min-position: 20%; --divider-max-position: 85%;">
+        {#snippet start()}
+          {@render goals()}
+        {/snippet}
+        {#snippet end()}
+          {@render messages()}
+        {/snippet}
+      </SplitPane>
+    </div>
+  {/if}
 </section>
 
 <style>
@@ -112,5 +136,16 @@ $effect(() => {
 .agda-side-split {
   flex: 1 1 0;
   min-height: 0;
+}
+
+.agda-side-mobile-pane {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.agda-side-mobile-pane[hidden] {
+  display: none;
 }
 </style>
