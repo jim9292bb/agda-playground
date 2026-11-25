@@ -1408,10 +1408,12 @@ $effect(() => {
 <style>
 .header {
   display: flex;
+  /* Wrap the action buttons onto their own row when the row is too narrow
+     for everything (phones, narrow split panes) instead of overlapping. */
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 6px 12px;
   padding: 8px;
   background: var(--quiet-neutral-fill-softer);
   border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
@@ -1419,8 +1421,9 @@ $effect(() => {
 
 .header-left {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 6px 12px;
   min-width: 0;
 }
 
@@ -1435,8 +1438,10 @@ $effect(() => {
 }
 
 .header-actions {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
   gap: 4px;
 }
