@@ -12,9 +12,7 @@ import SplitPane from '$lib/components/SplitPane.svelte'
 import LiterateCellEditor from '$lib/components/LiterateCellEditor.svelte'
 import AboutPanel from '$lib/components/AboutPanel.svelte'
 import AppHeader from '$lib/components/AppHeader.svelte'
-import AlsControlCard from '$lib/components/AlsControlCard.svelte'
-import GoalsPanel from '$lib/components/GoalsPanel.svelte'
-import MessagesPanel from '$lib/components/MessagesPanel.svelte'
+import AgdaSidePanel from '$lib/components/AgdaSidePanel.svelte'
 import SettingsPanel from '$lib/components/SettingsPanel.svelte'
 import { AgdaController, deployProfiles, resolveProfileLibraries } from '$lib/controller.svelte'
 import { myCodeMirrorTheme, autoColorScheme } from '$lib/codemirror/theme'
@@ -175,35 +173,17 @@ async function onDeploymentProfileChange(profileLabel) {
 }
 
 const LS_SHORTCUT_OVERRIDES_KEY = `agda-playground-${initialConfig.storageNamespace}.shortcut-overrides.v1`
-const LS_GOALS_PANEL_POSITION_KEY = `agda-playground-${initialConfig.storageNamespace}.goals-panel-position.v1`
+const LS_PANEL_SPLIT_KEY = `agda-playground-${initialConfig.storageNamespace}.goals-messages-split.v1`
 
 /** @param {string} source @returns {import('$lib/agda/literate-cells').LiterateCell[]} */
 function cellsFromSource(source) {
   return cellsFromParsedBlocks(source, parseLiterateBlocks(source))
 }
 
-/** @returns {'bottom' | 'right'} */
-function loadGoalsPanelPosition() {
-  if (typeof localStorage === 'undefined') return 'right'
-  return localStorage.getItem(LS_GOALS_PANEL_POSITION_KEY) === 'bottom' ? 'bottom' : 'right'
-}
-
 let width = $state(0)
 let isMobile = $derived(width < 540)
 
 
-let goalsPanelPosition = $state(loadGoalsPanelPosition())
-// Mobile always stacks the editor above the right column regardless of this
-// setting (see the editor snippet's orientation), so honoring 'right' there
-// would be meaningless — force 'bottom' whenever the viewport is narrow,
-// and restore the saved preference automatically once it widens again.
-const effectiveGoalsPosition = $derived(isMobile ? 'bottom' : goalsPanelPosition)
-
-/** @param {'bottom' | 'right'} pos */
-function setGoalsPanelPosition(pos) {
-  goalsPanelPosition = pos
-  if (typeof localStorage !== 'undefined') localStorage.setItem(LS_GOALS_PANEL_POSITION_KEY, pos)
-}
 
 // --- Cell model -------------------------------------------------------
 //
@@ -1097,7 +1077,7 @@ function syncAgdaDiagnostics() {
   agdaDiagnostics = [...(agdaController.alsRouter?.lastAgdaDiagnostics ?? [])]
 }
 
-let textboxContent = $state('WIP')
+let textboxContent = $state('')
 let goalInfos = $state(/** @type {{id: number | string, range?: string, type?: string, context?: string}[]} */([]))
 let panelGoalInfos = $state(/** @type {{id: number | string, range?: string, type?: string, context?: string}[]} */([]))
 let agdaDiagnostics = $state(/** @type {import('$lib/agda/diagnostics').AgdaDiagnostic[]} */([]))
@@ -1124,9 +1104,6 @@ $effect(() => {
   if (count > previousDiagnosticCount) selectedMessageTab = 'errors'
   previousDiagnosticCount = count
 })
-let goalsSplitRatio = $state(0.65)
-/** @type {HTMLElement | undefined} */
-let editorPaneSectionEl = $state()
 
 /** Runs a command picked from the header's Commands menu, then hands focus back to the active cell. */
 function runCommandFromMenu(/** @type {import('$lib/agda/shortcuts').AgdaShortcutDefinition} */ shortcut) {
@@ -1190,141 +1167,91 @@ $effect(() => {
 </script>
 
 {#snippet editor(/** @type {'horizontal' | 'vertical'} */ orientation)}
-<SplitPane {orientation} position={.6} style="--divider-min-position: 25%; --divider-max-position: 90%;">
+<SplitPane {orientation} position={.6} dividerLabel="Resize notebook and Agda panel" style="--divider-min-position: 25%; --divider-max-position: 90%;">
   {#snippet start()}
   <section class="editor-section">
-    <SplitPane
-      class={effectiveGoalsPosition === 'bottom' ? 'editor-goals-splitter' : 'editor-goals-splitter goals-collapsed'}
-      orientation="vertical"
-      bind:ratio={goalsSplitRatio}
-      style="--divider-min-position: 35%; --divider-max-position: 92%;">
-      {#snippet start()}
-      <section class="editor-pane" bind:this={editorPaneSectionEl}>
-        <div class="editor-wrap">
-          <div class="literate-cells" onclick={(e) => { if (e.target === e.currentTarget) activeCellId = null }}>
-            {#each cells as cell (cell.id)}
-              <div
-                class="literate-cell"
-                class:literate-cell-code={cell.type === 'code'}
-                class:literate-cell-markdown={cell.type === 'markdown'}
-                class:literate-cell-focused={cell.id === activeCellId}
-              >
-                {#if cells.length > 1}
-                  <button
-                    type="button"
-                    class="literate-cell-delete-btn"
-                    aria-label="Delete this block"
-                    title="Delete this block"
-                    onclick={() => deleteCell(cell.id)}>
-                    <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden="true">
-                      <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                      <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-                    </svg>
-                  </button>
-                {/if}
-                {#if cell.type === 'markdown' && editingMarkdownCellId !== cell.id}
-                  <div class="literate-markdown-render" onclick={() => { activeCellId = cell.id }}>
-                    <!-- Rendering the user's own local document, not third-party/untrusted
-                         content -- no server, no other users. This is the accepted trade-off
-                         already documented in the original single-buffer implementation
-                         (markdown-preview.js, now removed); unchanged here. -->
-                    <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-                    <div class="literate-markdown-content">{@html markdownRenderer.render(cell.text || '_empty block_')}</div>
-                    <button type="button" class="literate-markdown-edit-btn" aria-label="Edit this text block" onclick={() => enterMarkdownEditMode(cell.id)}>Edit</button>
-                  </div>
-                {:else}
-                  <LiterateCellEditor
-                    getText={() => cell.text}
-                    extensions={cellExtensions(cell.id, cell.type)}
-                    onView={view => registerCellView(cell.id, view)}
-                    onDestroyed={() => unregisterCellView(cell.id)}
-                  />
-                  {#if cell.type === 'markdown'}
-                    <div class="literate-markdown-done-row">
-                      <button type="button" class="literate-markdown-done-btn" onclick={exitMarkdownEditMode}>✓ Done</button>
-                    </div>
-                  {/if}
-                {/if}
+  <section class="editor-pane">
+    <div class="editor-wrap">
+      <div class="literate-cells" onclick={(e) => { if (e.target === e.currentTarget) activeCellId = null }}>
+        {#each cells as cell (cell.id)}
+          <div
+            class="literate-cell"
+            class:literate-cell-code={cell.type === 'code'}
+            class:literate-cell-markdown={cell.type === 'markdown'}
+            class:literate-cell-focused={cell.id === activeCellId}
+          >
+            {#if cells.length > 1}
+              <button
+                type="button"
+                class="literate-cell-delete-btn"
+                aria-label="Delete this block"
+                title="Delete this block"
+                onclick={() => deleteCell(cell.id)}>
+                <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden="true">
+                  <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                  <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                </svg>
+              </button>
+            {/if}
+            {#if cell.type === 'markdown' && editingMarkdownCellId !== cell.id}
+              <div class="literate-markdown-render" onclick={() => { activeCellId = cell.id }}>
+                <!-- Rendering the user's own local document, not third-party/untrusted
+                     content -- no server, no other users. This is the accepted trade-off
+                     already documented in the original single-buffer implementation
+                     (markdown-preview.js, now removed); unchanged here. -->
+                <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+                <div class="literate-markdown-content">{@html markdownRenderer.render(cell.text || '_empty block_')}</div>
+                <button type="button" class="literate-markdown-edit-btn" aria-label="Edit this text block" onclick={() => enterMarkdownEditMode(cell.id)}>Edit</button>
               </div>
-            {/each}
+            {:else}
+              <LiterateCellEditor
+                getText={() => cell.text}
+                extensions={cellExtensions(cell.id, cell.type)}
+                onView={view => registerCellView(cell.id, view)}
+                onDestroyed={() => unregisterCellView(cell.id)}
+              />
+              {#if cell.type === 'markdown'}
+                <div class="literate-markdown-done-row">
+                  <button type="button" class="literate-markdown-done-btn" onclick={exitMarkdownEditMode}>✓ Done</button>
+                </div>
+              {/if}
+            {/if}
           </div>
-          {#if chordProgress.length > 0 || universalArgumentCount > 0}
-            <div class="chord-hint" aria-live="polite" aria-label="Waiting for next chord key">
-              {formatChordHint(universalArgumentCount, chordProgress)}
-            </div>
-          {/if}
+        {/each}
+      </div>
+      {#if chordProgress.length > 0 || universalArgumentCount > 0}
+        <div class="chord-hint" aria-live="polite" aria-label="Waiting for next chord key">
+          {formatChordHint(universalArgumentCount, chordProgress)}
         </div>
-      </section>
-      {/snippet}
-      {#snippet end()}
-        {#if effectiveGoalsPosition === 'bottom'}
-          <GoalsPanel
-            position={effectiveGoalsPosition}
-            commandInputPrompt={commandInputState.prompt}
-            commandInputError={commandInputState.error}
-            {panelGoalInfos}
-            {activeGoalId}
-            {activeGoalDetailStatus}
-            {activeGoalDetailError}
-            bind:commandInputElement={commandInputState.element}
-            onSubmitCommandInput={commandInputState.submit}
-            onCancelCommandInput={commandInputState.cancel}
-            onFocusGoal={focusGoal}
-          />
-        {/if}
-      {/snippet}
-    </SplitPane>
+      {/if}
+    </div>
+  </section>
   </section>
   {/snippet}
   {#snippet end()}
-  <section class="right-column">
-    {#if effectiveGoalsPosition === 'right'}
-      <div class="right-column-fixed">
-        <section class="info-section">
-          <AlsControlCard {agdaController} {deployProfiles} {onDeploymentProfileChange} />
-        </section>
-        <section class="output-section">
-          <div class="right-goals-stack">
-            <GoalsPanel
-              position={effectiveGoalsPosition}
-              commandInputPrompt={commandInputState.prompt}
-              commandInputError={commandInputState.error}
-              {panelGoalInfos}
-              {activeGoalId}
-              {activeGoalDetailStatus}
-              {activeGoalDetailError}
-              bind:commandInputElement={commandInputState.element}
-              onSubmitCommandInput={commandInputState.submit}
-              onCancelCommandInput={commandInputState.cancel}
-              onFocusGoal={focusGoal}
-            />
-            <MessagesPanel position={effectiveGoalsPosition} {agdaController} {textboxContent} {agdaDiagnostics} bind:selectedMessageTab />
-          </div>
-        </section>
-      </div>
-    {:else}
-      <SplitPane class="right-column-splitter" orientation="vertical" position={.65}>
-        {#snippet start()}
-        <section class="info-section">
-          <AlsControlCard {agdaController} {deployProfiles} {onDeploymentProfileChange} />
-        </section>
-        {/snippet}
-        {#snippet end()}
-        <section class="output-section">
-          <MessagesPanel position={effectiveGoalsPosition} {agdaController} {textboxContent} {agdaDiagnostics} bind:selectedMessageTab />
-        </section>
-        {/snippet}
-      </SplitPane>
-    {/if}
-  </section>
+  <AgdaSidePanel
+    {agdaController}
+    {deployProfiles}
+    {onDeploymentProfileChange}
+    splitStorageKey={LS_PANEL_SPLIT_KEY}
+    commandInputPrompt={commandInputState.prompt}
+    commandInputError={commandInputState.error}
+    {panelGoalInfos}
+    {activeGoalId}
+    {activeGoalDetailStatus}
+    {activeGoalDetailError}
+    bind:commandInputElement={commandInputState.element}
+    onSubmitCommandInput={commandInputState.submit}
+    onCancelCommandInput={commandInputState.cancel}
+    onFocusGoal={focusGoal}
+    {textboxContent}
+    {agdaDiagnostics}
+    bind:selectedMessageTab />
   {/snippet}
 </SplitPane>
 <SettingsPanel
   visible={settingsPanelVisible}
   onClose={closeSettingsPanel}
-  {isMobile}
-  {goalsPanelPosition}
-  onSetGoalsPanelPosition={setGoalsPanelPosition}
   {agdaController}
   onToggleImplicitArgs={toggleImplicitArgsFromSettings}
   onToggleIrrelevantArgs={toggleIrrelevantArgsFromSettings}
@@ -1595,31 +1522,9 @@ $effect(() => {
   z-index: 10;
 }
 
-:global(.editor-goals-splitter) {
-  flex: 1 1;
-  min-height: 0;
-}
-
-/* editor-goals-splitter stays mounted in both Goals positions (so the
-   editor pane never moves between template branches — see
-   LS_GOALS_PANEL_POSITION_KEY) and just collapses visually instead of
-   being conditionally removed. Goals always lives in end(), the editor in
-   start() — collapsing hides end(), expands start(). Unlike the editor,
-   the right column has no CodeMirror-style state to lose, so its own
-   Goals/Commands/Messages arrangement is just plain conditional markup
-   (see the right-goals-stack block below) rather than needing this
-   mount-and-collapse trick. */
-:global(.editor-goals-splitter.goals-collapsed .split-divider),
-:global(.editor-goals-splitter.goals-collapsed .split-end) {
-  display: none;
-}
-:global(.editor-goals-splitter.goals-collapsed .split-start) {
-  /* SplitPane.svelte sets an inline height on .split-start, so a plain
-     class rule alone wouldn't win. */
-  height: 100% !important;
-}
 
 .editor-pane {
+  flex: 1 1 0;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -1638,53 +1543,4 @@ $effect(() => {
   z-index: 10;
 }
 
-.output-section {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  margin-top: -1px;
-}
-
-.info-section {
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: auto;
-}
-
-.output-section {
-  min-height: 0;
-}
-
-/* Goals docked to 'right': the whole right column becomes a fixed,
-   non-resizable stack (control-card, then Commands/Goals/Messages) instead
-   of the draggable right-column-splitter used for 'bottom' — no divider
-   between info-section and output-section here. */
-.right-column-fixed {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-.right-column-fixed > .info-section {
-  flex: none;
-}
-.right-column-fixed > .output-section {
-  flex: 1 1;
-  min-height: 0;
-}
-
-/* Goals docked to 'right': Goals and Messages stack as two fixed-size
-   cards (no drag-resizing between them, unlike editor-goals-splitter).
-   Each panel's own sizing/chrome (flex ratio, outlined-box style, header
-   color) is handled internally via its `position` prop — GoalsPanel.svelte
-   and MessagesPanel.svelte — since a parent's scoped CSS can't reach into
-   a child component's own root element. Commands lives in the header
-   above the editor regardless of Goals position. */
-.right-goals-stack {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  height: 100%;
-}
 </style>

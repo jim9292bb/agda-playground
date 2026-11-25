@@ -6,9 +6,6 @@ import { agdaShortcutRegistry, formatAgdaShortcutHelpBinding } from '$lib/agda/s
 /** @type {{
  * visible: boolean,
  * onClose: () => void,
- * isMobile: boolean,
- * goalsPanelPosition: 'bottom' | 'right',
- * onSetGoalsPanelPosition: (pos: 'bottom' | 'right') => void,
  * agdaController: import('$lib/controller.svelte').AgdaController,
  * onToggleImplicitArgs: () => void,
  * onToggleIrrelevantArgs: () => void,
@@ -26,9 +23,6 @@ import { agdaShortcutRegistry, formatAgdaShortcutHelpBinding } from '$lib/agda/s
 let {
   visible,
   onClose,
-  isMobile,
-  goalsPanelPosition,
-  onSetGoalsPanelPosition,
   agdaController,
   onToggleImplicitArgs,
   onToggleIrrelevantArgs,
@@ -158,15 +152,6 @@ $effect(() => {
               </label>
               {#if !agdaActive}
                 <p class="settings-note">Implicit/irrelevant argument display can be changed once Agda has started.</p>
-              {/if}
-              {#if !isMobile}
-                <label class="settings-field">
-                  <span>Goals panel position</span>
-                  <select value={goalsPanelPosition} onchange={(event) => onSetGoalsPanelPosition(/** @type {'bottom' | 'right'} */(event.currentTarget.value))}>
-                    <option value="bottom">Bottom (below editor)</option>
-                    <option value="right">Right (with Messages)</option>
-                  </select>
-                </label>
               {/if}
             </div>
           </div>

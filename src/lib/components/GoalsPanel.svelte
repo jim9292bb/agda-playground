@@ -1,8 +1,11 @@
 <script>
 import { attachAgdaIM } from '$lib/codemirror/agda-input-dom'
 
-/** @type {{
- * position: 'bottom' | 'right',
+/**
+ * The Goals section of the Agda side panel: every goal as `?n : type`, the
+ * active one expanded with its context; and the command-input prompt for
+ * commands that need an expression.
+ * @type {{
  * commandInputPrompt: null | {
  *   label: string,
  *   value: string,
@@ -22,7 +25,6 @@ import { attachAgdaIM } from '$lib/codemirror/agda-input-dom'
  * onFocusGoal: (id: number | string) => void,
  * }} */
 let {
-  position,
   commandInputPrompt,
   commandInputError,
   panelGoalInfos,
@@ -42,8 +44,11 @@ function agdaInputAction(el) {
 }
 </script>
 
-<section class="goals-section" class:goals-right={position === 'right'}>
-  <header class="panel-header">Goals</header>
+<section class="goals-section" aria-labelledby="goals-heading">
+  <header class="goals-header">
+    <h2 id="goals-heading" class="panel-heading">Goals</h2>
+    <span class="goals-count" aria-label="{panelGoalInfos.length} goals">{panelGoalInfos.length}</span>
+  </header>
   {#if commandInputPrompt}
     <form class="command-input-panel" onsubmit={(event) => { event.preventDefault(); onSubmitCommandInput() }}>
       <label for="command-input">Input for {commandInputPrompt.label}</label>
@@ -69,28 +74,30 @@ function agdaInputAction(el) {
     {#if panelGoalInfos.length === 0}
       <div class="goals-empty">No goals.</div>
     {:else}
-      {#each panelGoalInfos as goal (`${goal.id}-${goal.range ?? ''}`)}
-        <button
-          type="button"
-          class:active={goal.id === activeGoalId}
-          class="goal-entry"
-          aria-label={`Focus goal ${goal.id}`}
-          onclick={() => onFocusGoal(goal.id)}>
-          <div class="goal-head">?{goal.id} : {#if goal.type}{goal.type}{:else if goal.id === activeGoalId && activeGoalDetailStatus === 'loading'}<span class="goal-type-muted">…</span>{:else}<span class="goal-type-muted">?</span>{/if}</div>
-          {#if goal.id === activeGoalId}
-            {#if goal.context}
-              <div class="goal-separator"></div>
-              <pre class="goal-context">{goal.context}</pre>
-            {:else if activeGoalDetailStatus === 'loading'}
-              <div class="goal-separator"></div>
-              <div class="goal-context-empty">Loading…</div>
-            {:else if activeGoalDetailStatus === 'error'}
-              <div class="goal-separator"></div>
-              <div class="goal-context-empty">{activeGoalDetailError}</div>
+      <ul class="goals-items" aria-label="All goals">
+        {#each panelGoalInfos as goal (`${goal.id}-${goal.range ?? ''}`)}
+          {@const active = goal.id === activeGoalId}
+          <li class="goal-entry" class:active>
+            <button
+              type="button"
+              class="goal-row"
+              aria-expanded={active}
+              aria-label={`Focus goal ${goal.id}`}
+              onclick={() => onFocusGoal(goal.id)}>
+              <span class="goal-id">?{goal.id}</span><span class="goal-type"><span class="goal-colon">{' : '}</span>{#if goal.type}{goal.type}{:else if active && activeGoalDetailStatus === 'loading'}<span class="goal-type-muted">…</span>{:else}<span class="goal-type-muted">?</span>{/if}</span>
+            </button>
+            {#if active}
+              {#if goal.context}
+                <pre class="goal-context">{goal.context}</pre>
+              {:else if activeGoalDetailStatus === 'loading'}
+                <div class="goal-context goal-context-empty">Loading…</div>
+              {:else if activeGoalDetailStatus === 'error'}
+                <div class="goal-context goal-context-empty">{activeGoalDetailError}</div>
+              {/if}
             {/if}
-          {/if}
-        </button>
-      {/each}
+          </li>
+        {/each}
+      </ul>
     {/if}
   </div>
 </section>
@@ -99,51 +106,51 @@ function agdaInputAction(el) {
 .goals-section {
   display: flex;
   flex-direction: column;
+  height: 100%;
   min-height: 0;
-  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 45%, transparent);
 }
 
-.panel-header {
-  padding: 6px 8px;
-  background: var(--quiet-neutral-fill-softer);
-  border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
-  font-size: .9rem;
-  font-weight: 500;
-  letter-spacing: .02em;
-  text-transform: uppercase;
+.goals-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 2.5rem;
+  box-sizing: border-box;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--app-border);
 }
 
-/* Goals docked to 'right': Goals is a fixed-size (5.5 of the 5.5:4.5
-   split with Messages), flat outlined box — plain border, square
-   corners, no shadow — instead of the 'bottom' position's plain
-   in-flow panel with no card chrome of its own. */
-.goals-section.goals-right {
-  flex: 5.5 5.5 0;
-  min-height: 0;
+.panel-heading {
   margin: 0;
-  border: 1px solid var(--app-border);
-  border-top-width: 2px;
-  overflow: hidden;
-  background: var(--quiet-neutral-fill);
+  font-size: .62rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--app-text-secondary);
 }
 
-.goals-section.goals-right .panel-header {
-  background: var(--app-surface);
-  border-bottom-width: 2px;
-  border-bottom-color: var(--app-border);
+.goals-count {
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--quiet-primary-fill-soft);
+  color: var(--quiet-primary-text);
+  font-size: .62rem;
+  font-weight: 600;
 }
 
 .command-input-panel {
-  border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
-  padding: 8px;
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, var(--quiet-neutral-fill-softer));
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--app-border);
+  padding: 8px 14px;
+  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 30%, var(--quiet-neutral-fill-softer));
 }
 
 .command-input-panel label {
   display: block;
   margin-bottom: 6px;
   color: var(--app-text-muted);
-  font-size: .8rem;
+  font-size: .66rem;
   font-weight: 700;
 }
 
@@ -155,19 +162,19 @@ function agdaInputAction(el) {
 .command-input-row input {
   min-width: 0;
   flex: 1 1;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  padding: 4px 6px;
-  background: var(--quiet-neutral-fill-softer);
+  border: 1px solid var(--app-border-strong);
+  border-radius: 6px;
+  padding: 4px 8px;
+  background: var(--app-surface);
   color: inherit;
   font-family: JuliaMono, monospace;
 }
 
 .command-input-row button {
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  padding: 4px 8px;
-  background: var(--quiet-neutral-fill-softer);
+  border: 1px solid var(--app-border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  background: var(--app-surface);
   color: inherit;
   cursor: pointer;
 }
@@ -181,71 +188,110 @@ function agdaInputAction(el) {
 .command-input-error {
   margin-top: 6px;
   color: var(--quiet-destructive-text, #a33);
-  font-size: .8rem;
+  font-size: .66rem;
 }
 
 .goals-list {
-  flex: 1 1;
+  flex: 1 1 0;
   min-height: 0;
-  overflow: auto;
-  padding: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 10px 12px;
+}
+
+.goals-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .goals-empty {
   color: var(--app-text-muted);
-  font-size: .8rem;
-  padding: 4px 0;
+  font-size: .68rem;
+  padding: 4px 4px;
 }
 
 .goal-entry {
-  display: block;
-  width: 100%;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  padding: 3px 8px;
-  cursor: pointer;
-  color: inherit;
+  border: 1px solid transparent;
+  border-radius: 8px;
   font-family: JuliaMono, monospace;
-  font-size: 12px;
-  text-align: start;
-}
-
-.goal-entry:hover,
-.goal-entry:focus-visible {
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, var(--quiet-neutral-fill-softer));
-  outline: none;
+  font-size: 13px;
 }
 
 .goal-entry.active {
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 28%, var(--quiet-neutral-fill-softer));
-  box-shadow: inset 2px 0 0 var(--quiet-primary-stroke);
+  border-color: var(--app-border);
+  background: var(--app-surface);
+  box-shadow: inset 3px 0 0 var(--quiet-primary-text), 0 1px 2px var(--app-shadow);
 }
 
-.goal-head {
+.goal-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0;
+  width: 100%;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.goal-row:hover {
+  background: color-mix(in srgb, var(--quiet-neutral-stroke-softer) 45%, transparent);
+}
+
+.goal-row:focus-visible {
+  outline: 2px solid var(--quiet-primary-text);
+  outline-offset: -2px;
+}
+
+.goal-id {
+  flex: 0 0 auto;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--app-switcher-track);
+  color: var(--app-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.goal-entry.active .goal-id {
+  background: var(--quiet-primary-fill-soft);
+  color: var(--quiet-primary-text);
+}
+
+.goal-type {
+  min-width: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   line-height: 1.5;
+  color: var(--app-text-strong);
 }
 
+.goal-colon,
 .goal-type-muted {
   color: var(--app-text-muted);
 }
 
-.goal-separator {
-  border-top: 1px solid var(--quiet-neutral-stroke-softer);
-  margin: 4px 0;
-}
-
 .goal-context {
-  margin: 0;
+  margin: 0 10px;
+  padding: 6px 0 8px;
+  border-top: 1px dashed var(--app-border-strong);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   color: var(--app-text-secondary);
+  font: inherit;
+  line-height: 1.5;
 }
 
 .goal-context-empty {
   color: var(--app-text-muted);
-  font-size: .8rem;
+  font-family: inherit;
 }
 </style>

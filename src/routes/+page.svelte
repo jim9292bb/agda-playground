@@ -11,10 +11,8 @@ import { indentWithTab } from '@codemirror/commands'
 import SplitPane from '$lib/components/SplitPane.svelte'
 import AboutPanel from '$lib/components/AboutPanel.svelte'
 import HeaderExamplePicker from '$lib/components/HeaderExamplePicker.svelte'
-import AlsControlCard from '$lib/components/AlsControlCard.svelte'
+import AgdaSidePanel from '$lib/components/AgdaSidePanel.svelte'
 import AppHeader from '$lib/components/AppHeader.svelte'
-import GoalsPanel from '$lib/components/GoalsPanel.svelte'
-import MessagesPanel from '$lib/components/MessagesPanel.svelte'
 import SettingsPanel from '$lib/components/SettingsPanel.svelte'
 import { AgdaController, deployProfiles, resolveProfileLibraries } from '$lib/controller.svelte'
 import { myCodeMirrorTheme } from '$lib/codemirror/theme'
@@ -92,13 +90,7 @@ async function onDeploymentProfileChange(profileLabel) {
 
 const defaultSource = '{-# OPTIONS --cubical --guardedness #-}\n\nopen import Cubical.Foundations.Prelude\n'
 const LS_SHORTCUT_OVERRIDES_KEY = 'agda-playground.shortcut-overrides.v1'
-const LS_GOALS_PANEL_POSITION_KEY = 'agda-playground.goals-panel-position.v1'
-
-/** @returns {'bottom' | 'right'} */
-function loadGoalsPanelPosition() {
-  if (typeof localStorage === 'undefined') return 'bottom'
-  return localStorage.getItem(LS_GOALS_PANEL_POSITION_KEY) === 'right' ? 'right' : 'bottom'
-}
+const LS_PANEL_SPLIT_KEY = 'agda-playground.goals-messages-split.v1'
 
 const scratchpadExamples = [
   {
@@ -177,18 +169,6 @@ let width = $state(0)
 let isMobile = $derived(width < 540)
 
 
-let goalsPanelPosition = $state(loadGoalsPanelPosition())
-// Mobile always stacks the editor above the right column regardless of this
-// setting (see the editor snippet's orientation), so honoring 'right' there
-// would be meaningless — force 'bottom' whenever the viewport is narrow,
-// and restore the saved preference automatically once it widens again.
-const effectiveGoalsPosition = $derived(isMobile ? 'bottom' : goalsPanelPosition)
-
-/** @param {'bottom' | 'right'} pos */
-function setGoalsPanelPosition(pos) {
-  goalsPanelPosition = pos
-  if (typeof localStorage !== 'undefined') localStorage.setItem(LS_GOALS_PANEL_POSITION_KEY, pos)
-}
 
 onDestroy(() => {
   agdaController.terminateALSWASM()
@@ -720,7 +700,7 @@ function syncAgdaDiagnostics() {
   agdaDiagnostics = [...(agdaController.alsRouter?.lastAgdaDiagnostics ?? [])]
 }
 
-let textboxContent = $state('WIP')
+let textboxContent = $state('')
 let selectedExampleId = $state('cubical-prelude')
 let goalInfos = $state(/** @type {{id: number | string, range?: string, type?: string, context?: string}[]} */([]))
 let panelGoalInfos = $state(/** @type {{id: number | string, range?: string, type?: string, context?: string}[]} */([]))
@@ -748,9 +728,6 @@ $effect(() => {
   if (count > previousDiagnosticCount) selectedMessageTab = 'errors'
   previousDiagnosticCount = count
 })
-let goalsSplitRatio = $state(0.65)
-/** @type {HTMLElement | undefined} */
-let editorPaneSectionEl = $state()
 
 /** Runs a command picked from the header's Commands menu, then hands focus back to the editor. */
 function runCommandFromMenu(/** @type {import('$lib/agda/shortcuts').AgdaShortcutDefinition} */ shortcut) {
@@ -821,95 +798,45 @@ $effect(() => {
 </script>
 
 {#snippet editor(/** @type {'horizontal' | 'vertical'} */ orientation)}
-<SplitPane {orientation} position={.6} style="--divider-min-position: 25%; --divider-max-position: 90%;">
+<SplitPane {orientation} position={.6} dividerLabel="Resize editor and Agda panel" style="--divider-min-position: 25%; --divider-max-position: 90%;">
   {#snippet start()}
   <section class="editor-section">
-    <SplitPane
-      class={effectiveGoalsPosition === 'bottom' ? 'editor-goals-splitter' : 'editor-goals-splitter goals-collapsed'}
-      orientation="vertical"
-      bind:ratio={goalsSplitRatio}
-      style="--divider-min-position: 35%; --divider-max-position: 92%;">
-      {#snippet start()}
-      <section class="editor-pane" bind:this={editorPaneSectionEl}>
-        <div class="editor-wrap">
-          <div class="container" {@attach codeMirror}></div>
-          {#if chordProgress.length > 0 || universalArgumentCount > 0}
-            <div class="chord-hint" aria-live="polite" aria-label="Waiting for next chord key">
-              {formatChordHint(universalArgumentCount, chordProgress)}
-            </div>
-          {/if}
+  <section class="editor-pane">
+    <div class="editor-wrap">
+      <div class="container" {@attach codeMirror}></div>
+      {#if chordProgress.length > 0 || universalArgumentCount > 0}
+        <div class="chord-hint" aria-live="polite" aria-label="Waiting for next chord key">
+          {formatChordHint(universalArgumentCount, chordProgress)}
         </div>
-      </section>
-      {/snippet}
-      {#snippet end()}
-        {#if effectiveGoalsPosition === 'bottom'}
-          <GoalsPanel
-            position={effectiveGoalsPosition}
-            commandInputPrompt={commandInputState.prompt}
-            commandInputError={commandInputState.error}
-            {panelGoalInfos}
-            {activeGoalId}
-            {activeGoalDetailStatus}
-            {activeGoalDetailError}
-            bind:commandInputElement={commandInputState.element}
-            onSubmitCommandInput={commandInputState.submit}
-            onCancelCommandInput={commandInputState.cancel}
-            onFocusGoal={focusGoal}
-          />
-        {/if}
-      {/snippet}
-    </SplitPane>
+      {/if}
+    </div>
+  </section>
   </section>
   {/snippet}
   {#snippet end()}
-  <section class="right-column">
-    {#if effectiveGoalsPosition === 'right'}
-      <div class="right-column-fixed">
-        <section class="info-section">
-          <AlsControlCard {agdaController} {deployProfiles} {onDeploymentProfileChange} />
-        </section>
-        <section class="output-section">
-          <div class="right-goals-stack">
-            <GoalsPanel
-              position={effectiveGoalsPosition}
-              commandInputPrompt={commandInputState.prompt}
-              commandInputError={commandInputState.error}
-              {panelGoalInfos}
-              {activeGoalId}
-              {activeGoalDetailStatus}
-              {activeGoalDetailError}
-              bind:commandInputElement={commandInputState.element}
-              onSubmitCommandInput={commandInputState.submit}
-              onCancelCommandInput={commandInputState.cancel}
-              onFocusGoal={focusGoal}
-            />
-            <MessagesPanel position={effectiveGoalsPosition} {agdaController} {textboxContent} {agdaDiagnostics} bind:selectedMessageTab />
-          </div>
-        </section>
-      </div>
-    {:else}
-      <SplitPane class="right-column-splitter" orientation="vertical" position={.65}>
-        {#snippet start()}
-        <section class="info-section">
-          <AlsControlCard {agdaController} {deployProfiles} {onDeploymentProfileChange} />
-        </section>
-        {/snippet}
-        {#snippet end()}
-        <section class="output-section">
-          <MessagesPanel position={effectiveGoalsPosition} {agdaController} {textboxContent} {agdaDiagnostics} bind:selectedMessageTab />
-        </section>
-        {/snippet}
-      </SplitPane>
-    {/if}
-  </section>
+  <AgdaSidePanel
+    {agdaController}
+    {deployProfiles}
+    {onDeploymentProfileChange}
+    splitStorageKey={LS_PANEL_SPLIT_KEY}
+    commandInputPrompt={commandInputState.prompt}
+    commandInputError={commandInputState.error}
+    {panelGoalInfos}
+    {activeGoalId}
+    {activeGoalDetailStatus}
+    {activeGoalDetailError}
+    bind:commandInputElement={commandInputState.element}
+    onSubmitCommandInput={commandInputState.submit}
+    onCancelCommandInput={commandInputState.cancel}
+    onFocusGoal={focusGoal}
+    {textboxContent}
+    {agdaDiagnostics}
+    bind:selectedMessageTab />
   {/snippet}
 </SplitPane>
 <SettingsPanel
   visible={settingsPanelVisible}
   onClose={closeSettingsPanel}
-  {isMobile}
-  {goalsPanelPosition}
-  onSetGoalsPanelPosition={setGoalsPanelPosition}
   {agdaController}
   onToggleImplicitArgs={toggleImplicitArgsFromSettings}
   onToggleIrrelevantArgs={toggleIrrelevantArgsFromSettings}
@@ -1046,31 +973,9 @@ $effect(() => {
   z-index: 10;
 }
 
-:global(.editor-goals-splitter) {
-  flex: 1 1;
-  min-height: 0;
-}
-
-/* editor-goals-splitter stays mounted in both Goals positions (so
-   .container/{@attach codeMirror} never moves between template branches —
-   see LS_GOALS_PANEL_POSITION_KEY) and just collapses visually instead of
-   being conditionally removed. Goals always lives in end(), the editor in
-   start() — collapsing hides end(), expands start(). Unlike the editor,
-   the right column has no CodeMirror-style state to lose, so its own
-   Goals/Commands/Messages arrangement is just plain conditional markup
-   (see the right-goals-stack block below) rather than needing this
-   mount-and-collapse trick. */
-:global(.editor-goals-splitter.goals-collapsed .split-divider),
-:global(.editor-goals-splitter.goals-collapsed .split-end) {
-  display: none;
-}
-:global(.editor-goals-splitter.goals-collapsed .split-start) {
-  /* SplitPane.svelte sets an inline height on .split-start, so a plain
-     class rule alone wouldn't win. */
-  height: 100% !important;
-}
 
 .editor-pane {
+  flex: 1 1 0;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -1089,53 +994,4 @@ $effect(() => {
   z-index: 10;
 }
 
-.output-section {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  margin-top: -1px;
-}
-
-.info-section {
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: auto;
-}
-
-.output-section {
-  min-height: 0;
-}
-
-/* Goals docked to 'right': the whole right column becomes a fixed,
-   non-resizable stack (control-card, then Commands/Goals/Messages) instead
-   of the draggable right-column-splitter used for 'bottom' — no divider
-   between info-section and output-section here. */
-.right-column-fixed {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-.right-column-fixed > .info-section {
-  flex: none;
-}
-.right-column-fixed > .output-section {
-  flex: 1 1;
-  min-height: 0;
-}
-
-/* Goals docked to 'right': Goals and Messages stack as two fixed-size
-   cards (no drag-resizing between them, unlike editor-goals-splitter).
-   Each panel's own sizing/chrome (flex ratio, outlined-box style, header
-   color) is handled internally via its `position` prop — GoalsPanel.svelte
-   and MessagesPanel.svelte — since a parent's scoped CSS can't reach into
-   a child component's own root element. Commands lives in the header
-   above the editor regardless of Goals position. */
-.right-goals-stack {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  height: 100%;
-}
 </style>

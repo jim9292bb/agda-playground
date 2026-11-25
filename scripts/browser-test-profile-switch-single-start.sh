@@ -24,19 +24,11 @@ wasm_fetch_count() {
 
 # Selects the first profile whose label contains `needle`; prints its ALS version.
 switch_profile() {
-  local needle_json
-  needle_json="$(json_string "$1")"
-  ab eval "(async () => {
-    const select = document.querySelector('#control-card-profile-select')
-    if (!select) throw new Error('Profile select not found')
-    const option = Array.from(select.options).find(o => o.value.includes($needle_json))
-    if (!option) throw new Error('profile option not found: ' + $needle_json)
-    select.value = option.value
-    select.dispatchEvent(new Event('change', { bubbles: true }))
-    // Let the old session tear down so start_als can't see its stale Restart.
-    await new Promise(r => setTimeout(r, 150))
-    return option.value.match(/ALS ([0-9.]+)/)[1]
-  })()" | tail -n 1 | tr -d '"'
+  local label
+  label="$(pick_environment "$1")"
+  # Let the old session tear down so start_als can't see its stale Restart.
+  ab wait 150 >/dev/null
+  [[ "$label" =~ ALS\ ([0-9.]+) ]] && echo "${BASH_REMATCH[1]}"
 }
 
 assert_fetch_count() {
@@ -52,7 +44,8 @@ assert_fetch_count() {
 
 open_app
 start_als
-initial_version="$(ab eval "(() => document.querySelector('#control-card-profile-select').value.match(/ALS ([0-9.]+)/)[1])()" | tail -n 1 | tr -d '"')"
+initial_label="$(current_environment_label)"
+[[ "$initial_label" =~ ALS\ ([0-9.]+) ]] && initial_version="${BASH_REMATCH[1]}"
 assert_fetch_count "$initial_version" 1 "initial page load starts ALS once"
 
 other_version="$(switch_profile "Cubical v0.8")"

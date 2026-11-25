@@ -262,6 +262,31 @@ wait_for_log_matches() {
 # goal -- presses Ctrl-c + `key`, then types `input` into the command input
 # panel. (A selection is never used as a command's input: with text selected
 # the chords yield to copy/cut, as in agda-mode-vscode.)
+# Picks the Agda environment whose deploy profile label contains `needle`
+# from the side panel's environment menu (fails if the menu is disabled, as
+# it is while ALS is downloading or stopping); prints the full profile label.
+pick_environment() {
+  local needle_json
+  needle_json="$(json_string "$1")"
+  ab eval "(async () => {
+    const toggle = document.querySelector('.agda-env-toggle')
+    if (!toggle) throw new Error('Environment menu not found')
+    if (toggle.disabled) throw new Error('Environment menu is disabled')
+    if (toggle.getAttribute('aria-expanded') !== 'true') toggle.click()
+    await new Promise(r => setTimeout(r, 50))
+    const option = Array.from(document.querySelectorAll('#agda-env-list [role=option]'))
+      .find(o => o.dataset.profileLabel.includes($needle_json))
+    if (!option) throw new Error('environment not found: ' + $needle_json)
+    option.click()
+    return option.dataset.profileLabel
+  })()" | tail -n 1 | tr -d '"'
+}
+
+# Prints the deploy profile label of the environment currently selected.
+current_environment_label() {
+  ab eval "(() => document.querySelector('.agda-env-toggle')?.dataset.profileLabel ?? '')()" | tail -n 1 | tr -d '"'
+}
+
 run_toplevel_prompted_chord() {
   local key="$1" code="$2" input="$3"
   ab eval "(() => {

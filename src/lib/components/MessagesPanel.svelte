@@ -4,14 +4,12 @@ import QueriesPanel from './QueriesPanel.svelte'
 import DiagnosticsPanel from './DiagnosticsPanel.svelte'
 
 /** @type {{
- * position: 'bottom' | 'right',
  * agdaController: import('$lib/controller.svelte').AgdaController,
  * textboxContent: string,
  * agdaDiagnostics: import('$lib/agda/diagnostics').AgdaDiagnostic[],
  * selectedMessageTab: 'log' | 'queries' | 'errors',
  * }} */
 let {
-  position,
   agdaController,
   textboxContent,
   agdaDiagnostics,
@@ -19,6 +17,30 @@ let {
 } = $props()
 
 let logEntries = $derived(textboxContent.trimEnd().split(/\n+/).filter(Boolean))
+
+const tabs = $derived([
+  { id: /** @type {const} */ ('log'), label: 'Log', count: 0 },
+  { id: /** @type {const} */ ('queries'), label: 'Queries', count: agdaController.queryResults.length },
+  { id: /** @type {const} */ ('errors'), label: 'Errors', count: agdaDiagnostics.length },
+])
+
+let copied = $state(false)
+/** @type {ReturnType<typeof setTimeout> | undefined} */
+let copiedTimer
+
+/** Copies what the current tab shows, as plain text. */
+function copyCurrentTab() {
+  const text = selectedMessageTab === 'log'
+    ? textboxContent.trimEnd()
+    : selectedMessageTab === 'queries'
+      ? agdaController.queryResults.map(r => `${r.label}\n${r.content}`).join('\n\n')
+      : agdaDiagnostics.map(d => `${d.filepath}:${d.line}:${d.column}: ${d.severity}: ${d.message}`).join('\n\n')
+  navigator.clipboard?.writeText(text).then(() => {
+    copied = true
+    clearTimeout(copiedTimer)
+    copiedTimer = setTimeout(() => { copied = false }, 1500)
+  }, () => {})
+}
 
 /** @type {HTMLDivElement | undefined} */
 let textbox = $state(undefined)
@@ -48,24 +70,35 @@ $effect(() => {
 
 <section
   class="messages-panel"
-  class:messages-right={position === 'right'}
   data-log-content={textboxContent}
   data-performance-entries={JSON.stringify(agdaController.performanceEntries)}
   data-query-results={agdaController.queryResults.map(r => r.content).join('\n---\n')}
-  aria-label="Messages">
+  aria-labelledby="messages-heading">
   <header class="messages-header">
-    <div class="messages-header-info">
-      <strong>Messages</strong>
-      <span>{selectedMessageTab === 'log' ? 'Agda interaction log' : selectedMessageTab === 'queries' ? `${agdaController.queryResults.length} results` : `${agdaDiagnostics.length} diagnostics`}</span>
-    </div>
+    <h2 id="messages-heading" class="panel-heading">Messages</h2>
     <div class="messages-tab-group" role="group" aria-label="Message view">
-      <button type="button" class="messages-tab" class:active={selectedMessageTab === 'log'}
-        onclick={() => { selectedMessageTab = 'log' }}>Log</button>
-      <button type="button" class="messages-tab" class:active={selectedMessageTab === 'queries'}
-        onclick={() => { selectedMessageTab = 'queries' }}>Queries{agdaController.queryResults.length ? ` (${agdaController.queryResults.length})` : ''}</button>
-      <button type="button" class="messages-tab" class:active={selectedMessageTab === 'errors'}
-        onclick={() => { selectedMessageTab = 'errors' }}>Errors{agdaDiagnostics.length ? ` (${agdaDiagnostics.length})` : ''}</button>
+      {#each tabs as tab (tab.id)}
+        <button
+          type="button"
+          class="messages-tab"
+          class:active={selectedMessageTab === tab.id}
+          aria-pressed={selectedMessageTab === tab.id}
+          onclick={() => { selectedMessageTab = tab.id }}>{tab.label}{#if tab.count} <span class="messages-tab-count">{tab.count}</span>{/if}</button>
+      {/each}
     </div>
+    <span class="messages-header-spacer"></span>
+    <button
+      type="button"
+      class="messages-copy"
+      aria-label={copied ? 'Copied' : `Copy ${selectedMessageTab === 'log' ? 'log' : selectedMessageTab}`}
+      title={copied ? 'Copied' : 'Copy'}
+      onclick={copyCurrentTab}>
+      {#if copied}
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"></path></svg>
+      {:else}
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h10"></path></svg>
+      {/if}
+    </button>
   </header>
 
   <div class="messages-body">
@@ -76,7 +109,7 @@ $effect(() => {
             <pre class="messages-log-entry">{entry}</pre>
           {/each}
         {:else}
-          <div class="messages-log-empty">(log area is empty)</div>
+          <div class="messages-log-empty">No messages yet.</div>
         {/if}
       </div>
     {:else if selectedMessageTab === 'queries'}
@@ -93,108 +126,104 @@ $effect(() => {
   flex-direction: column;
   min-height: 0;
   height: 100%;
-  background: var(--quiet-neutral-fill);
-}
-
-/* Goals docked to 'right': Messages is a fixed-size (4.5 of the 5.5:4.5
-   split with Goals), flat outlined box — plain border, square corners,
-   no shadow — instead of the 'bottom' position's rounded/shadowed card. */
-.messages-panel.messages-right {
-  flex: 4.5 4.5 0;
-  min-height: 0;
-  margin: 0;
-  border: 1px solid var(--app-border);
-  overflow: hidden;
-}
-
-.messages-panel.messages-right .messages-header {
-  background: var(--app-surface);
-  border-bottom-width: 2px;
-  border-bottom-color: var(--app-border);
-}
-
-/* Goals docked to 'bottom': Messages is alone in the right column and
-   needs to read as its own panel against the page background —
-   margin-top compensates for .output-section's own -1px margin-top
-   (which overlaps the SplitPane divider above it, in +page.svelte)
-   — without this, that -1px shift clips off the top pixel of this
-   card's own border. */
-.messages-panel:not(.messages-right) {
-  margin: 1px 12px 12px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--app-border-strong);
-  box-shadow: 0 2px 8px var(--app-shadow);
-  overflow: hidden;
 }
 
 .messages-header {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
-  padding: 7px 8px;
-  background: var(--quiet-neutral-fill-softer);
-  border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
+  min-height: 2.5rem;
+  box-sizing: border-box;
+  padding: 6px 10px 6px 14px;
+  border-bottom: 1px solid var(--app-border);
 }
 
-.messages-header-info {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  min-width: 0;
-}
-
-.messages-header strong {
-  font-size: .9rem;
-  font-weight: 500;
-  letter-spacing: .02em;
+.panel-heading {
+  margin: 0;
+  font-size: .62rem;
+  font-weight: 600;
+  letter-spacing: .08em;
   text-transform: uppercase;
+  color: var(--app-text-secondary);
 }
 
-.messages-header span {
-  color: var(--app-text-muted);
-  font-size: .72rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.messages-header-spacer {
+  flex: 1 1 0;
 }
 
+/* A segmented control: the active tab is a raised surface on a sunken track. */
 .messages-tab-group {
   display: flex;
-  gap: 1px;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 5px;
-  background: var(--quiet-neutral-stroke-softer);
-  overflow: hidden;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 8px;
+  background: var(--app-switcher-track);
   flex-shrink: 0;
 }
 
 .messages-tab {
-  border: none;
-  background: var(--quiet-neutral-fill-softer);
-  color: var(--app-text);
-  font: inherit;
-  font-size: .72rem;
-  padding: 3px 9px;
-  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--app-text-secondary);
+  font-size: .66rem;
   white-space: nowrap;
-}
-
-.messages-tab.active {
-  background: var(--quiet-primary-fill-soft);
-  color: var(--quiet-primary-text, #3b3aab);
-  font-weight: 500;
+  cursor: pointer;
 }
 
 .messages-tab:hover:not(.active) {
-  background: color-mix(in srgb, var(--quiet-neutral-stroke-softer) 60%, var(--quiet-neutral-fill-softer));
+  color: var(--app-text-strong);
+}
+
+.messages-tab.active {
+  background: var(--app-surface);
+  color: var(--app-text-strong);
+  font-weight: 600;
+  box-shadow: 0 1px 2px var(--app-shadow);
+}
+
+.messages-tab-count {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--app-surface);
+  color: var(--app-text-secondary);
+  font-size: .58rem;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.messages-tab.active .messages-tab-count {
+  background: var(--quiet-primary-fill-soft);
+  color: var(--quiet-primary-text);
+}
+
+.messages-copy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--app-text-secondary);
+  cursor: pointer;
+}
+
+.messages-copy:hover {
+  background: var(--quiet-neutral-fill-softer);
+  color: var(--app-text-strong);
 }
 
 .messages-body {
   display: flex;
   flex: 1 1;
   min-height: 0;
-  padding: 0;
 }
 
 .messages-log {
@@ -202,29 +231,23 @@ $effect(() => {
   min-height: 0;
   width: 100%;
   overflow: auto;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 78%, var(--quiet-neutral-fill));
+  padding: 4px 0;
 }
 
 .messages-log-entry {
   margin: 0;
-  padding: 7px 8px;
+  padding: 4px 14px;
   color: var(--app-text-secondary);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-family: JuliaMono, monospace;
-  font-size: 11px;
-  line-height: 1.45;
-}
-
-.messages-log-entry + .messages-log-entry {
-  border-top: 1px solid var(--quiet-neutral-stroke-softer);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .messages-log-empty {
-  padding: 8px;
+  padding: 8px 14px;
   color: var(--app-text-muted);
-  font-size: .8rem;
+  font-size: .68rem;
 }
 </style>

@@ -19,22 +19,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/browser-common.sh"
 
 status_label() {
-  ab eval "(() => document.querySelector('.als-status-label')?.textContent.trim() ?? '')()" | tail -n 1 | tr -d '"'
+  ab eval "(() => document.querySelector('.agda-status-label')?.textContent.trim() ?? '')()" | tail -n 1 | tr -d '"'
 }
 
 select_profile() {
-  local needle_json
-  needle_json="$(json_string "$1")"
-  ab eval "(() => {
-    const select = document.querySelector('#control-card-profile-select')
-    if (!select) throw new Error('Profile select not found')
-    if (select.disabled) throw new Error('Profile select is disabled')
-    const option = Array.from(select.options).find(o => o.value.includes($needle_json))
-    if (!option) throw new Error('profile option not found: ' + $needle_json)
-    select.value = option.value
-    select.dispatchEvent(new Event('change', { bubbles: true }))
-    return option.value
-  })()" >/dev/null
+  pick_environment "$1" >/dev/null
 }
 
 live_workers() {
@@ -126,7 +115,7 @@ if [[ "$peak" != "1" ]]; then
 fi
 echo "PASS: the abandoned init() never spawned a worker"
 
-selected="$(ab eval "(() => document.querySelector('#control-card-profile-select').value)()" | tail -n 1)"
+selected="$(current_environment_label)"
 if [[ "$selected" != *"ALS 2.8.0"* ]]; then
   echo "FAIL: selected profile is $selected, expected the ALS 2.8.0 one" >&2
   exit 1

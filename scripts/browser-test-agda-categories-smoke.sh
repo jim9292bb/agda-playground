@@ -7,16 +7,8 @@ source "$SCRIPT_DIR/browser-common.sh"
 
 open_app
 
-ab eval "(async () => {
-  const select = document.querySelector('#control-card-profile-select')
-  if (!select) throw new Error('Profile select not found below the ALS control card')
-  const option = Array.from(select.options).find(o => o.value.includes('agda-categories'))
-  if (!option) throw new Error('agda-categories profile option not found in select')
-  select.value = option.value
-  select.dispatchEvent(new Event('change', { bubbles: true }))
-  await new Promise(r => setTimeout(r, 150))
-  return { ok: true, selected: option.value }
-})()"
+pick_environment "agda-categories" >/dev/null
+ab wait 150 >/dev/null
 
 start_als
 

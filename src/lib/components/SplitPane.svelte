@@ -7,6 +7,7 @@
     ratio = $bindable(position),
     class: className = '',
     style = '',
+    dividerLabel = 'Resize panels',
     start,
     end,
   }: {
@@ -15,6 +16,8 @@
     ratio?: number
     class?: string
     style?: string
+    /** Accessible name of the divider (a focusable separator). */
+    dividerLabel?: string
     start?: Snippet
     end?: Snippet
   } = $props()
@@ -50,6 +53,23 @@
   function onPointerUp() {
     dragging = false
   }
+
+  // The divider is a focusable separator: arrow keys move it 5% at a time
+  // (Left/Up shrink the first pane, Right/Down grow it), Home/End jump to
+  // the limits.
+  function onKeyDown(e: KeyboardEvent) {
+    const [min, max] = getMinMax()
+    const back = isH ? 'ArrowLeft' : 'ArrowUp'
+    const forward = isH ? 'ArrowRight' : 'ArrowDown'
+    let next: number | null = null
+    if (e.key === back) next = ratio - 0.05
+    else if (e.key === forward) next = ratio + 0.05
+    else if (e.key === 'Home') next = min
+    else if (e.key === 'End') next = max
+    if (next === null) return
+    e.preventDefault()
+    ratio = Math.max(min, Math.min(max, next))
+  }
 </script>
 
 <div
@@ -63,11 +83,19 @@
   <div class="split-start" style={isH ? `width: ${ratio * 100}%` : `height: ${ratio * 100}%`}>
     {@render start?.()}
   </div>
+  <!-- A focusable separator with a value is an interactive widget (ARIA), which Svelte's role table doesn't know. -->
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions, a11y_no_noninteractive_tabindex -->
   <div
     class="split-divider"
     role="separator"
-    aria-orientation={orientation}
+    tabindex="0"
+    aria-label={dividerLabel}
+    aria-orientation={isH ? 'vertical' : 'horizontal'}
+    aria-valuemin={0}
+    aria-valuemax={100}
+    aria-valuenow={Math.round(ratio * 100)}
     onpointerdown={onPointerDown}
+    onkeydown={onKeyDown}
   ></div>
   <div class="split-end">
     {@render end?.()}
@@ -150,4 +178,13 @@
   .split-divider:hover::after {
     background: var(--quiet-primary-fill-soft, #d9dafe);
   }
+
+  .split-divider:focus-visible {
+    outline: none;
+  }
+  .split-divider:focus-visible::after {
+    background: var(--quiet-primary-text);
+  }
+  .horizontal .split-divider:focus-visible::after { width: 3px; left: calc(50% - 1.5px); }
+  .vertical .split-divider:focus-visible::after { height: 3px; top: calc(50% - 1.5px); }
 </style>
