@@ -30,11 +30,11 @@ function token(name) {
   return [match[1], match[2]]
 }
 
-// Everything code is drawn on: the editor, notebook code cells, and the
-// focused notebook cell.
-const codeSurfaces = ['quiet-neutral-fill', 'quiet-neutral-fill-softer', 'app-code-fill', 'app-cell-focus-fill'].map(token)
+// Everything code is drawn on: the editor and its current line, notebook
+// code cells, and the focused notebook cell.
+const codeSurfaces = ['quiet-neutral-fill', 'quiet-neutral-fill-softer', 'app-code-fill', 'app-cell-focus-fill', 'app-active-line'].map(token)
 // Everything UI text is drawn on.
-const uiSurfaces = ['quiet-neutral-fill', 'quiet-neutral-fill-softer', 'quiet-messages-fill', 'app-code-fill', 'app-chrome', 'app-panel'].map(token)
+const uiSurfaces = ['quiet-neutral-fill', 'quiet-neutral-fill-softer', 'app-code-fill', 'app-chrome', 'app-panel', 'app-canvas', 'app-cell-focus-fill'].map(token)
 
 /**
  * The text colors of a palette spec: rules that set a hex `color` without a
@@ -83,6 +83,11 @@ describe('UI text colors meet WCAG AA (4.5:1)', () => {
 
   it.each([['light', 0], ['dark', 1]])('%s scheme, accent text on its own soft fill', (_name, scheme) => {
     const ratio = contrast(token('quiet-primary-text')[scheme], token('quiet-primary-fill-soft')[scheme])
+    expect(ratio).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it.each([['light', 0], ['dark', 1]])('%s scheme, warning text on its badge fill', (_name, scheme) => {
+    const ratio = contrast(token('app-warning-text')[scheme], token('app-warning-fill')[scheme])
     expect(ratio).toBeGreaterThanOrEqual(4.5)
   })
 })

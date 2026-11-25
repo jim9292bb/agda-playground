@@ -1,7 +1,7 @@
 html {
   font-size: 18px;
   /* The UI font. Code, goals and logs set their own monospace font. */
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial, sans-serif;
 }
 
 /* Form controls don't inherit the page font by default. (Only the family:
@@ -24,64 +24,58 @@ button, input, select, textarea {
 :root {
   color-scheme: light dark;
 
-  --quiet-primary-seed: #989cff;
-  --quiet-neutral-seed: #8b8c93;
-  --quiet-destructive-seed: #ef5655;
-
-  --quiet-primary-100: light-dark(color-mix(in oklab, var(--quiet-primary-seed), white 87%), color-mix(in oklab, var(--quiet-primary-seed), black 82%));
-  --quiet-primary-200: light-dark(color-mix(in oklab, var(--quiet-primary-seed), white 70%), color-mix(in oklab, var(--quiet-primary-seed), black 64%));
-  --quiet-primary-300: light-dark(color-mix(in oklab, var(--quiet-primary-seed), white 47%), color-mix(in oklab, var(--quiet-primary-seed), black 42%));
-  --quiet-neutral-100: light-dark(color-mix(in oklab, var(--quiet-neutral-seed), white 87%), color-mix(in oklab, var(--quiet-neutral-seed), black 78%));
-
-  --quiet-neutral-fill: light-dark(#ffffff, #1e2026);
-  --quiet-neutral-fill-softer: light-dark(#fcfcfd, #18191e);
-  --quiet-neutral-stroke-softer: light-dark(#e2e4e8, #353841);
-  --quiet-messages-fill: light-dark(#fbfbfe, #1b1c22);
-  --quiet-messages-fill-softer: light-dark(#f8f8fd, #16171c);
-  --quiet-messages-stroke: light-dark(#e5e6f0, #353841);
-  /* The accent (indigo, from the redesign canvas): selected and active
-     states, focus rings, counts. */
-  --quiet-primary-fill-soft: light-dark(#e6eafd, #262c4f);
-  --quiet-primary-stroke: light-dark(#3b4fd8, #8fa0ff);
-  --quiet-primary-stroke-soft: light-dark(#aab4f2, #4c5694);
-  --quiet-primary-text: light-dark(#3b4fd8, #8fa0ff);
-  --quiet-destructive-text: light-dark(color-mix(in oklab, var(--quiet-destructive-seed), black 12.5%), color-mix(in oklab, var(--quiet-destructive-seed), white 30%));
+  /* "Scientific Blue": slate neutrals with a blue accent. */
+  /* Paper (editor, panels) and surface (toolbars, panel heads). */
+  --quiet-neutral-fill: light-dark(#ffffff, #171e2c);
+  --quiet-neutral-fill-softer: light-dark(#f8fafc, #1c2534);
+  --quiet-neutral-stroke-softer: light-dark(#e2e8f0, #303b4e);
+  /* The accent: selected and active states, focus rings, counts. */
+  --quiet-primary-fill-soft: light-dark(#e8f0ff, #273b5d);
+  --quiet-primary-stroke: light-dark(#2563eb, #7ca6ff);
+  --quiet-primary-stroke-soft: light-dark(#a9c1f5, #3f5a8c);
+  --quiet-primary-text: light-dark(#2563eb, #7ca6ff);
+  --quiet-destructive-text: light-dark(#b91c1c, #f87171);
 
   /* Text, strongest to quietest. */
-  --app-text-strong: light-dark(#1f2937, #f3f4f6);
-  --app-text: light-dark(#374151, #e3e5e9);
-  --app-text-secondary: light-dark(#4b5563, #c5c9d0);
-  --app-text-muted: light-dark(#636366, #a4a8b0);
+  --app-text-strong: light-dark(#1e293b, #e2e8f0);
+  --app-text: light-dark(#334155, #d3dae4);
+  --app-text-secondary: light-dark(#475569, #b6c0cd);
+  --app-text-muted: light-dark(#607086, #94a3b8);
 
   /* Surfaces and lines beyond the --quiet-* ones above. */
   --app-surface: var(--quiet-neutral-fill);
-  /* The header bar and the editor gutter, a step grayer than the page. */
-  --app-chrome: light-dark(#f3f4f7, #1a1c22);
-  /* The Agda side panel's own ground, between the editor and the chrome. */
-  --app-panel: light-dark(#fafbfc, #191b21);
-  --app-border: light-dark(#e6e9ee, #353841);
-  --app-border-strong: light-dark(#c9ccd3, #4a4e58);
-  --app-code-fill: light-dark(#f6f8fa, #23262d);
-  --app-shadow: light-dark(rgb(0 0 0 / .1), rgb(0 0 0 / .45));
-  --app-backdrop: light-dark(rgb(0 0 0 / .3), rgb(0 0 0 / .55));
-  --app-scroll-shade: light-dark(rgb(0 0 0 / .08), rgb(0 0 0 / .35));
+  /* The header bar and the editor gutter. */
+  --app-chrome: light-dark(#f8fafc, #1c2534);
+  /* The Agda side panel's own ground. */
+  --app-panel: light-dark(#ffffff, #171e2c);
+  /* The page behind the panels; also the gaps between them. */
+  --app-canvas: light-dark(#f4f6fa, #111827);
+  --app-border: light-dark(#e2e8f0, #303b4e);
+  --app-border-strong: light-dark(#cbd5e1, #475569);
+  --app-code-fill: light-dark(#f8fafc, #1c2534);
+  /* The editor's current line. */
+  --app-active-line: light-dark(#f1f6ff, #1c2639);
+  --app-shadow: light-dark(rgb(30 41 59 / .13), rgb(0 0 0 / .45));
+  --app-backdrop: light-dark(rgb(15 23 42 / .4), rgb(0 0 0 / .55));
+  --app-scroll-shade: light-dark(rgb(15 23 42 / .08), rgb(0 0 0 / .35));
   /* The sunken track behind segmented controls (app switcher, tabs). */
-  --app-switcher-track: light-dark(#e9ebef, #121419);
+  --app-switcher-track: light-dark(#eef2f7, #111827);
 
   /* Notebook cells. */
-  --app-cell-focus-fill: light-dark(#f0f8ff, #1b2331);
-  --app-cell-focus-border: light-dark(#0b57d0, #8ab4f8);
-  --app-cell-border: light-dark(#747775, #8a8f98);
+  --app-cell-focus-fill: light-dark(#eff6ff, #1a2335);
+  --app-cell-focus-border: light-dark(#2563eb, #7ca6ff);
+  --app-cell-border: light-dark(#64748b, #7d8aa0);
 
   /* Status: text colors are AA on the surfaces above; `-dot` colors are for
-     small non-text indicators (>= 3:1). */
+     small non-text indicators (>= 3:1). `-fill` is a badge's soft ground. */
   --app-success-text: light-dark(#15803d, #4ade80);
-  --app-warning-text: light-dark(#a1480a, #fbbf24);
+  --app-warning-text: light-dark(#92400e, #fbbf24);
+  --app-warning-fill: light-dark(#fef3c7, #42351e);
   --app-danger-text: light-dark(#b91c1c, #f87171);
   --app-success-dot: light-dark(#16a34a, #22c55e);
   --app-warning-dot: light-dark(#d97706, #f59e0b);
   --app-danger-dot: light-dark(#dc2626, #ef4444);
-  --app-neutral-dot: light-dark(#8b8c93, #8b8c93);
+  --app-neutral-dot: light-dark(#7c8aa0, #7c8aa0);
   --app-warning-border: light-dark(#ca8a04, #eab308);
   --app-danger-border: light-dark(#c2410c, #f97316);
 }

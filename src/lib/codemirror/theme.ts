@@ -22,12 +22,6 @@ const myBaseTheme = EditorView.baseTheme({
     // seems that more people love half-width arrows...
     // fontFeatureSettings: '"calt" off, "NWID" on',
   },
-  '&dark .cm-activeLine': {
-    backgroundColor: '#66666620',
-  },
-  '&dark .cm-activeLineGutter': {
-    background: '#66666620',
-  },
   '.cm-selectionMatch.cm-selectionMatch': {
     // FIXME
     backgroundColor: 'transparent',
@@ -117,6 +111,15 @@ export function myCodeMirrorTheme(): Extension {
         backgroundColor: 'var(--app-chrome)',
         color: 'var(--app-text-muted)',
         borderRight: '1px solid var(--app-border)',
+      },
+      // The cursor's line: a pale accent wash with an accent edge.
+      '.cm-activeLine': {
+        backgroundColor: 'var(--app-active-line)',
+        boxShadow: 'inset 2px 0 var(--quiet-primary-stroke)',
+      },
+      '.cm-activeLineGutter': {
+        backgroundColor: 'var(--app-active-line)',
+        color: 'var(--app-text-strong)',
       },
       '.cm-tooltip': {
         overflow: 'auto',

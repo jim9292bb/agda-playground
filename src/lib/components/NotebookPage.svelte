@@ -338,8 +338,9 @@ const basicTheme = EditorView.theme({
   // root selector (the .cm-editor element itself) -- writing `.cm-editor`
   // instead would ask CodeMirror to scope this rule to a *descendant* of
   // the editor root, which never matches since .cm-editor is that root.
-  '&:not(.cm-focused) .cm-activeLine': {
+  '&:not(.cm-focused) .cm-activeLine, &:not(.cm-focused) .cm-activeLineGutter': {
     backgroundColor: 'transparent',
+    boxShadow: 'none',
   },
 })
 
@@ -1349,7 +1350,7 @@ $effect(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--quiet-neutral-fill-softer);
+  background: var(--app-canvas);
 }
 
 .app-workspace {
@@ -1561,11 +1562,6 @@ $effect(() => {
   pointer-events: none;
   user-select: none;
   letter-spacing: 0.04em;
-}
-
-:global(.split-pane) {
-  --divider-width: 1px;
-  --divider-draggable-area: 13px;
 }
 
 .editor-section {

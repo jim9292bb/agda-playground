@@ -68,7 +68,7 @@ check_header() {
 check_sans() {
   local route="$1" selector="$2" family
   family="$(first_font_family "$selector")"
-  [[ "$family" == "system-ui" ]] || fail "$route: $selector uses '$family', not the UI sans-serif stack"
+  [[ "$family" == "Inter" ]] || fail "$route: $selector uses '$family', not the UI sans-serif stack (Inter first)"
   echo "PASS: $route: $selector uses the UI sans-serif font"
 }
 

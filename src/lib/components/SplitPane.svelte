@@ -144,39 +144,41 @@
 
   .horizontal .split-divider {
     width: var(--divider-draggable-area, 13px);
-    margin-left: calc(var(--divider-draggable-area, 13px) / -2);
-    margin-right: calc(var(--divider-draggable-area, 13px) / -2);
+    margin-left: calc((var(--divider-draggable-area, 13px) - var(--divider-width, 5px)) / -2);
+    margin-right: calc((var(--divider-draggable-area, 13px) - var(--divider-width, 5px)) / -2);
     height: 100%;
     cursor: col-resize;
   }
   .vertical .split-divider {
     width: 100%;
     height: var(--divider-draggable-area, 13px);
-    margin-top: calc(var(--divider-draggable-area, 13px) / -2);
-    margin-bottom: calc(var(--divider-draggable-area, 13px) / -2);
+    margin-top: calc((var(--divider-draggable-area, 13px) - var(--divider-width, 5px)) / -2);
+    margin-bottom: calc((var(--divider-draggable-area, 13px) - var(--divider-width, 5px)) / -2);
     cursor: row-resize;
   }
 
-  /* Thin visual line centered within the draggable area */
+  /* A band of the line color (--divider-width wide, 5px by default) that
+     takes real space between the panes, centered in the wider draggable
+     area. */
   .split-divider::after {
     content: '';
     position: absolute;
-    background: var(--quiet-neutral-stroke-softer, #e0e0e2);
+    background: var(--app-border);
     transition: background 0.15s;
   }
   .horizontal .split-divider::after {
     top: 0; bottom: 0;
-    left: calc(50% - var(--divider-width, 1px) / 2);
-    width: var(--divider-width, 1px);
+    left: calc(50% - var(--divider-width, 5px) / 2);
+    width: var(--divider-width, 5px);
   }
   .vertical .split-divider::after {
     left: 0; right: 0;
-    top: calc(50% - var(--divider-width, 1px) / 2);
-    height: var(--divider-width, 1px);
+    top: calc(50% - var(--divider-width, 5px) / 2);
+    height: var(--divider-width, 5px);
   }
 
   .split-divider:hover::after {
-    background: var(--quiet-primary-fill-soft, #d9dafe);
+    background: var(--quiet-primary-stroke-soft);
   }
 
   .split-divider:focus-visible {
@@ -185,6 +187,4 @@
   .split-divider:focus-visible::after {
     background: var(--quiet-primary-text);
   }
-  .horizontal .split-divider:focus-visible::after { width: 3px; left: calc(50% - 1.5px); }
-  .vertical .split-divider:focus-visible::after { height: 3px; top: calc(50% - 1.5px); }
 </style>

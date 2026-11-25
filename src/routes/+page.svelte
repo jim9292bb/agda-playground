@@ -926,7 +926,7 @@ $effect(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--quiet-neutral-fill-softer);
+  background: var(--app-canvas);
 }
 
 .app-workspace {
@@ -1000,11 +1000,6 @@ $effect(() => {
   pointer-events: none;
   user-select: none;
   letter-spacing: 0.04em;
-}
-
-:global(.split-pane) {
-  --divider-width: 1px;
-  --divider-draggable-area: 13px;
 }
 
 .container > :global(*) {
