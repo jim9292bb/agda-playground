@@ -76,21 +76,7 @@ $effect(() => {
   data-performance-entries={JSON.stringify(agdaController.performanceEntries)}
   data-query-results={agdaController.queryResults.map(r => r.content).join('\n---\n')}
   aria-label="Messages">
-  <header class="messages-header">
-    {#if showHeading}
-      <h2 class="panel-heading">Messages</h2>
-    {/if}
-    <div class="messages-tab-group" role="group" aria-label="Message view">
-      {#each tabs as tab (tab.id)}
-        <button
-          type="button"
-          class="messages-tab"
-          class:active={selectedMessageTab === tab.id}
-          aria-pressed={selectedMessageTab === tab.id}
-          onclick={() => { selectedMessageTab = tab.id }}>{tab.label}{#if tab.count} <span class="messages-tab-count">{tab.count}</span>{/if}</button>
-      {/each}
-    </div>
-    <span class="messages-header-spacer"></span>
+  {#snippet copyButton()}
     <button
       type="button"
       class="messages-copy"
@@ -103,7 +89,35 @@ $effect(() => {
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h10"></path></svg>
       {/if}
     </button>
-  </header>
+  {/snippet}
+
+  <!-- The head (icon, title, copy), then the Log / Queries / Errors tabs on
+       a row of their own. On phones the panel's bar names the panel, so the
+       head is left out and the copy button joins the tabs. -->
+  {#if showHeading}
+    <header class="messages-header">
+      <svg class="panel-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 6 6 6-6 6m9 0h6"></path></svg>
+      <h2 class="panel-heading">Messages</h2>
+      <span class="messages-header-spacer"></span>
+      {@render copyButton()}
+    </header>
+  {/if}
+  <div class="messages-tabs-row">
+    <div class="messages-tab-group" role="group" aria-label="Message view">
+      {#each tabs as tab (tab.id)}
+        <button
+          type="button"
+          class="messages-tab"
+          class:active={selectedMessageTab === tab.id}
+          aria-pressed={selectedMessageTab === tab.id}
+          onclick={() => { selectedMessageTab = tab.id }}>{tab.label}{#if tab.count} <span class="messages-tab-count">{tab.count}</span>{/if}</button>
+      {/each}
+    </div>
+    {#if !showHeading}
+      <span class="messages-header-spacer"></span>
+      {@render copyButton()}
+    {/if}
+  </div>
 
   <div class="messages-body">
     {#if selectedMessageTab === 'log'}
@@ -136,46 +150,64 @@ $effect(() => {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 2.5rem;
+  gap: 7px;
+  height: 32px;
   box-sizing: border-box;
-  padding: 6px 10px 6px 14px;
+  padding: 0 6px 0 12px;
   border-bottom: 1px solid var(--app-border);
+  background: var(--quiet-neutral-fill-softer);
+}
+
+.panel-icon {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: var(--app-text-muted);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .panel-heading {
   margin: 0;
-  font-size: .62rem;
-  font-weight: 600;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: var(--app-text-secondary);
+  font-size: .66rem;
+  font-weight: 650;
+  color: var(--app-text-strong);
 }
 
 .messages-header-spacer {
   flex: 1 1 0;
 }
 
-/* A segmented control: the active tab is a raised surface on a sunken track. */
+/* Underlined tabs: the active one in the accent. */
+.messages-tabs-row {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 6px 0 10px;
+  border-bottom: 1px solid var(--app-border);
+}
+
 .messages-tab-group {
   display: flex;
-  gap: 2px;
-  padding: 3px;
-  border-radius: 8px;
-  background: var(--app-switcher-track);
+  align-self: stretch;
+  gap: 4px;
   flex-shrink: 0;
 }
 
 .messages-tab {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 9px;
+  gap: 5px;
+  margin-bottom: -1px;
+  padding: 0 8px;
   border: 0;
-  border-radius: 6px;
+  border-bottom: 2px solid transparent;
   background: transparent;
-  color: var(--app-text-secondary);
-  font-size: .66rem;
+  color: var(--app-text-muted);
+  font-size: .64rem;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -185,18 +217,22 @@ $effect(() => {
 }
 
 .messages-tab.active {
-  background: var(--app-surface);
-  color: var(--app-text-strong);
-  font-weight: 600;
-  box-shadow: 0 1px 2px var(--app-shadow);
+  border-bottom-color: var(--quiet-primary-stroke);
+  color: var(--quiet-primary-text);
+  font-weight: 650;
+}
+
+.messages-tab:focus-visible {
+  outline: 2px solid var(--quiet-primary-text);
+  outline-offset: -2px;
 }
 
 .messages-tab-count {
-  padding: 0 6px;
-  border-radius: 999px;
-  background: var(--app-surface);
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--app-switcher-track);
   color: var(--app-text-secondary);
-  font-size: .58rem;
+  font-size: .56rem;
   font-weight: 600;
   line-height: 1.6;
 }

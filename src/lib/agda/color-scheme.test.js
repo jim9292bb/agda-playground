@@ -34,7 +34,7 @@ function token(name) {
 // code cells, and the focused notebook cell.
 const codeSurfaces = ['quiet-neutral-fill', 'quiet-neutral-fill-softer', 'app-code-fill', 'app-cell-focus-fill', 'app-active-line'].map(token)
 // Everything UI text is drawn on.
-const uiSurfaces = ['quiet-neutral-fill', 'quiet-neutral-fill-softer', 'app-code-fill', 'app-chrome', 'app-panel', 'app-canvas', 'app-cell-focus-fill'].map(token)
+const uiSurfaces = ['quiet-neutral-fill', 'quiet-neutral-fill-softer', 'app-code-fill', 'app-chrome', 'app-panel', 'app-canvas', 'app-cell-focus-fill', 'app-switcher-track'].map(token)
 
 /**
  * The text colors of a palette spec: rules that set a hex `color` without a

@@ -82,6 +82,7 @@ function onListKeydown(event) {
 
 <section class="agda-status" aria-label="Agda status">
   <div class="agda-status-row">
+    <span class="agda-status-title">ALS</span>
     <span class="agda-status-dot" style="--dot-color: var(--app-{statusMeta.tone}-dot)" aria-hidden="true"></span>
     <span
       class="agda-status-label"
@@ -91,11 +92,15 @@ function onListKeydown(event) {
       type="button"
       class="agda-status-btn"
       onclick={() => agdaController.restartALSWASM()}
-      disabled={agdaController.alsWorkerStatus !== 'active'}>Restart</button>
+      disabled={agdaController.alsWorkerStatus !== 'active'}>
+      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2 6M20 4v7h-7"></path></svg>
+      Restart
+    </button>
   </div>
 
   {#if environments.length > 1}
     <div class="agda-env">
+      <span class="agda-env-caption" aria-hidden="true">Environment</span>
       <button
         bind:this={toggleEl}
         type="button"
@@ -145,23 +150,39 @@ function onListKeydown(event) {
       {/if}
     </div>
   {:else if current}
-    <div class="agda-env-static">{current.summary}</div>
+    <div class="agda-env">
+      <span class="agda-env-caption">Environment</span>
+      <span class="agda-env-static">{current.summary}</span>
+    </div>
   {/if}
 </section>
 
 <style>
+/* Two compact rows: "ALS | ● status | Restart", then the environment. */
 .agda-status {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px 14px 12px;
+  gap: 4px;
+  padding: 5px 12px 6px;
   border-bottom: 1px solid var(--app-border);
+  background: var(--app-panel);
 }
 
 .agda-status-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
+  min-height: 24px;
+  min-width: 0;
+}
+
+.agda-status-title {
+  flex: 0 0 auto;
+  padding-right: 8px;
+  border-right: 1px solid var(--app-border);
+  color: var(--app-text-strong);
+  font-size: .66rem;
+  font-weight: 650;
 }
 
 .agda-status-dot {
@@ -182,18 +203,24 @@ function onListKeydown(event) {
 }
 
 .agda-status-btn {
-  padding: 3px 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  box-sizing: border-box;
+  padding: 0 7px;
   border: 1px solid var(--app-border);
-  border-radius: 6px;
+  border-radius: 4px;
   background: var(--app-surface);
-  color: var(--app-text-strong);
-  font-size: .66rem;
+  color: var(--app-text-secondary);
+  font-size: .64rem;
   cursor: pointer;
 }
 
 .agda-status-btn:hover:not(:disabled) {
-  border-color: var(--app-border-strong);
-  background: var(--quiet-neutral-fill-softer);
+  border-color: var(--quiet-primary-stroke-soft);
+  background: var(--quiet-primary-fill-soft);
+  color: var(--quiet-primary-text);
 }
 
 .agda-status-btn:disabled {
@@ -203,19 +230,32 @@ function onListKeydown(event) {
 
 .agda-env {
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.agda-env-caption {
+  flex: 0 0 auto;
+  color: var(--app-text-muted);
+  font-size: .62rem;
 }
 
 .agda-env-toggle {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
-  padding: 6px 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 24px;
+  box-sizing: border-box;
+  padding: 0 7px;
   border: 1px solid var(--app-border);
-  border-radius: 6px;
-  background: var(--app-surface);
+  border-radius: 4px;
+  background: var(--quiet-neutral-fill-softer);
   color: var(--app-text-strong);
-  font-size: .68rem;
+  font-size: .64rem;
   text-align: left;
   cursor: pointer;
 }
@@ -316,7 +356,11 @@ function onListKeydown(event) {
 }
 
 .agda-env-static {
-  font-size: .68rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: .64rem;
   color: var(--app-text-secondary);
 }
 </style>
