@@ -61,9 +61,10 @@ prefixed constraints/goals commands (`Cmd_constraints`, `Cmd_metas`,
 ## Important Behavior
 
 - `C-c C-.` falls back to `Cmd_goal_type_context` when the active goal content is empty.
-- Commands that need content use the command input panel when the active goal or selection is empty.
-- `C-c C-z` is naturally prompt-based in agda-mode-vscode. In this playground, it uses selected text or the command input panel.
-- `C-c C-o` and `C-c C-w` support top-level selected text when the cursor is not inside a goal.
+- Commands that need content use the command input panel when the active goal is empty (or the cursor is outside any goal, for commands that also work at top level).
+- With text selected in the editor, Agda chords don't fire: a leading `Ctrl-c` / `Ctrl-x` / `Ctrl-u` is the editor's own copy / cut / undo-selection, matching agda-mode-vscode's `!editorHasSelection` on every chord keybinding (`chordYieldsToSelection` in `src/lib/agda/shortcuts.js`). A chord already under way still completes. A selection is never used as a command's input.
+- `C-c C-z` is naturally prompt-based in agda-mode-vscode; here too it uses the command input panel.
+- `C-c C-o` and `C-c C-w` fall back to their top-level forms when the cursor is not inside a goal, taking their input from the command input panel.
 - `C-u` normalization prefix: see "Normalization Prefix (`C-u`)" below.
 - Always keep command string construction in `src/lib/agda/commands.js`.
 - Keep shortcut definitions in `src/lib/agda/shortcuts.js`; UI code should dispatch by shortcut id rather than hard-coded key branches.

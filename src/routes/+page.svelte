@@ -30,6 +30,7 @@ import {
   advanceAgdaChord,
   agdaShortcutRegistry,
   chordStepsOf,
+  chordYieldsToSelection,
   formatChordHint,
   isUniversalArgumentEvent,
   findAgdaShortcutById,
@@ -430,6 +431,12 @@ function handleAgdaChordKeydown(event, view) {
   // Modifier-only keypresses are not a chord key; the user may release and
   // re-press Ctrl between chord keys without cancelling the chord.
   if (['Control', 'Alt', 'Shift', 'Meta'].includes(event.key)) return false
+
+  // With text selected, a leading Ctrl-c / Ctrl-x / Ctrl-u is copy / cut /
+  // undo-selection, not the start of an Agda chord.
+  if (chordYieldsToSelection(view.state.selection, chordProgress.length > 0 || universalArgumentCount > 0)) {
+    return false
+  }
 
   // `C-u` before a shortcut selects its normalization variant. Consumed here
   // (also keeping it from the browser's view-source and CodeMirror's own

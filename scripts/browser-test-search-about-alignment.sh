@@ -18,8 +18,7 @@ start_als
 set_editor_fixture "test-fixtures/agda/query-bool.agda"
 load_agda
 
-select_text "Bool"
-press_agda_chord "z" "KeyZ"
+run_toplevel_prompted_chord "z" "KeyZ" "Bool"
 ab wait 3000
 
 assert_queries_contains $'false : Bool\ntest  : Bool\ntrue  : Bool' \

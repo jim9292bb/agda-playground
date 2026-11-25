@@ -55,6 +55,7 @@ import {
   advanceAgdaChord,
   agdaShortcutRegistry,
   chordStepsOf,
+  chordYieldsToSelection,
   formatChordHint,
   isUniversalArgumentEvent,
   findAgdaShortcutById,
@@ -693,13 +694,20 @@ const agdaKeymap = keymap.of(agdaShortcutRegistry.flatMap(shortcut =>
  * such as Ctrl-L. Advances chordProgress by one key per call against
  * chordTable (reserved sequences + the active shortcut registry).
  * @param {KeyboardEvent} event
+ * @param {EditorView} view the focused cell's editor
  */
-function handleAgdaChordKeydown(event) {
+function handleAgdaChordKeydown(event, view) {
   if (event.isComposing) return false
 
   // Modifier-only keypresses are not a chord key; the user may release and
   // re-press Ctrl between chord keys without cancelling the chord.
   if (['Control', 'Alt', 'Shift', 'Meta'].includes(event.key)) return false
+
+  // With text selected, a leading Ctrl-c / Ctrl-x / Ctrl-u is copy / cut /
+  // undo-selection, not the start of an Agda chord.
+  if (chordYieldsToSelection(view.state.selection, chordProgress.length > 0 || universalArgumentCount > 0)) {
+    return false
+  }
 
   // `C-u` before a shortcut selects its normalization variant. Consumed here
   // (also keeping it from the browser's view-source and CodeMirror's own
@@ -747,7 +755,7 @@ function handleAgdaChordKeydown(event) {
 const agdaChordKeymap = EditorView.domEventHandlers({
   keydown(event, view) {
     if (!view.hasFocus) return false
-    return handleAgdaChordKeydown(event)
+    return handleAgdaChordKeydown(event, view)
   },
 })
 
@@ -767,7 +775,7 @@ $effect(() => {
     if (activeCell?.type !== 'code') return
     const activeView = cellViews.get(activeCellId)
     if (!activeView?.hasFocus) return
-    if (handleAgdaChordKeydown(event)) event.stopImmediatePropagation()
+    if (handleAgdaChordKeydown(event, activeView)) event.stopImmediatePropagation()
   }
   window.addEventListener('keydown', captureAgdaChord, { capture: true })
   return () => window.removeEventListener('keydown', captureAgdaChord, { capture: true })

@@ -133,8 +133,7 @@ echo "PASS overridden Ctrl-c Ctrl-y triggers Give"
 set_editor_fixture "test-fixtures/agda/query-bool.agda"
 load_via_overridden_g
 
-select_text "true" "last"
-press_agda_chord "u" "KeyU"
+run_toplevel_prompted_chord "u" "KeyU" "true"
 ab wait 3000
 
 assert_log_contains "Why in scope finished." "Overridden Why in scope response"

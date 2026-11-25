@@ -130,7 +130,6 @@ function getGoalInfoFallback(state, pos, goalInfos, allowOnlyGoalFallback = fals
  */
 export function getAgdaShortcutContext(view, currentFilePath, goalInfos, agdaVersion) {
   const selection = view.state.selection.main
-  const selectedText = selection.empty ? '' : view.state.sliceDoc(selection.from, selection.to)
   const docLength = view.state.doc.length
   const previousPos = Math.max(0, selection.head - 1)
   const nextPos = Math.min(docLength, selection.head + 1)
@@ -145,7 +144,11 @@ export function getAgdaShortcutContext(view, currentFilePath, goalInfos, agdaVer
 
   return {
     goal,
-    input: selectedText || (goal ? extractGoalInput(goal.text) : ''),
+    // Only the goal's own content, never a selection -- as in agda-mode-vscode,
+    // where (like here, see chordYieldsToSelection) a selection keeps the
+    // Agda chords from firing at all. Commands that need input outside a
+    // goal prompt for it instead.
+    input: goal ? extractGoalInput(goal.text) : '',
     range: goal ? goalContentToAgdaRange(view.state, currentFilePath, goal, agdaVersion) : noAgdaRange,
   }
 }

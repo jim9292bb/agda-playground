@@ -305,6 +305,21 @@ export function isUniversalArgumentEvent(event) {
     && event.key.toLowerCase() === 'u'
 }
 
+/**
+ * Whether the Agda chord handler should stand aside for this keypress and
+ * let the editor and browser handle it natively. With text selected, a key
+ * that would *start* a chord or a `C-u` prefix is the user's own Ctrl-c
+ * (copy), Ctrl-x (cut) or Ctrl-u -- agda-mode-vscode gates every one of its
+ * chord keybindings on `!editorHasSelection` for the same reason. Like a
+ * VSCode when-clause, this is only checked when a chord starts: once a
+ * chord or `C-u` prefix is under way, it completes as usual.
+ * @param {{ ranges: readonly { empty: boolean }[] }} selection the editor's current selection
+ * @param {boolean} chordUnderWay whether a chord or `C-u` prefix is already in progress
+ */
+export function chordYieldsToSelection(selection, chordUnderWay) {
+  return !chordUnderWay && selection.ranges.some(range => !range.empty)
+}
+
 /** @param {ChordStep[]} steps */
 function startsWithUniversalArgument(steps) {
   return steps[0]?.ctrl === true && steps[0].key.toLowerCase() === 'u'

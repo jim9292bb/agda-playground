@@ -257,22 +257,23 @@ wait_for_log_matches() {
   return 1
 }
 
-select_text() {
-  local text_json occurrence
-  text_json="$(json_string "$1")"
-  occurrence="${2:-first}"
+# Runs a prompted shortcut (Search about, Module contents, Why in scope, ...)
+# at top level: moves the cursor to the start of the document -- outside any
+# goal -- presses Ctrl-c + `key`, then types `input` into the command input
+# panel. (A selection is never used as a command's input: with text selected
+# the chords yield to copy/cut, as in agda-mode-vscode.)
+run_toplevel_prompted_chord() {
+  local key="$1" code="$2" input="$3"
   ab eval "(() => {
-    const text = $text_json
-    const occurrence = '$occurrence'
     const view = document.querySelector('.cm-content')?.cmTile?.view
-    if (!view) return { ok: false, error: 'missing CodeMirror view' }
-    const doc = view.state.doc.toString()
-    const from = occurrence === 'last' ? doc.lastIndexOf(text) : doc.indexOf(text)
-    if (from < 0) return { ok: false, error: 'text not found', text }
-    view.dispatch({ selection: { anchor: from, head: from + text.length } })
+    if (!view) throw new Error('missing CodeMirror view')
+    view.dispatch({ selection: { anchor: 0 } })
     view.focus()
-    return { ok: true, text, from }
-  })()"
+    return { ok: true }
+  })()" >/dev/null
+  press_agda_chord "$key" "$code" >/dev/null
+  ab wait .command-input-panel >/dev/null
+  submit_command_prompt "$input" >/dev/null
 }
 
 set_goal_content() {

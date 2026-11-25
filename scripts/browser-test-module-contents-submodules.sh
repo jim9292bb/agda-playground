@@ -17,8 +17,7 @@ load_and_wait() {
 set_editor_fixture "test-fixtures/agda/module-contents-submodules.agda"
 load_and_wait
 
-select_text "Outer"
-press_agda_chord "o" "KeyO"
+run_toplevel_prompted_chord "o" "KeyO" "Outer"
 ab wait 3000
 
 assert_log_contains "Module contents finished." "Module contents response"

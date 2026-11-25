@@ -14,14 +14,14 @@ ab eval "(() => {
   if (!view) return { ok: false, error: 'missing view' }
   view.dispatch({
     changes: { from: 0, to: view.state.doc.length, insert: 'f : A → B' },
-    selection: { anchor: 5 },
+    selection: { anchor: 6 },
   })
   view.focus()
   return { ok: true }
 })()"
 
-# Select → (one character at position 5)
-select_text "→"
+# The cursor sits just before → (offset 6), the character looked up.
+# (Selecting it instead would make Ctrl-x a cut, not the chord's start.)
 
 # Press C-x to enter the C-x chord prefix
 ab eval "(() => {

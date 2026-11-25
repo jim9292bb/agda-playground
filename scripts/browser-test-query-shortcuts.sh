@@ -13,16 +13,13 @@ start_als
 set_editor_fixture "test-fixtures/agda/query-bool.agda"
 load_agda
 
-select_text "Bool"
-press_agda_chord "z" "KeyZ"
+run_toplevel_prompted_chord "z" "KeyZ" "Bool"
 ab wait 2000
 
-select_text "Agda.Builtin.Bool"
-press_agda_chord "o" "KeyO"
+run_toplevel_prompted_chord "o" "KeyO" "Agda.Builtin.Bool"
 ab wait 2000
 
-select_text "true" "last"
-press_agda_chord "w" "KeyW"
+run_toplevel_prompted_chord "w" "KeyW" "true"
 ab wait 3000
 
 assert_log_contains "Search about finished." "Search about response"

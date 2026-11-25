@@ -46,7 +46,7 @@ describe('getAgdaShortcutContext', () => {
     expect(ctx.range).toContain('intervalsToRange')
   })
 
-  it('prefers the current selection as input even when a goal is found', () => {
+  it('takes input from the goal found at a collapsed cursor', () => {
     let state = baseState('foo = ?')
     const ip = { id: 0, range: [{ start: { pos: 7, line: 1, col: 7 }, end: { pos: 8, line: 1, col: 8 } }] }
     state = state.update(buildGoalTransaction(state, [ip])).state
@@ -73,10 +73,10 @@ describe('getAgdaShortcutContext', () => {
     expect(ctx.range).toBe(noAgdaRange)
   })
 
-  it('uses the selected text as input when the cursor is not inside any goal', () => {
+  it('never takes input from a selection', () => {
     const state = baseState('foo = bar').update({ selection: EditorSelection.range(0, 3) }).state
     const ctx = getAgdaShortcutContext(fakeView(state), '/source.agda', [], '2.8.0')
     expect(ctx.goal).toBeNull()
-    expect(ctx.input).toBe('foo')
+    expect(ctx.input).toBe('')
   })
 })

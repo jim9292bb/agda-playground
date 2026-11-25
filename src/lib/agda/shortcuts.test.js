@@ -1,7 +1,9 @@
 /// <reference types="vitest/globals" />
 
+import { EditorSelection } from '@codemirror/state'
 import {
   advanceAgdaChord,
+  chordYieldsToSelection,
   formatChordHint,
   isUniversalArgumentEvent,
   parseAgdaChordBinding,
@@ -172,5 +174,25 @@ describe('C-u prefix helpers', () => {
     expect(formatChordHint(0, [{ key: 'c', ctrl: true }])).toBe('C-c')
     expect(formatChordHint(2, [])).toBe('C-u C-u')
     expect(formatChordHint(1, [{ key: 'c', ctrl: true }])).toBe('C-u C-c')
+  })
+})
+
+describe('chordYieldsToSelection', () => {
+  const cursor = EditorSelection.create([EditorSelection.cursor(3)])
+  const range = EditorSelection.create([EditorSelection.range(0, 4)])
+  const cursorsAndRange = EditorSelection.create([EditorSelection.cursor(1), EditorSelection.range(5, 8)], 0)
+
+  it('yields a chord-starting key to the editor when text is selected', () => {
+    expect(chordYieldsToSelection(range, false)).toBe(true)
+    // Any non-empty range counts, as with VSCode's editorHasSelection.
+    expect(chordYieldsToSelection(cursorsAndRange, false)).toBe(true)
+  })
+
+  it('keeps handling chords with a bare cursor', () => {
+    expect(chordYieldsToSelection(cursor, false)).toBe(false)
+  })
+
+  it('lets a chord or C-u prefix already under way complete', () => {
+    expect(chordYieldsToSelection(range, true)).toBe(false)
   })
 })
