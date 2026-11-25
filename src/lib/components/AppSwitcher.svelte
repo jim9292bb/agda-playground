@@ -6,38 +6,57 @@ import { deployProfiles } from '$lib/controller.svelte'
 let { current } = $props()
 
 const hasPlfaProfile = deployProfiles.some(p => p.plfa === true)
+
+const apps = $derived([
+  { id: 'playground', label: 'Playground', href: resolve('/') },
+  { id: 'notebook', label: 'Notebook', href: resolve('/literate') },
+  ...(hasPlfaProfile ? [{ id: 'plfa', label: 'PLFA', href: resolve('/plfa') }] : []),
+])
 </script>
 
 <nav class="app-switcher" aria-label="Switch app">
-  {#if current !== 'playground'}
-    <a href={resolve('/')} class="app-switcher-link">Playground</a>
-  {/if}
-  {#if current !== 'notebook'}
-    <a href={resolve('/literate')} class="app-switcher-link">Notebook</a>
-  {/if}
-  {#if current !== 'plfa' && hasPlfaProfile}
-    <a href={resolve('/plfa')} class="app-switcher-link">PLFA</a>
-  {/if}
+  {#each apps as app (app.id)}
+    <a
+      href={app.href}
+      class="app-switcher-link"
+      class:current={app.id === current}
+      aria-current={app.id === current ? 'page' : undefined}>{app.label}</a>
+  {/each}
 </nav>
 
 <style>
 .app-switcher {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 2px;
   flex: 0 0 auto;
+  padding: 3px;
+  border-radius: 8px;
+  background: var(--app-switcher-track);
 }
 
 .app-switcher-link {
-  font-size: .8rem;
-  font-weight: 600;
-  color: var(--app-text-muted);
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: .72rem;
+  color: var(--app-text-secondary);
   text-decoration: none;
   white-space: nowrap;
 }
 
 .app-switcher-link:hover {
-  color: var(--quiet-primary-text, #3b3aab);
-  text-decoration: underline;
+  color: var(--app-text-strong);
+}
+
+.app-switcher-link.current {
+  background: var(--app-surface);
+  color: var(--app-text-strong);
+  font-weight: 600;
+  box-shadow: 0 1px 2px var(--app-shadow);
+}
+
+.app-switcher-link:focus-visible {
+  outline: 2px solid var(--quiet-primary-text);
+  outline-offset: 1px;
 }
 </style>

@@ -59,6 +59,8 @@ button, input, select, textarea {
   --app-shadow: light-dark(rgb(0 0 0 / .1), rgb(0 0 0 / .45));
   --app-backdrop: light-dark(rgb(0 0 0 / .3), rgb(0 0 0 / .55));
   --app-scroll-shade: light-dark(rgb(0 0 0 / .08), rgb(0 0 0 / .35));
+  /* The sunken track behind segmented controls (app switcher, tabs). */
+  --app-switcher-track: light-dark(#e9ebef, #121419);
 
   /* Notebook cells. */
   --app-cell-focus-fill: light-dark(#f0f8ff, #1b2331);

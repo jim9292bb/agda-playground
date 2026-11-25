@@ -11,8 +11,8 @@ import { indentWithTab } from '@codemirror/commands'
 import SplitPane from '$lib/components/SplitPane.svelte'
 import AboutPanel from '$lib/components/AboutPanel.svelte'
 import HeaderExamplePicker from '$lib/components/HeaderExamplePicker.svelte'
-import AppSwitcher from '$lib/components/AppSwitcher.svelte'
 import AlsControlCard from '$lib/components/AlsControlCard.svelte'
+import AppHeader from '$lib/components/AppHeader.svelte'
 import GoalsPanel from '$lib/components/GoalsPanel.svelte'
 import MessagesPanel from '$lib/components/MessagesPanel.svelte'
 import SettingsPanel from '$lib/components/SettingsPanel.svelte'
@@ -34,7 +34,6 @@ import {
   formatChordHint,
   isUniversalArgumentEvent,
   findAgdaShortcutById,
-  formatAgdaShortcutHelpBinding,
   reservedChordSequences,
 } from '$lib/agda/shortcuts'
 import { lookupChar, formatCodePoint } from '$lib/agda/input-lookup'
@@ -189,7 +188,6 @@ const effectiveGoalsPosition = $derived(isMobile ? 'bottom' : goalsPanelPosition
 function setGoalsPanelPosition(pos) {
   goalsPanelPosition = pos
   if (typeof localStorage !== 'undefined') localStorage.setItem(LS_GOALS_PANEL_POSITION_KEY, pos)
-  commandsPanelVisible = false
 }
 
 onDestroy(() => {
@@ -750,17 +748,23 @@ $effect(() => {
   if (count > previousDiagnosticCount) selectedMessageTab = 'errors'
   previousDiagnosticCount = count
 })
-let commandsPanelVisible = $state(false)
 let goalsSplitRatio = $state(0.65)
 /** @type {HTMLElement | undefined} */
 let editorPaneSectionEl = $state()
 
-// Commands lives in the header (above the editor) regardless of Goals
-// position, and its dropdown always overlays (CSS position: absolute)
-// rather than squeezing the editor or Goals — just toggle visibility.
-function toggleCommandsPanel() {
-  commandsPanelVisible = !commandsPanelVisible
+/** Runs a command picked from the header's Commands menu, then hands focus back to the editor. */
+function runCommandFromMenu(/** @type {import('$lib/agda/shortcuts').AgdaShortcutDefinition} */ shortcut) {
+  const view = agdaController.editorView
+  if (!view) return
+  runAgdaShortcutDefinition(shortcut, view)
+  view.focus()
 }
+
+const commandsMenuFileActions = [
+  { id: 'copy-code', label: 'Copy code', run: () => copyEditorCode() },
+  { id: 'open-file', label: 'Open file…', run: () => fileInput.click() },
+  { id: 'export-file', label: 'Export file', run: () => exportAgdaFile() },
+]
 let settingsPanelVisible = $state(false)
 let aboutPanelVisible = $state(false)
 /** @type {HTMLInputElement} */
@@ -820,50 +824,6 @@ $effect(() => {
 <SplitPane {orientation} position={.6} style="--divider-min-position: 25%; --divider-max-position: 90%;">
   {#snippet start()}
   <section class="editor-section">
-    <header class="header">
-      <div class="header-left">
-        <h1 class="header-title">Agda Playground</h1>
-        <HeaderExamplePicker examples={scratchpadExamples} {selectedExampleId} onSelect={selectScratchpadExample} />
-        <AppSwitcher current="playground" />
-      </div>
-      <div class="header-actions">
-        <div class="header-commands-wrap">
-          <button
-            type="button"
-            class="header-action-btn commands-panel-toggle"
-            aria-expanded={commandsPanelVisible}
-            aria-controls="commands-panel"
-            onclick={toggleCommandsPanel}>
-            Commands
-            <svg class="header-dropdown-arrow" class:open={commandsPanelVisible} viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden="true">
-              <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
-            </svg>
-          </button>
-          {#if commandsPanelVisible}
-            <div id="commands-panel" class="commands-panel" aria-label="Agda commands">
-              {#each shortcutOverrideState.registry as shortcut (shortcut.id)}
-                <button
-                  type="button"
-                  class="command-button"
-                  onclick={() => {
-                    if (agdaController.editorView) {
-                      runAgdaShortcutDefinition(shortcut, agdaController.editorView)
-                      agdaController.editorView.focus()
-                    }
-                  }}>
-                  {formatAgdaShortcutHelpBinding(shortcut)}
-                </button>
-              {/each}
-              <p class="commands-panel-note">In the editor, Tab indents. To move focus out of the editor with the keyboard, press Esc, then Tab.</p>
-            </div>
-            <div class="header-menu-backdrop" role="presentation" onclick={() => { commandsPanelVisible = false }}></div>
-          {/if}
-        </div>
-        <button type="button" class="header-action-btn" onclick={copyEditorCode}>Copy</button>
-        <button type="button" class="header-action-btn" onclick={() => fileInput.click()}>Open</button>
-        <button type="button" class="header-action-btn" onclick={exportAgdaFile}>Export</button>
-      </div>
-    </header>
     <SplitPane
       class={effectiveGoalsPosition === 'bottom' ? 'editor-goals-splitter' : 'editor-goals-splitter goals-collapsed'}
       orientation="vertical"
@@ -906,7 +866,7 @@ $effect(() => {
     {#if effectiveGoalsPosition === 'right'}
       <div class="right-column-fixed">
         <section class="info-section">
-          <AlsControlCard {agdaController} {deployProfiles} {onDeploymentProfileChange} onToggleCommands={toggleCommandsPanel} onOpenAbout={() => { aboutPanelVisible = true }} onOpenSettings={openSettingsPanel} />
+          <AlsControlCard {agdaController} {deployProfiles} {onDeploymentProfileChange} />
         </section>
         <section class="output-section">
           <div class="right-goals-stack">
@@ -931,7 +891,7 @@ $effect(() => {
       <SplitPane class="right-column-splitter" orientation="vertical" position={.65}>
         {#snippet start()}
         <section class="info-section">
-          <AlsControlCard {agdaController} {deployProfiles} {onDeploymentProfileChange} onToggleCommands={toggleCommandsPanel} onOpenAbout={() => { aboutPanelVisible = true }} onOpenSettings={openSettingsPanel} />
+          <AlsControlCard {agdaController} {deployProfiles} {onDeploymentProfileChange} />
         </section>
         {/snippet}
         {#snippet end()}
@@ -980,66 +940,39 @@ $effect(() => {
   onchange={openAgdaFile}>
 
 <main
-  bind:clientWidth={width} style="height: 100%; background: var(--quiet-neutral-fill-softer)">
-  {@render editor(isMobile ? 'vertical' : 'horizontal')}
+  class="app-main"
+  bind:clientWidth={width}>
+  <AppHeader
+    title="Agda Playground"
+    current="playground"
+    registry={shortcutOverrideState.registry}
+    onRunCommand={runCommandFromMenu}
+    fileActions={commandsMenuFileActions}
+    activeGoalLabel={activeGoalId === null ? null : `?${activeGoalId}`}
+    onOpenAbout={() => { aboutPanelVisible = true }}
+    onOpenSettings={openSettingsPanel}>
+    {#snippet picker()}
+      <HeaderExamplePicker examples={scratchpadExamples} {selectedExampleId} onSelect={selectScratchpadExample} />
+    {/snippet}
+  </AppHeader>
+  <div class="app-workspace">
+    {@render editor(isMobile ? 'vertical' : 'horizontal')}
+  </div>
 </main>
 
 <style>
-.header {
+/* The header spans the whole window; the editor and Agda panels share the
+   rest. */
+.app-main {
   display: flex;
-  /* Wrap the action buttons onto their own row when the row is too narrow
-     for everything (phones, narrow split panes) instead of overlapping. */
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px 12px;
-  padding: 8px;
+  flex-direction: column;
+  height: 100%;
   background: var(--quiet-neutral-fill-softer);
-  border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
 }
 
-.header-left {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 12px;
-  min-width: 0;
-}
-
-.header-title {
-  margin: 0;
-  font-weight: normal;
-  color: var(--app-text-strong);
-  letter-spacing: 1px;
-  font-size: 1rem;
-  font-family: monospace;
-  white-space: nowrap;
-}
-
-.header-actions {
-  flex: 0 1 auto;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 4px;
-}
-
-.header-action-btn {
-  padding: 4px 10px;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  background: var(--quiet-neutral-fill);
-  color: var(--app-text);
-  font: inherit;
-  font-size: .82rem;
-  cursor: pointer;
-}
-
-.header-action-btn:hover {
-  border-color: var(--quiet-primary-stroke-soft);
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, var(--quiet-neutral-fill));
-  color: var(--quiet-primary-text, #3b3aab);
+.app-workspace {
+  flex: 1 1 0;
+  min-height: 0;
 }
 
 .sr-only {
@@ -1049,34 +982,6 @@ $effect(() => {
   overflow: hidden;
   clip: rect(0,0,0,0);
   white-space: nowrap;
-}
-
-.commands-panel-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.header-dropdown-arrow {
-  display: inline-block;
-  flex-shrink: 0;
-  transition: transform 0.15s;
-}
-
-.header-dropdown-arrow.open {
-  transform: rotate(180deg);
-}
-
-/* Invisible full-viewport click-catcher so opening the Commands dropdown
-   and then clicking anywhere outside it closes it, not just re-clicking
-   the toggle button. Sits below the dropdown's own z-index (200) but
-   above everything else on the page. HeaderExamplePicker.svelte has an
-   identical duplicate for its own dropdown. */
-.header-menu-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 150;
-  background: transparent;
 }
 
 .editor-wrap {
@@ -1233,57 +1138,4 @@ $effect(() => {
   min-height: 0;
   height: 100%;
 }
-
-/* Commands lives in the header above the editor regardless of Goals
-   position — its dropdown always overlays (anchored under the header
-   button) instead of squeezing the editor or Goals. */
-.header-commands-wrap {
-  position: relative;
-}
-
-.commands-panel-note {
-  flex-basis: 100%;
-  margin: 4px 0 0;
-  font-size: .75rem;
-  color: var(--app-text-secondary);
-}
-
-.commands-panel {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  z-index: 200;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  width: min(420px, calc(100vw - 24px));
-  max-height: 260px;
-  overflow-y: auto;
-  padding: 8px;
-  background: var(--quiet-neutral-fill-softer);
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px var(--app-shadow);
-}
-
-.command-button {
-  background: var(--quiet-neutral-fill);
-  color: inherit;
-  cursor: pointer;
-  font: inherit;
-  padding: 3px 8px;
-  text-align: center;
-  font-family: JuliaMono, monospace;
-  font-size: .82rem;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 3px;
-}
-
-.command-button:hover,
-.command-button:focus-visible {
-  outline: none;
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, transparent);
-}
-
-
 </style>

@@ -24,8 +24,8 @@ fail() {
 header_problems() {
   ab eval "(() => {
     const header = document.querySelector('.header')
-    const items = [...header.querySelectorAll('.header-title, .header-left > *, .header-actions > *, .header-commands-wrap > button')]
-      .filter(el => !el.classList.contains('header-commands-wrap') && el.getClientRects().length > 0)
+    const items = [...header.querySelectorAll(':scope > *:not(.header-spacer):not(.header-actions), .header-actions > *')]
+      .filter(el => el.getClientRects().length > 0)
     const name = el => (el.getAttribute('aria-label') || el.textContent).trim().replace(/\\s+/g, ' ').slice(0, 24)
     const problems = []
     const rects = items.map(el => [el, el.getBoundingClientRect()])

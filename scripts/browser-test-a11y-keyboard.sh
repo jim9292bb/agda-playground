@@ -64,12 +64,13 @@ ab press Tab >/dev/null
 [[ "$(js "document.activeElement?.type ?? ''")" != '"file"' ]] || fail "first Tab stops on the hidden file input"
 echo "PASS: /: first Tab skips the hidden file input (lands on: $(focused))"
 
-click_named_button "Help"
+ab eval "(() => { document.querySelector('.commands-menu-toggle').click(); return true })()" >/dev/null
 ab wait 300 >/dev/null
 [[ "$(js "document.querySelector('.commands-panel-note')?.textContent ?? ''")" == *"press Esc, then Tab"* ]] \
-  || fail "Help panel doesn't explain how to leave the editor"
-click_named_button "Help"
-echo "PASS: /: Help explains Esc, Tab to leave the editor"
+  || fail "Commands menu doesn't explain how to leave the editor"
+ab press Escape >/dev/null
+ab wait 200 >/dev/null
+echo "PASS: /: the Commands menu explains Esc, Tab to leave the editor"
 
 # About: focus moves in, Tab cycles inside, Escape closes and refocuses the opener.
 click_named_button "About"

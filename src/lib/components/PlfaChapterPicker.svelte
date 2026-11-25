@@ -65,20 +65,18 @@ const groups = $derived(
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  background: var(--quiet-neutral-fill);
-  color: var(--app-text);
-  font: inherit;
-  font-size: .82rem;
-  font-weight: 600;
+  border: 1px solid var(--app-border);
+  border-radius: 6px;
+  background: var(--app-surface);
+  color: var(--app-text-strong);
+  font-size: .72rem;
+  white-space: nowrap;
   cursor: pointer;
 }
 
 .header-examples-btn:hover {
-  border-color: var(--quiet-primary-stroke-soft);
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, var(--quiet-neutral-fill));
-  color: var(--quiet-primary-text, #3b3aab);
+  border-color: var(--app-border-strong);
+  background: var(--quiet-neutral-fill-softer);
 }
 
 .header-dropdown-arrow {

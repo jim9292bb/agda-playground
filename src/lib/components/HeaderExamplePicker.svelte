@@ -7,6 +7,10 @@
 let { examples, selectedExampleId, onSelect } = $props()
 
 let examplesMenuOpen = $state(false)
+
+// The button names the example currently in the editor, like a file name;
+// once the source is edited away from every example it falls back to "Examples".
+const selectedLabel = $derived(examples.find(e => e.id === selectedExampleId)?.label ?? null)
 </script>
 
 <div class="header-examples-wrap">
@@ -14,8 +18,10 @@ let examplesMenuOpen = $state(false)
     type="button"
     class="header-examples-btn"
     aria-expanded={examplesMenuOpen}
+    aria-label={selectedLabel ? `Examples (current: ${selectedLabel})` : 'Examples'}
     onclick={() => { examplesMenuOpen = !examplesMenuOpen }}>
-    Examples
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h9l5 5v13H5z"></path><path d="M14 3v5h5"></path></svg>
+    {selectedLabel ?? 'Examples'}
     <svg class="header-dropdown-arrow" class:open={examplesMenuOpen} viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden="true">
       <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
     </svg>
@@ -49,20 +55,18 @@ let examplesMenuOpen = $state(false)
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  background: var(--quiet-neutral-fill);
-  color: var(--app-text);
-  font: inherit;
-  font-size: .82rem;
-  font-weight: 600;
+  border: 1px solid var(--app-border);
+  border-radius: 6px;
+  background: var(--app-surface);
+  color: var(--app-text-strong);
+  font-size: .72rem;
+  white-space: nowrap;
   cursor: pointer;
 }
 
 .header-examples-btn:hover {
-  border-color: var(--quiet-primary-stroke-soft);
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, var(--quiet-neutral-fill));
-  color: var(--quiet-primary-text, #3b3aab);
+  border-color: var(--app-border-strong);
+  background: var(--quiet-neutral-fill-softer);
 }
 
 .header-dropdown-arrow {
