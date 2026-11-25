@@ -139,7 +139,8 @@ function onWindowKeydown(/** @type {KeyboardEvent} */ event) {
     aria-label={compact ? 'Commands' : undefined}
     title={compact ? 'Commands' : undefined}
     onclick={() => (open ? closeMenu() : openMenu())}>
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l6-6-6-6"></path><path d="M12 19h8"></path></svg>
+    <!-- A keyboard: the menu is Agda's commands with their key chords. -->
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M8 13h.01M12 13h.01M16 13h.01M7 16h10"></path></svg>
     {#if !compact}
       Commands
       <svg class="commands-menu-arrow" class:open viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
