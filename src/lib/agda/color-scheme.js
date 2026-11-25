@@ -2,13 +2,18 @@ import { EditorView } from '@codemirror/view'
 
 /** The light Agda highlighting palette, as an `EditorView.theme` spec. */
 export const agdaLightSchemeSpec = {
-  // not a part of Agda's theme, but Emacs' built-in palette
-  '.agda-hole': { background: '#b4eeb4C0' },  // darkseagreen2
+  // Holes: an amber chip, like the goal badges in the side panel.
+  '.agda-hole': {
+    backgroundColor: '#fef3c7',
+    color: '#92400e',
+    boxShadow: 'inset 0 0 0 1px #d9770680',
+    borderRadius: '3px',
+  },
   '.agda-hole[data-goal-id]::after': {
     content: 'attr(data-goal-id)',
     marginInlineStart: '0.2em',
     fontFamily: 'inherit',
-    color: 'black',
+    color: '#92400e',
     fontSize: 'inherit',
     pointerEvents: 'none',
     userSelect: 'none',
@@ -16,39 +21,39 @@ export const agdaLightSchemeSpec = {
   // make error markers opaque
   '.agda-error *': { color: 'currentColor !important' },
 
-  // extracted from Agda's Emacs theme, with the few colors that fall short
-  // of WCAG AA contrast (4.5:1) against the editor's backgrounds adjusted in
-  // lightness only (hue kept) -- see color-scheme.test.js
+  // "Scientific Blue": keywords violet, types blue, functions teal,
+  // constructors green. Every text color meets WCAG AA (4.5:1) on the
+  // editor's backgrounds and inside holes -- see color-scheme.test.js.
   // definitions are from `Agda/Syntax/Common/Aspect.hs`
   // strings are from `toAtoms :: Aspects -> [String]`
 
   // -- aspects
-  '.agda-comment':                  { color: '#6f6f6f', fontStyle: 'italic' },  // #777, darkened for contrast
-  '.agda-keyword':                  { color: '#ae5700' },  // DarkOrange3 (#cd6600), darkened for contrast
-  '.agda-string':                   { color: '#b22222' },  // firebrick
-  '.agda-number':                   { color: '#a020f0' },  // purple
+  '.agda-comment':                  { color: '#607086', fontStyle: 'italic' },
+  '.agda-keyword':                  { color: '#7c3aed', fontWeight: '550' },
+  '.agda-string':                   { color: '#c2410c' },
+  '.agda-number':                   { color: '#a21caf' },
   //   hole; see above
-  '.agda-symbol':                   { color: '#404040' },  // gray25
-  '.agda-primitivetype':            { color: '#0000cd' },  // medium blue
+  '.agda-symbol':                   { color: '#475569' },
+  '.agda-primitivetype':            { color: '#1d4ed8' },
   //   -- name kinds
   //     bound
   //     generalizable
-    '.agda-inductiveconstructor':   { color: '#008100' },  // green4 (#008b00), darkened for contrast
-    '.agda-coinductiveconstructor': { color: '#836f00' },  // gold4 (#8b7500), darkened for contrast
-    '.agda-datatype':               { color: '#0000cd' },  // medium blue
-    '.agda-field':                  { color: '#d70f7b' },  // DeepPink2 (#ee1289), darkened for contrast
-    '.agda-function':               { color: '#0000cd' },  // medium blue
-    '.agda-module':                 { color: '#a020f0' },  // purple
-    '.agda-postulate':              { color: '#0000cd' },  // medium blue
-    '.agda-primitive':              { color: '#0000cd' },  // medium blue
-    '.agda-record':                 { color: '#0000cd' },  // medium blue
+    '.agda-inductiveconstructor':   { color: '#047857' },
+    '.agda-coinductiveconstructor': { color: '#8f5a06' },
+    '.agda-datatype':               { color: '#1d4ed8' },
+    '.agda-field':                  { color: '#be185d' },
+    '.agda-function':               { color: '#0b7380' },
+    '.agda-module':                 { color: '#4338ca' },
+    '.agda-postulate':              { color: '#1d4ed8' },
+    '.agda-primitive':              { color: '#1d4ed8' },
+    '.agda-record':                 { color: '#1d4ed8' },
   //     argument
-    '.agda-macro':                  { color: '#3d7a66' },  // aquamarine4 (#458b74), darkened for contrast
+    '.agda-macro':                  { color: '#0e7490' },
   //   -- end of name kinds
   //   pragma, background, markup
 
   // -- "other" aspects
-  '.agda-error':                    { color: '#e00000' },  // red, darkened for contrast
+  '.agda-error':                    { color: '#c81e1e' },
   '.agda-errorwarning':             { backgroundColor: '#f0808080' },  // light coral
   // dottedpattern
   '.agda-unsolvedmeta':             { backgroundColor: '#ffff0080' },  // yellow
@@ -67,17 +72,22 @@ export const agdaLightSchemeSpec = {
   '.agda-confluenceproblem':        { backgroundColor: '#ffc0cb80' },  // pink
 }
 
-export const agdaLightSchemeFromEmacs = EditorView.theme(agdaLightSchemeSpec)
+export const agdaLightScheme = EditorView.theme(agdaLightSchemeSpec)
 
 /** The dark Agda highlighting palette, as an `EditorView.theme` spec. */
 export const agdaDarkSchemeSpec = {
-  // not a part of Agda's theme, but Emacs' built-in palette
-  '.agda-hole': { background: '#556B2FC0' },  // DarkOliveGreen
+  // Holes: an amber chip, like the goal badges in the side panel.
+  '.agda-hole': {
+    backgroundColor: '#42351e',
+    color: '#fbbf24',
+    boxShadow: 'inset 0 0 0 1px #f59e0b66',
+    borderRadius: '3px',
+  },
   '.agda-hole[data-goal-id]::after': {
     content: 'attr(data-goal-id)',
     marginInlineStart: '0.2em',
     fontFamily: 'inherit',
-    color: 'white',
+    color: '#fbbf24',
     fontSize: 'inherit',
     pointerEvents: 'none',
     userSelect: 'none',
@@ -85,37 +95,39 @@ export const agdaDarkSchemeSpec = {
   // make error markers opaque
   '.agda-error *': { color: 'currentColor !important' },
 
-  // extracted from Agda's Emacs theme
+  // "Scientific Blue": keywords violet, types blue, functions teal,
+  // constructors green. Every text color meets WCAG AA (4.5:1) on the
+  // editor's backgrounds and inside holes -- see color-scheme.test.js.
   // definitions are from `Agda/Syntax/Common/Aspect.hs`
   // strings are from `toAtoms :: Aspects -> [String]`
 
   // -- aspects
-  '.agda-comment':                  { color: '#999', fontStyle: 'italic' },
-  '.agda-keyword':                  { color: '#FF9932' },
-  '.agda-string':                   { color: '#E26969' },  // #DD4D4D, lightened for contrast
-  '.agda-number':                   { color: '#BE67F4' },  // #9010E0, lightened for contrast
+  '.agda-comment':                  { color: '#94a3b8', fontStyle: 'italic' },
+  '.agda-keyword':                  { color: '#c4b5fd', fontWeight: '550' },
+  '.agda-string':                   { color: '#fdba74' },
+  '.agda-number':                   { color: '#f0abfc' },
   //   hole; see above
-  '.agda-symbol':                   { color: '#BFBFBF' },  // gray75
-  '.agda-primitivetype':            { color: '#8080FF' },
+  '.agda-symbol':                   { color: '#cbd5e1' },
+  '.agda-primitivetype':            { color: '#93c5fd' },
   //   -- name kinds
   //     bound
   //     generalizable
-    '.agda-inductiveconstructor':   { color: '#29CC29' },
-    '.agda-coinductiveconstructor': { color: '#FFEA75' },
-    '.agda-datatype':               { color: '#8080FF' },
-    '.agda-field':                  { color: '#F570B7' },
-    '.agda-function':               { color: '#8080FF' },
-    '.agda-module':                 { color: '#CD80FF' },
-    '.agda-postulate':              { color: '#8080FF' },
-    '.agda-primitive':              { color: '#8080FF' },
-    '.agda-record':                 { color: '#8080FF' },
+    '.agda-inductiveconstructor':   { color: '#6ee7b7' },
+    '.agda-coinductiveconstructor': { color: '#fcd34d' },
+    '.agda-datatype':               { color: '#93c5fd' },
+    '.agda-field':                  { color: '#f9a8d4' },
+    '.agda-function':               { color: '#5eead4' },
+    '.agda-module':                 { color: '#a5b4fc' },
+    '.agda-postulate':              { color: '#93c5fd' },
+    '.agda-primitive':              { color: '#93c5fd' },
+    '.agda-record':                 { color: '#93c5fd' },
   //     argument
-    '.agda-macro':                  { color: '#73BAA2' },
+    '.agda-macro':                  { color: '#67e8f9' },
   //   -- end of name kinds
   //   pragma, background, markup
 
   // -- "other" aspects
-  '.agda-error':                    { color: '#FF4D4D' },  // #FF0000, lightened for contrast
+  '.agda-error':                    { color: '#fa8585' },
   '.agda-errorwarning':             { backgroundColor: '#80240080' },
   // dottedpattern
   '.agda-unsolvedmeta':             { backgroundColor: '#806B0080' },
@@ -134,4 +146,4 @@ export const agdaDarkSchemeSpec = {
   '.agda-confluenceproblem':        { backgroundColor: '#80008080' },
 }
 
-export const agdaDarkSchemeFromEmacs = EditorView.theme(agdaDarkSchemeSpec, { dark: true })
+export const agdaDarkScheme = EditorView.theme(agdaDarkSchemeSpec, { dark: true })

@@ -20,7 +20,7 @@ import { AgdaController, deployProfiles, resolveProfileLibraries } from '$lib/co
 import { myCodeMirrorTheme, autoColorScheme } from '$lib/codemirror/theme'
 import { agdaInputMethod } from '$lib/codemirror/agda-input'
 import { agdaSupport } from '$lib/agda'
-import { agdaDarkSchemeFromEmacs, agdaLightSchemeFromEmacs } from '$lib/agda/color-scheme'
+import { agdaDarkScheme, agdaLightScheme } from '$lib/agda/color-scheme'
 import { agdaGoalState, getAgdaDocumentVersion, getAgdaGoals, mergeGoalInfos } from '$lib/agda/goal-state'
 import { highlightState } from '$lib/agda/highlight'
 import { getGoalAtPosition, getGoalRangeById } from '$lib/agda/goals'
@@ -828,8 +828,8 @@ function cellSyncExtensions(cellId, cellType) {
           // reaches the DOM. Each code cell's own visible view needs its own
           // copy of the theme for those classes to actually render in color.
           autoColorScheme({
-            dark: agdaDarkSchemeFromEmacs,
-            light: agdaLightSchemeFromEmacs,
+            dark: agdaDarkScheme,
+            light: agdaLightScheme,
           }),
           agdaKeymap,
           agdaChordKeymap,

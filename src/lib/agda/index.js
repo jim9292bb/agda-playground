@@ -2,7 +2,7 @@ import { autoColorScheme } from '$lib/codemirror/theme'
 import { offsetTracking } from '$lib/codemirror/offsets'
 
 import { agdaHighlight } from './highlight'
-import { agdaDarkSchemeFromEmacs, agdaLightSchemeFromEmacs } from './color-scheme'
+import { agdaDarkScheme, agdaLightScheme } from './color-scheme'
 import { agdaGoals } from './goals'
 
 /**
@@ -21,8 +21,8 @@ export function agdaSupport(options) {
   return [
     offsetTracking(),
     autoColorScheme({
-      dark: agdaDarkSchemeFromEmacs,
-      light: agdaLightSchemeFromEmacs,
+      dark: agdaDarkScheme,
+      light: agdaLightScheme,
     }),
     agdaHighlight(),
     agdaGoals(),

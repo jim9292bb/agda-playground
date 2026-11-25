@@ -61,6 +61,19 @@ describe('Agda highlighting palettes meet WCAG AA (4.5:1)', () => {
     }
     expect(failures).toEqual([])
   })
+
+  it.each([
+    ['light', agdaLightSchemeSpec],
+    ['dark', agdaDarkSchemeSpec],
+  ])('%s palette, inside a hole', (_name, spec) => {
+    const hole = /** @type {any} */ (spec)['.agda-hole']
+    const failures = []
+    for (const [selector, color] of [['.agda-hole', hole.color], ...textColors(/** @type {any} */ (spec))]) {
+      const ratio = contrast(color, hole.backgroundColor)
+      if (ratio < 4.5) failures.push(`${selector} ${color} on ${hole.backgroundColor}: ${ratio.toFixed(2)}`)
+    }
+    expect(failures).toEqual([])
+  })
 })
 
 describe('UI text colors meet WCAG AA (4.5:1)', () => {
