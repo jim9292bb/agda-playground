@@ -23,6 +23,7 @@ import { attachAgdaIM } from '$lib/codemirror/agda-input-dom'
  * onSubmitCommandInput: () => void,
  * onCancelCommandInput: () => void,
  * onFocusGoal: (id: number | string) => void,
+ * showHeader?: boolean,
  * }} */
 let {
   commandInputPrompt,
@@ -35,6 +36,7 @@ let {
   onSubmitCommandInput,
   onCancelCommandInput,
   onFocusGoal,
+  showHeader = true,
 } = $props()
 
 /** @param {HTMLInputElement} el */
@@ -44,11 +46,13 @@ function agdaInputAction(el) {
 }
 </script>
 
-<section class="goals-section" aria-labelledby="goals-heading">
-  <header class="goals-header">
-    <h2 id="goals-heading" class="panel-heading">Goals</h2>
-    <span class="goals-count" aria-label="{panelGoalInfos.length} goals">{panelGoalInfos.length}</span>
-  </header>
+<section class="goals-section" aria-label="Goals">
+  {#if showHeader}
+    <header class="goals-header">
+      <h2 class="panel-heading">Goals</h2>
+      <span class="goals-count" aria-label="{panelGoalInfos.length} goals">{panelGoalInfos.length}</span>
+    </header>
+  {/if}
   {#if commandInputPrompt}
     <form class="command-input-panel" onsubmit={(event) => { event.preventDefault(); onSubmitCommandInput() }}>
       <label for="command-input">Input for {commandInputPrompt.label}</label>

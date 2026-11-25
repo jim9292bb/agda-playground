@@ -1,6 +1,7 @@
 <script>
 import { tick } from 'svelte'
 import { resolveProfileLibraries } from '$lib/controller.svelte'
+import { alsStatusMeta } from '$lib/agda/als-status'
 
 /**
  * Agda's status (with Restart) and the environment picker, at the top of
@@ -12,19 +13,7 @@ import { resolveProfileLibraries } from '$lib/controller.svelte'
  * }} */
 let { agdaController, deployProfiles, onDeploymentProfileChange } = $props()
 
-// `tone` picks the status dot's and label's colors from theme.css: the dot
-// a bright --app-<tone>-dot, the label an AA-contrast --app-<tone>-text
-// (neutral: the regular muted text color).
-const statusMeta = $derived({
-  initial:      { tone: 'neutral', label: 'Starting...' },
-  loading:      { tone: 'warning', label: 'Loading...' },
-  loaded:       { tone: 'warning', label: agdaController.driveIsCreated ? 'Setting up...' : 'Fetching libraries...' },
-  active:       { tone: 'success', label: 'Active' },
-  deactivating: { tone: 'neutral', label: 'Stopping...' },
-  errored:      { tone: 'danger',  label: 'Error' },
-  exited:       { tone: 'neutral', label: 'Exited' },
-  terminated:   { tone: 'neutral', label: 'Terminated' },
-}[agdaController.alsWorkerStatus] ?? { tone: 'neutral', label: agdaController.alsWorkerStatus })
+const statusMeta = $derived(alsStatusMeta(agdaController))
 
 const progress = $derived.by(() => {
   const status = agdaController.alsWorkerStatus

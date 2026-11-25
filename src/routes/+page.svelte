@@ -12,7 +12,7 @@ import SplitPane from '$lib/components/SplitPane.svelte'
 import AboutPanel from '$lib/components/AboutPanel.svelte'
 import HeaderExamplePicker from '$lib/components/HeaderExamplePicker.svelte'
 import AgdaSidePanel from '$lib/components/AgdaSidePanel.svelte'
-import MobileTabBar from '$lib/components/MobileTabBar.svelte'
+import { MobilePanelState } from '$lib/mobile-panel-state.svelte'
 import AppHeader from '$lib/components/AppHeader.svelte'
 import SettingsPanel from '$lib/components/SettingsPanel.svelte'
 import { AgdaController, deployProfiles, resolveProfileLibraries } from '$lib/controller.svelte'
@@ -714,8 +714,9 @@ let activeGoalDetailError = $state('')
 let selectedMessageTab = $state(/** @type {'log' | 'queries' | 'errors'} */('log'))
 let previousQueryResultCount = 0
 let previousDiagnosticCount = 0
-// Phones show the editor, Goals and Messages one at a time (MobileTabBar).
-let mobileTab = $state(/** @type {'code' | 'goals' | 'messages'} */('code'))
+// Phones: the editor over a collapsible Goals / Messages panel.
+const mobilePanel = new MobilePanelState()
+$effect(() => mobilePanel.watchKeyboard(window))
 
 // Auto-switch the Messages tab to whichever kind of result just arrived --
 // matches agda-mode-vscode's single-panel model (State__View.Panel.display
@@ -727,7 +728,7 @@ $effect(() => {
   if (count > previousQueryResultCount) {
     selectedMessageTab = 'queries'
     // On a phone the result would otherwise land on a hidden tab.
-    if (untrack(() => isMobile)) mobileTab = 'messages'
+    if (untrack(() => isMobile)) mobilePanel.showMessages()
   }
   previousQueryResultCount = count
 })
@@ -735,15 +736,15 @@ $effect(() => {
   const count = agdaDiagnostics.length
   if (count > previousDiagnosticCount) {
     selectedMessageTab = 'errors'
-    if (untrack(() => isMobile)) mobileTab = 'messages'
+    if (untrack(() => isMobile)) mobilePanel.showMessages()
   }
   previousDiagnosticCount = count
 })
 
-// A command asking for input shows its prompt in Goals; on a phone, bring
-// that tab up so the prompt is visible.
+// A command asking for input shows its prompt in Goals; on a phone, open
+// the panel on Goals so the prompt is visible.
 $effect(() => {
-  if (commandInputState.prompt && untrack(() => isMobile)) mobileTab = 'goals'
+  if (commandInputState.prompt && untrack(() => isMobile)) untrack(() => mobilePanel.showPrompt())
 })
 
 /** Runs a command picked from the header's Commands menu, then hands focus back to the editor. */
@@ -815,7 +816,7 @@ $effect(() => {
 </script>
 
 {#snippet editor(/** @type {'horizontal' | 'vertical'} */ orientation)}
-<SplitPane {orientation} position={.6} class={isMobile ? `mobile-tabs show-${mobileTab}` : ''} dividerLabel="Resize editor and Agda panel" style="--divider-min-position: 25%; --divider-max-position: 90%;">
+<SplitPane {orientation} position={.6} class={isMobile ? (mobilePanel.collapsed ? 'mobile-split collapsed' : 'mobile-split') : ''} dividerLabel="Resize editor and Agda panel" style="--divider-min-position: 25%; --divider-max-position: 90%;">
   {#snippet start()}
   <section class="editor-section">
   <section class="editor-pane">
@@ -849,7 +850,7 @@ $effect(() => {
     {textboxContent}
     {agdaDiagnostics}
     bind:selectedMessageTab
-    mobileView={isMobile ? (mobileTab === 'messages' ? 'messages' : 'goals') : null} />
+    mobile={isMobile ? mobilePanel : null} />
   {/snippet}
 </SplitPane>
 <SettingsPanel
@@ -904,9 +905,6 @@ $effect(() => {
   <div class="app-workspace">
     {@render editor(isMobile ? 'vertical' : 'horizontal')}
   </div>
-  {#if isMobile}
-    <MobileTabBar bind:tab={mobileTab} goalCount={panelGoalInfos.length} errorCount={agdaDiagnostics.length} codeLabel="Code" />
-  {/if}
 </main>
 
 <style>
@@ -924,20 +922,33 @@ $effect(() => {
   min-height: 0;
 }
 
-/* Phones: the editor and the Agda panel each take the whole workspace, one
-   at a time, picked from MobileTabBar. Both stay mounted (the editor must
-   not be torn down), so this just hides the other pane and the divider. */
-:global(.split-pane.mobile-tabs > .split-divider) {
+/* Phones: the editor over the Agda panel, with a wider grab area on the
+   divider; collapsed, the panel shrinks to its one-line bar and the editor
+   takes the rest. */
+:global(.split-pane.mobile-split) {
+  --divider-draggable-area: 20px;
+}
+:global(.split-pane.mobile-split > .split-divider::before) {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 1;
+  width: 36px;
+  height: 4px;
+  margin: -2px 0 0 -18px;
+  border-radius: 999px;
+  background: var(--app-border-strong);
+}
+:global(.split-pane.mobile-split.collapsed > .split-divider) {
   display: none;
 }
-:global(.split-pane.mobile-tabs > .split-start),
-:global(.split-pane.mobile-tabs > .split-end) {
+:global(.split-pane.mobile-split.collapsed > .split-start) {
   flex: 1 1 0;
-  height: 100% !important;
+  height: auto !important;
 }
-:global(.split-pane.mobile-tabs.show-code > .split-end),
-:global(.split-pane.mobile-tabs:not(.show-code) > .split-start) {
-  display: none;
+:global(.split-pane.mobile-split.collapsed > .split-end) {
+  flex: 0 0 auto;
 }
 
 .sr-only {

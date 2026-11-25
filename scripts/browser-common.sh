@@ -106,6 +106,10 @@ start_als() {
   while (( elapsed < timeout_ms )); do
     local enabled
     enabled="$(ab eval "(() => {
+      // The side panel publishes ALS's status; on phones Restart itself is
+      // only rendered while the status is opened.
+      const panel = document.querySelector('[data-als-status]')
+      if (panel) return panel.dataset.alsStatus === 'active'
       const btn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === 'Restart')
       return btn ? !(btn.disabled ?? btn.hasAttribute('disabled')) : false
     })()")"

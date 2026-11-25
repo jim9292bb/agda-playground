@@ -8,12 +8,14 @@ import DiagnosticsPanel from './DiagnosticsPanel.svelte'
  * textboxContent: string,
  * agdaDiagnostics: import('$lib/agda/diagnostics').AgdaDiagnostic[],
  * selectedMessageTab: 'log' | 'queries' | 'errors',
+ * showHeading?: boolean,
  * }} */
 let {
   agdaController,
   textboxContent,
   agdaDiagnostics,
   selectedMessageTab = $bindable(),
+  showHeading = true,
 } = $props()
 
 let logEntries = $derived(textboxContent.trimEnd().split(/\n+/).filter(Boolean))
@@ -73,9 +75,11 @@ $effect(() => {
   data-log-content={textboxContent}
   data-performance-entries={JSON.stringify(agdaController.performanceEntries)}
   data-query-results={agdaController.queryResults.map(r => r.content).join('\n---\n')}
-  aria-labelledby="messages-heading">
+  aria-label="Messages">
   <header class="messages-header">
-    <h2 id="messages-heading" class="panel-heading">Messages</h2>
+    {#if showHeading}
+      <h2 class="panel-heading">Messages</h2>
+    {/if}
     <div class="messages-tab-group" role="group" aria-label="Message view">
       {#each tabs as tab (tab.id)}
         <button
