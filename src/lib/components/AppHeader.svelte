@@ -1,238 +1,181 @@
 <script>
-import { tick } from 'svelte'
 import AppSwitcher from '$lib/components/AppSwitcher.svelte'
-import CommandsMenu from '$lib/components/CommandsMenu.svelte'
+import { appearance, onAppearanceChange } from '$lib/appearance.svelte'
 
 /**
- * The one header row every route shares: title, app switcher, the route's
- * own picker (examples or chapters), the Commands menu, route-specific
- * actions, then About and Settings on the right. Wraps onto more rows only
- * when it doesn't fit.
+ * The one global header every route shares: the app's mark and title, the
+ * app switcher, then icon buttons for the light/dark theme, the source on
+ * GitHub, About and Settings. Everything about the document itself (the
+ * example or chapter picker, Commands, Open / Export) lives in the editor
+ * panel's own head (EditorPanelHead.svelte).
+ *
+ * Phones (`compact`): the title shrinks to the mark and the GitHub link
+ * (also in About) is dropped, so everything fits one row.
  * @type {{
  * title: string,
  * current: 'playground' | 'notebook' | 'plfa',
- * picker?: import('svelte').Snippet,
- * actions?: import('svelte').Snippet,
- * registry: import('$lib/agda/shortcuts').AgdaShortcutDefinition[],
- * onRunCommand: (shortcut: import('$lib/agda/shortcuts').AgdaShortcutDefinition) => void,
- * fileActions?: { id: string, label: string, run: () => void }[],
- * activeGoalLabel?: string | null,
  * onOpenAbout: () => void,
  * onOpenSettings: () => void,
  * compact?: boolean,
  * }} */
-let {
-  title,
-  current,
-  picker,
-  actions,
-  registry,
-  onRunCommand,
-  fileActions = [],
-  activeGoalLabel = null,
-  onOpenAbout,
-  onOpenSettings,
-  compact = false,
-} = $props()
+let { title, current, onOpenAbout, onOpenSettings, compact = false } = $props()
 
-// Phones (`compact`): one row of title, picker, an icon-only Commands and a
-// "More" menu holding the app switcher, the route's actions, About and
-// Settings.
-let moreOpen = $state(false)
-/** @type {HTMLButtonElement | undefined} */
-let moreToggleEl = $state()
-/** @type {HTMLDivElement | undefined} */
-let moreMenuEl = $state()
+const SOURCE_URL = 'https://github.com/jim9292bb/agda-playground'
 
-async function openMore() {
-  moreOpen = true
-  await tick()
-  const first = /** @type {HTMLElement | null | undefined} */ (moreMenuEl?.querySelector('a, button'))
-  first?.focus()
-}
-
-function closeMore(restoreFocus = true) {
-  moreOpen = false
-  if (restoreFocus) moreToggleEl?.focus()
-}
-
-/** @param {() => void} action */
-function runFromMore(action) {
-  closeMore(false)
-  action()
-}
+// Whether the app is dark right now: Settings' choice, or the OS while that's
+// "follow the system". The toggle forces the opposite of what's showing;
+// Settings > Appearance can go back to following the system.
+let dark = $state(appearance.isDark())
+$effect(() => onAppearanceChange(isDark => { dark = isDark }))
 </script>
 
 <header class="header" class:compact>
-  <h1 class="header-title">{title}</h1>
-  {#if !compact}
-    <AppSwitcher {current} />
-  {/if}
-  {@render picker?.()}
-  <CommandsMenu {registry} onRun={onRunCommand} {fileActions} {activeGoalLabel} {compact} />
-  {#if !compact}
-    {@render actions?.()}
-  {/if}
+  <div class="header-brand">
+    <span class="header-mark" aria-hidden="true">∀</span>
+    <h1 class="header-title">{title}</h1>
+  </div>
+  <AppSwitcher {current} />
   <div class="header-spacer"></div>
-  {#if compact}
-    <div class="header-more-wrap">
-      <button
-        bind:this={moreToggleEl}
-        type="button"
-        class="header-action-btn header-more-toggle"
-        aria-label="More"
-        title="More"
-        aria-haspopup="dialog"
-        aria-expanded={moreOpen}
-        aria-controls="header-more-menu"
-        onclick={() => (moreOpen ? closeMore() : openMore())}>
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="19" cy="12" r="1.8"></circle></svg>
-      </button>
-      {#if moreOpen}
-        <div class="header-more-backdrop" role="presentation" onclick={() => closeMore(false)}></div>
-        <div
-          bind:this={moreMenuEl}
-          id="header-more-menu"
-          class="header-more-menu"
-          role="dialog"
-          aria-label="More"
-          tabindex="-1"
-          onkeydown={(event) => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeMore() } }}>
-          <AppSwitcher {current} />
-          {#if actions}
-            <div class="header-more-actions" onclick={() => closeMore(false)}>
-              {@render actions()}
-            </div>
-          {/if}
-          <div class="header-more-actions">
-            <button type="button" class="header-action-btn" onclick={() => runFromMore(onOpenAbout)}>
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5"></path><path d="M12 8h.01"></path></svg>
-              About
-            </button>
-            <button type="button" class="header-action-btn" onclick={() => runFromMore(onOpenSettings)}>
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>
-              Settings
-            </button>
-          </div>
-        </div>
+  <div class="header-actions">
+    <button
+      type="button"
+      class="header-icon-btn header-theme-btn"
+      aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'}
+      title={dark ? 'Switch to light theme' : 'Switch to dark theme'}
+      onclick={() => appearance.set(dark ? 'light' : 'dark')}>
+      {#if dark}
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
+      {:else}
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 13A9 9 0 0 1 11 3a9 9 0 1 0 10 10Z"></path></svg>
       {/if}
-    </div>
-  {:else}
-    <div class="header-actions">
-      <button type="button" class="header-action-btn" onclick={onOpenAbout}>
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5"></path><path d="M12 8h.01"></path></svg>
-        About
-      </button>
-      <button type="button" class="header-action-btn" onclick={onOpenSettings}>
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>
-        Settings
-      </button>
-    </div>
-  {/if}
+    </button>
+    {#if !compact}
+      <a class="header-icon-btn" href={SOURCE_URL} target="_blank" rel="noopener noreferrer" aria-label="Source code on GitHub" title="Source code on GitHub">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 19c-4 1-4-2-6-2m12 5v-3.8c0-1 .1-1.5-.5-2 3-.3 6-1.5 6-7A5 5 0 0 0 19 5c.1-.4.6-2-.2-4 0 0-1.5-.4-4.8 2a17 17 0 0 0-4 0C6.7.6 5.2 1 5.2 1c-.8 2-.3 3.6-.2 4A5 5 0 0 0 3.5 9.2c0 5.5 3 6.7 6 7-.6.5-.6 1.2-.5 2V22"></path></svg>
+      </a>
+    {/if}
+    <button type="button" class="header-icon-btn" aria-label="About" title="About" onclick={onOpenAbout}>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5"></path><path d="M12 8h.01"></path></svg>
+    </button>
+    <button type="button" class="header-icon-btn" aria-label="Settings" title="Settings" onclick={onOpenSettings}>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>
+    </button>
+  </div>
 </header>
 
 <style>
 .header {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 6px 12px;
-  padding: 7px 10px;
-  background: var(--app-chrome);
-  border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
+  gap: 8px;
+  height: 40px;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  padding: 0 12px;
+  background: var(--app-surface);
+  border-bottom: 1px solid var(--app-border);
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+}
+
+.header-mark {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  background: var(--quiet-primary-stroke);
+  color: var(--app-surface);
+  font: 19px/1 Georgia, 'Times New Roman', serif;
 }
 
 .header-title {
   margin: 0;
   color: var(--app-text-strong);
   font-size: .82rem;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: -.01em;
   white-space: nowrap;
+}
+
+/* The app switcher sits after a thin rule, like a second-level title. */
+.header :global(.app-switcher) {
+  margin-left: 4px;
+  padding-left: 9px;
+  border-left: 1px solid var(--app-border);
 }
 
 .header-spacer {
   flex: 1 1 0;
-}
-
-/* Phones: everything stays on one row; the picker gives way first. */
-.header.compact {
-  flex-wrap: nowrap;
-}
-
-.header.compact .header-spacer {
   min-width: 0;
-}
-
-.header.compact :global(.header-examples-wrap) {
-  flex: 0 1 auto;
-  min-width: 0;
-}
-
-.header.compact :global(.header-examples-btn) {
-  max-width: 100%;
-}
-
-.header-more-wrap {
-  position: relative;
-  flex: 0 0 auto;
-}
-
-.header-more-toggle {
-  padding: 4px 8px;
-}
-
-.header-more-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 199;
-}
-
-.header-more-menu {
-  position: fixed;
-  top: 52px;
-  right: 12px;
-  z-index: 200;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
-  width: min(300px, calc(100vw - 24px));
-  padding: 10px;
-  border: 1px solid var(--app-border);
-  border-radius: 10px;
-  background: var(--app-surface);
-  box-shadow: 0 12px 32px var(--app-shadow);
-}
-
-.header-more-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
 }
 
 .header-actions {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
+  flex: 0 0 auto;
 }
 
-/* Also styles route-specific action buttons passed in through `actions`. */
-.header :global(.header-action-btn) {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border: 1px solid var(--app-border);
-  border-radius: 6px;
-  background: var(--app-surface);
-  color: var(--app-text-strong);
-  font-size: .72rem;
+.header-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--app-text-muted);
   cursor: pointer;
 }
 
-.header :global(.header-action-btn:hover) {
-  border-color: var(--app-border-strong);
-  background: var(--quiet-neutral-fill-softer);
+.header-icon-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.header-icon-btn:hover {
+  background: var(--quiet-primary-fill-soft);
+  color: var(--quiet-primary-text);
+}
+
+.header-icon-btn:focus-visible {
+  outline: 2px solid var(--quiet-primary-text);
+  outline-offset: 1px;
+}
+
+/* Phones: the mark stands in for the title (still read out). */
+.header.compact {
+  gap: 4px;
+  padding: 0 8px;
+}
+
+.header.compact .header-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.header.compact :global(.app-switcher) {
+  margin-left: 2px;
+  padding-left: 4px;
+}
+
+.header.compact .header-icon-btn {
+  width: 26px;
 }
 </style>

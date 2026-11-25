@@ -15,7 +15,7 @@ ab eval "(async () => {
   if (!settings) throw new Error('Settings button missing')
   const header = settings.closest('.header')
   if (!header) throw new Error('Settings button should be in the header')
-  const about = Array.from(header.querySelectorAll('button')).find(b => b.textContent.trim() === 'About')
+  const about = Array.from(header.querySelectorAll('button')).find(b => (b.getAttribute('aria-label') || b.textContent).trim() === 'About')
   if (!about) throw new Error('About button missing next to Settings in the header')
   settings.click()
   await new Promise(r => setTimeout(r, 100))

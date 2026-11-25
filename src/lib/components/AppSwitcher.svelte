@@ -30,33 +30,43 @@ const apps = $derived([
   align-items: center;
   gap: 2px;
   flex: 0 0 auto;
-  padding: 3px;
-  border-radius: 8px;
-  background: var(--app-switcher-track);
 }
 
 .app-switcher-link {
-  padding: 3px 10px;
-  border-radius: 6px;
-  font-size: .72rem;
-  color: var(--app-text-secondary);
+  display: flex;
+  align-items: center;
+  height: 28px;
+  box-sizing: border-box;
+  padding: 0 10px;
+  border-radius: 4px;
+  font-size: .68rem;
+  font-weight: 550;
+  color: var(--app-text-muted);
   text-decoration: none;
   white-space: nowrap;
 }
 
 .app-switcher-link:hover {
+  background: var(--quiet-neutral-fill-softer);
   color: var(--app-text-strong);
 }
 
+/* The current app: the accent on its soft fill. */
 .app-switcher-link.current {
-  background: var(--app-surface);
-  color: var(--app-text-strong);
-  font-weight: 600;
-  box-shadow: 0 1px 2px var(--app-shadow);
+  background: var(--quiet-primary-fill-soft);
+  color: var(--quiet-primary-text);
+  font-weight: 650;
 }
 
 .app-switcher-link:focus-visible {
   outline: 2px solid var(--quiet-primary-text);
   outline-offset: 1px;
+}
+
+/* Narrow phones: tighter links, so the whole header fits one row. */
+@media (max-width: 420px) {
+  .app-switcher-link {
+    padding: 0 6px;
+  }
 }
 </style>

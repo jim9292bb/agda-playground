@@ -54,12 +54,14 @@ const selectedLabel = $derived(examples.find(e => e.id === selectedExampleId)?.l
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
+  height: 26px;
+  box-sizing: border-box;
+  padding: 0 8px;
   border: 1px solid var(--app-border);
-  border-radius: 6px;
+  border-radius: 4px;
   background: var(--app-surface);
   color: var(--app-text-strong);
-  font-size: .72rem;
+  font-size: .66rem;
   white-space: nowrap;
   cursor: pointer;
 }

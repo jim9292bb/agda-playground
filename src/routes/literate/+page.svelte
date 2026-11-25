@@ -15,7 +15,7 @@ cursor is in a code cell only sends Agda everything up to and including
 that cell.
 
 Use **+ Markdown** / **+ Code** above to add cells, and hover a cell to
-reveal a delete button. **Open file** / **Export file** in **Commands** read
+reveal a delete button. **Open** / **Export** (also in **Commands**) read
 and write a whole \`.lagda.md\` file. Markdown cells also render math, e.g.
 $\\sum_{i=0}^n i = \\frac{n(n+1)}{2}$.
 

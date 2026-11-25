@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Phones (390px): one header row (title, picker, icon-only Commands, a More
-# menu with the app switcher / About / Settings), then the editor over the
-# Agda panel. The panel's bar has a status dot (opens status + environment),
+# Phones (390px): one header row (the mark, the app switcher, theme / About /
+# Settings icons), the editor head (picker, icon-only Commands, a More
+# actions menu), then the editor over the Agda panel. The panel's bar has a status dot (opens status + environment),
 # a Goals / Messages switch and a chevron that collapses the panel to a
 # one-line summary of the current goal. A command asking for input opens
 # the panel on Goals with its prompt focused; a result switches to Messages.
@@ -46,19 +46,27 @@ ab set viewport 390 844 >/dev/null
 ab wait 500 >/dev/null
 start_als
 
-# ── Header: one row, More menu ──────────────────────────────────────────────
+# ── Header: one row of the mark, app switcher and icons ─────────────────────
 [[ "$(js "document.querySelector('.header').classList.contains('compact')")" == "true" ]] || fail "header isn't compact at 390px"
-[[ "$(visible '.header .app-switcher')" == "false" ]] || fail "app switcher should move into the More menu"
-click_js "document.querySelector('.header-more-toggle')"
-menu_text="$(js "document.querySelector('#header-more-menu')?.textContent.replace(/\\s+/g, ' ').trim() ?? ''")"
-for item in Playground Notebook About Settings; do
-  [[ "$menu_text" == *"$item"* ]] || fail "More menu lacks $item: $menu_text"
+[[ "$(visible '.header .app-switcher')" == "true" ]] || fail "the app switcher should stay in the header"
+[[ "$(js "Math.round(document.querySelector('.header').getBoundingClientRect().height)")" == "40" ]] || fail "the header should be one 40px row"
+for name in "Switch to dark theme|Switch to light theme" About Settings; do
+  found="$(js "[...document.querySelectorAll('.header .header-icon-btn')].some(el => el.getClientRects().length && /^($name)\$/.test(el.getAttribute('aria-label')))")"
+  [[ "$found" == "true" ]] || fail "header lacks a visible $name button"
 done
+[[ "$(visible '.header a[aria-label=\"Source code on GitHub\"]')" == "false" ]] || fail "GitHub belongs in About on phones"
+[[ "$(js "document.querySelector('.header-title').getBoundingClientRect().width <= 1")" == "true" ]] || fail "the mark stands in for the title on phones"
+[[ "$(js "document.querySelector('h1')?.textContent.trim()")" == '"Agda Playground"' ]] || fail "the title should still be the page's <h1>"
+echo "PASS: compact header: mark, app switcher and icons on one row"
+
+# ── Commands opens under its toggle, across the screen ───────────────────────
+click_js "document.querySelector('.commands-menu-toggle')"
+menu_top="$(js "Math.round(document.querySelector('#commands-menu').getBoundingClientRect().top)")"
+toggle_bottom="$(js "Math.round(document.querySelector('.commands-menu-toggle').getBoundingClientRect().bottom)")"
+(( menu_top >= toggle_bottom && menu_top <= toggle_bottom + 12 )) || fail "Commands menu should open just under its toggle ($toggle_bottom -> $menu_top)"
 ab press Escape >/dev/null
 ab wait 200 >/dev/null
-[[ "$(js "Boolean(document.querySelector('#header-more-menu'))")" == "false" ]] || fail "Escape didn't close the More menu"
-[[ "$(js "document.activeElement?.classList.contains('header-more-toggle') ?? false")" == "true" ]] || fail "Escape didn't refocus the More toggle"
-echo "PASS: compact header with a More menu"
+echo "PASS: the Commands menu opens just under its toggle"
 
 # ── Editor over the panel; Goals / Messages switch; status ──────────────────
 set_editor_fixture "test-fixtures/agda/query-goal.agda" "{! n !}" 4 >/dev/null

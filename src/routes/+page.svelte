@@ -15,6 +15,7 @@ import AgdaSidePanel from '$lib/components/AgdaSidePanel.svelte'
 import { MobilePanelState } from '$lib/mobile-panel-state.svelte'
 import { loadSplitRatio, saveSplitRatio } from '$lib/split-ratio'
 import AppHeader from '$lib/components/AppHeader.svelte'
+import EditorPanelHead from '$lib/components/EditorPanelHead.svelte'
 import SettingsPanel from '$lib/components/SettingsPanel.svelte'
 import { AgdaController, deployProfiles, resolveProfileLibraries } from '$lib/controller.svelte'
 import { myCodeMirrorTheme } from '$lib/codemirror/theme'
@@ -756,7 +757,7 @@ $effect(() => {
   if (commandInputState.prompt && untrack(() => isMobile)) untrack(() => mobilePanel.showPrompt())
 })
 
-/** Runs a command picked from the header's Commands menu, then hands focus back to the editor. */
+/** Runs a command picked from the editor head's Commands menu, then hands focus back to the editor. */
 function runCommandFromMenu(/** @type {import('$lib/agda/shortcuts').AgdaShortcutDefinition} */ shortcut) {
   const view = agdaController.editorView
   if (!view) return
@@ -768,6 +769,12 @@ const commandsMenuFileActions = [
   { id: 'copy-code', label: 'Copy code', run: () => copyEditorCode() },
   { id: 'open-file', label: 'Open file…', run: () => fileInput.click() },
   { id: 'export-file', label: 'Export file', run: () => exportAgdaFile() },
+]
+/** The editor head's buttons (also in the Commands menu, above). */
+const editorActions = [
+  { id: 'copy-code', label: 'Copy', icon: /** @type {const} */ ('copy'), run: () => copyEditorCode() },
+  { id: 'open-file', label: 'Open', icon: /** @type {const} */ ('open'), run: () => fileInput.click() },
+  { id: 'export-file', label: 'Export', icon: /** @type {const} */ ('export'), run: () => exportAgdaFile() },
 ]
 let settingsPanelVisible = $state(false)
 let aboutPanelVisible = $state(false)
@@ -830,7 +837,18 @@ $effect(() => {
   bind:ratio={() => (isMobile ? phoneSplit : desktopSplit), (value) => { if (isMobile) phoneSplit = value; else desktopSplit = value }}
   class={isMobile ? (mobilePanel.collapsed ? 'mobile-split collapsed' : 'mobile-split') : ''} dividerLabel="Resize editor and Agda panel" style="--divider-min-position: 25%; --divider-max-position: 90%;">
   {#snippet start()}
-  <section class="editor-section">
+  <section class="editor-section" aria-label="Editor">
+  <EditorPanelHead
+    registry={shortcutOverrideState.registry}
+    onRunCommand={runCommandFromMenu}
+    menuFileActions={commandsMenuFileActions}
+    activeGoalLabel={activeGoalId === null ? null : `?${activeGoalId}`}
+    actions={editorActions}
+    compact={isMobile}>
+    {#snippet picker()}
+      <HeaderExamplePicker examples={scratchpadExamples} {selectedExampleId} onSelect={selectScratchpadExample} />
+    {/snippet}
+  </EditorPanelHead>
   <section class="editor-pane">
     <div class="editor-wrap">
       <div class="container" {@attach codeMirror}></div>
@@ -903,17 +921,9 @@ $effect(() => {
   <AppHeader
     title="Agda Playground"
     current="playground"
-    registry={shortcutOverrideState.registry}
-    onRunCommand={runCommandFromMenu}
-    fileActions={commandsMenuFileActions}
-    activeGoalLabel={activeGoalId === null ? null : `?${activeGoalId}`}
     onOpenAbout={() => { aboutPanelVisible = true }}
     onOpenSettings={openSettingsPanel}
-    compact={isMobile}>
-    {#snippet picker()}
-      <HeaderExamplePicker examples={scratchpadExamples} {selectedExampleId} onSelect={selectScratchpadExample} />
-    {/snippet}
-  </AppHeader>
+    compact={isMobile} />
   <div class="app-workspace">
     {@render editor(isMobile ? 'vertical' : 'horizontal')}
   </div>

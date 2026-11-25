@@ -59,8 +59,12 @@ const groups = $derived.by(() => {
   ].filter(group => group.items.length > 0)
 })
 
+// Phones: the panel spans the screen just under the toggle.
+let compactTop = $state(0)
+
 async function openMenu() {
   query = ''
+  if (compact && toggleEl) compactTop = Math.round(toggleEl.getBoundingClientRect().bottom + 6)
   open = true
   await tick()
   searchEl?.focus()
@@ -153,6 +157,7 @@ function onWindowKeydown(/** @type {KeyboardEvent} */ event) {
       id="commands-menu"
       class="commands-menu"
       class:compact
+      style:top={compact ? `${compactTop}px` : undefined}
       role="dialog"
       aria-label="Agda commands"
       tabindex="-1"
@@ -192,20 +197,29 @@ function onWindowKeydown(/** @type {KeyboardEvent} */ event) {
 .commands-menu-toggle {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
+  gap: 5px;
+  height: 26px;
+  box-sizing: border-box;
+  padding: 0 8px;
   border: 1px solid var(--app-border);
-  border-radius: 6px;
+  border-radius: 4px;
   background: var(--app-surface);
   color: var(--app-text-strong);
-  font-size: .72rem;
+  font-size: .66rem;
+  white-space: nowrap;
   cursor: pointer;
 }
 
 .commands-menu-toggle:hover,
 .commands-menu-toggle[aria-expanded="true"] {
-  background: var(--quiet-neutral-fill-softer);
-  border-color: var(--app-border-strong);
+  background: var(--quiet-primary-fill-soft);
+  border-color: var(--quiet-primary-stroke);
+  color: var(--quiet-primary-text);
+}
+
+.commands-menu-toggle:focus-visible {
+  outline: 2px solid var(--quiet-primary-text);
+  outline-offset: 1px;
 }
 
 .commands-menu-arrow {
@@ -238,18 +252,18 @@ function onWindowKeydown(/** @type {KeyboardEvent} */ event) {
   box-shadow: 0 12px 32px var(--app-shadow);
 }
 
-/* Phones: the toggle is icon-only and the menu spans the screen under the header. */
+/* Phones: the toggle is icon-only and the menu spans the screen under it
+   (`top` is set from the toggle's position when it opens). */
 .commands-menu.compact {
   position: fixed;
-  top: 52px;
   left: 12px;
   right: 12px;
   width: auto;
-  max-height: calc(100vh - 140px);
+  max-height: calc(100dvh - 140px);
 }
 
 .commands-menu-toggle[aria-label] {
-  padding: 4px 8px;
+  padding: 0 6px;
 }
 
 .commands-menu-search {

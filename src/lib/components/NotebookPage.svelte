@@ -12,6 +12,7 @@ import SplitPane from '$lib/components/SplitPane.svelte'
 import LiterateCellEditor from '$lib/components/LiterateCellEditor.svelte'
 import AboutPanel from '$lib/components/AboutPanel.svelte'
 import AppHeader from '$lib/components/AppHeader.svelte'
+import EditorPanelHead from '$lib/components/EditorPanelHead.svelte'
 import AgdaSidePanel from '$lib/components/AgdaSidePanel.svelte'
 import { MobilePanelState } from '$lib/mobile-panel-state.svelte'
 import { loadSplitRatio, saveSplitRatio } from '$lib/split-ratio'
@@ -1135,7 +1136,7 @@ $effect(() => {
   if (commandInputState.prompt && untrack(() => isMobile)) untrack(() => mobilePanel.showPrompt())
 })
 
-/** Runs a command picked from the header's Commands menu, then hands focus back to the active cell. */
+/** Runs a command picked from the notebook head's Commands menu, then hands focus back to the active cell. */
 function runCommandFromMenu(/** @type {import('$lib/agda/shortcuts').AgdaShortcutDefinition} */ shortcut) {
   runAgdaShortcutDefinition(shortcut)
   cellViews.get(activeCellId ?? '')?.focus()
@@ -1144,6 +1145,13 @@ function runCommandFromMenu(/** @type {import('$lib/agda/shortcuts').AgdaShortcu
 const commandsMenuFileActions = [
   { id: 'open-file', label: 'Open file…', run: () => fileInput.click() },
   { id: 'export-file', label: 'Export file', run: () => exportAgdaFile() },
+]
+/** The notebook head's buttons (Open / Export are also in the Commands menu). */
+const editorActions = [
+  { id: 'add-markdown', label: '+ Markdown', collapse: /** @type {const} */ ('early'), run: () => insertMarkdownBlock() },
+  { id: 'add-code', label: '+ Code', collapse: /** @type {const} */ ('early'), run: () => insertCodeBlock() },
+  { id: 'open-file', label: 'Open', icon: /** @type {const} */ ('open'), run: () => fileInput.click() },
+  { id: 'export-file', label: 'Export', icon: /** @type {const} */ ('export'), run: () => exportAgdaFile() },
 ]
 let settingsPanelVisible = $state(false)
 let aboutPanelVisible = $state(false)
@@ -1202,7 +1210,15 @@ $effect(() => {
   bind:ratio={() => (isMobile ? phoneSplit : desktopSplit), (value) => { if (isMobile) phoneSplit = value; else desktopSplit = value }}
   class={isMobile ? (mobilePanel.collapsed ? 'mobile-split collapsed' : 'mobile-split') : ''} dividerLabel="Resize notebook and Agda panel" style="--divider-min-position: 25%; --divider-max-position: 90%;">
   {#snippet start()}
-  <section class="editor-section">
+  <section class="editor-section" aria-label="Notebook">
+  <EditorPanelHead
+    {picker}
+    registry={shortcutOverrideState.registry}
+    onRunCommand={runCommandFromMenu}
+    menuFileActions={commandsMenuFileActions}
+    activeGoalLabel={activeGoalId === null ? null : `?${activeGoalId}`}
+    actions={editorActions}
+    compact={isMobile} />
   <section class="editor-pane">
     <div class="editor-wrap">
       <div class="literate-cells" onclick={(e) => { if (e.target === e.currentTarget) activeCellId = null }}>
@@ -1325,19 +1341,9 @@ $effect(() => {
   <AppHeader
     {title}
     current={appSwitcherCurrent}
-    {picker}
-    registry={shortcutOverrideState.registry}
-    onRunCommand={runCommandFromMenu}
-    fileActions={commandsMenuFileActions}
-    activeGoalLabel={activeGoalId === null ? null : `?${activeGoalId}`}
     onOpenAbout={() => { aboutPanelVisible = true }}
     onOpenSettings={openSettingsPanel}
-    compact={isMobile}>
-    {#snippet actions()}
-      <button type="button" class="header-action-btn" onclick={insertMarkdownBlock}>+ Markdown</button>
-      <button type="button" class="header-action-btn" onclick={insertCodeBlock}>+ Code</button>
-    {/snippet}
-  </AppHeader>
+    compact={isMobile} />
   <div class="app-workspace">
     {@render editor(isMobile ? 'vertical' : 'horizontal')}
   </div>
