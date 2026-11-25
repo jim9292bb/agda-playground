@@ -9,22 +9,25 @@
  * }} */
 let { agdaController, deployProfiles, onDeploymentProfileChange, onToggleCommands, onOpenAbout, onOpenSettings } = $props()
 
+// `tone` picks the status dot's and label's colors from theme.css: the dot
+// a bright --app-<tone>-dot, the label an AA-contrast --app-<tone>-text
+// (neutral: the regular muted text color).
 const statusMeta = $derived({
-  initial:      { color: '#888',    label: 'Starting...' },
-  loading:      { color: '#f59e0b', label: 'Loading...' },
-  loaded:       { color: '#f59e0b', label: agdaController.driveIsCreated ? 'Setting up...' : 'Fetching libraries...' },
-  active:       { color: '#22c55e', label: 'Active' },
-  deactivating: { color: '#888',    label: 'Stopping...' },
-  errored:      { color: '#ef4444', label: 'Error' },
-  exited:       { color: '#888',    label: 'Exited' },
-  terminated:   { color: '#888',    label: 'Terminated' },
-}[agdaController.alsWorkerStatus] ?? { color: '#888', label: agdaController.alsWorkerStatus })
+  initial:      { tone: 'neutral', label: 'Starting...' },
+  loading:      { tone: 'warning', label: 'Loading...' },
+  loaded:       { tone: 'warning', label: agdaController.driveIsCreated ? 'Setting up...' : 'Fetching libraries...' },
+  active:       { tone: 'success', label: 'Active' },
+  deactivating: { tone: 'neutral', label: 'Stopping...' },
+  errored:      { tone: 'danger',  label: 'Error' },
+  exited:       { tone: 'neutral', label: 'Exited' },
+  terminated:   { tone: 'neutral', label: 'Terminated' },
+}[agdaController.alsWorkerStatus] ?? { tone: 'neutral', label: agdaController.alsWorkerStatus })
 </script>
 
 <div class="control-card">
   <div class="control-card-row">
-    <span class="als-status-dot" style="--dot-color: {statusMeta.color}"></span>
-    <span class="als-status-label" style="color: {statusMeta.color}">{statusMeta.label}{#if agdaController.alsWorkerStatus === 'loading' && agdaController.wasmLoadingProgress}{@const p = agdaController.wasmLoadingProgress}{@const loaded = (p.bytesLoaded / 1048576).toFixed(1)}{@const total = p.bytesTotal && p.bytesTotal >= p.bytesLoaded ? ` / ${(p.bytesTotal / 1048576).toFixed(1)}` : ''} {loaded}{total} MB{:else if agdaController.alsWorkerStatus === 'loaded' && !agdaController.driveIsCreated && agdaController.wasmLibraryFetchProgress}{@const lp = agdaController.wasmLibraryFetchProgress} {lp.fetched} / {lp.total}{/if}</span>
+    <span class="als-status-dot" style="--dot-color: var(--app-{statusMeta.tone}-dot)"></span>
+    <span class="als-status-label" style="color: {statusMeta.tone === 'neutral' ? 'var(--app-text-muted)' : `var(--app-${statusMeta.tone}-text)`}">{statusMeta.label}{#if agdaController.alsWorkerStatus === 'loading' && agdaController.wasmLoadingProgress}{@const p = agdaController.wasmLoadingProgress}{@const loaded = (p.bytesLoaded / 1048576).toFixed(1)}{@const total = p.bytesTotal && p.bytesTotal >= p.bytesLoaded ? ` / ${(p.bytesTotal / 1048576).toFixed(1)}` : ''} {loaded}{total} MB{:else if agdaController.alsWorkerStatus === 'loaded' && !agdaController.driveIsCreated && agdaController.wasmLibraryFetchProgress}{@const lp = agdaController.wasmLibraryFetchProgress} {lp.fetched} / {lp.total}{/if}</span>
     <button type="button" class="btn btn-primary" onclick={() => agdaController.restartALSWASM()} disabled={agdaController.alsWorkerStatus !== 'active'}>Restart</button>
     <div class="control-card-actions">
     <button type="button" class="control-btn control-icon-btn" aria-label="Help" onclick={onToggleCommands}>
@@ -71,7 +74,7 @@ const statusMeta = $derived({
 <style>
 .control-card {
   margin: 12px;
-  border: 1px solid #b0b4bdb5;
+  border: 1px solid var(--app-border-strong);
   border-radius: 6px;
   background: var(--quiet-neutral-fill);
   overflow: hidden;
@@ -118,7 +121,7 @@ const statusMeta = $derived({
   border: 1px solid var(--quiet-neutral-stroke-softer);
   border-radius: 4px;
   background: transparent;
-  color: #374151;
+  color: var(--app-text);
   font: inherit;
   font-size: .82rem;
   cursor: pointer;
@@ -135,7 +138,7 @@ const statusMeta = $derived({
   padding: 8px 10px;
   line-height: 0;
   border: none;
-  color: #374151;
+  color: var(--app-text);
 }
 
 .control-icon-btn svg {
@@ -166,7 +169,7 @@ const statusMeta = $derived({
   border: 1px solid var(--quiet-neutral-stroke-softer);
   border-radius: 4px;
   background: var(--quiet-neutral-fill-softer);
-  color: #374151;
+  color: var(--app-text);
   cursor: pointer;
   font: inherit;
   padding: 5px 12px;

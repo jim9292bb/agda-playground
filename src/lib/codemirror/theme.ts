@@ -1,5 +1,6 @@
 import { Compartment, type Extension } from '@codemirror/state'
 import { EditorView, ViewPlugin } from '@codemirror/view'
+import { appearance, onAppearanceChange } from '$lib/appearance.svelte'
 
 // TODO: split baseTheme with (the real) theme
 const myBaseTheme = EditorView.baseTheme({
@@ -79,63 +80,32 @@ const myBaseTheme = EditorView.baseTheme({
   },
 })
 
-const SELECTOR_PREFERS_DARK_COLOR_SCHEME = '(prefers-color-scheme: dark)'
+/**
+ * Switches an editor between light and dark along with the app's appearance
+ * (Settings > Appearance, or the OS while that's set to follow the system;
+ * see src/lib/appearance.svelte.js). `EditorView.darkTheme` makes
+ * CodeMirror's own `&dark` base-theme variants apply -- both its built-in
+ * ones and those in myBaseTheme above -- and `dark` / `light` swap in the
+ * matching Agda highlighting palette. The page around the editor follows
+ * through CSS on its own (theme.css).
+ */
+export function autoColorScheme(options: { dark?: Extension, light?: Extension } = {}): Extension {
+  const { dark: darkExt = [], light: lightExt = [] } = options
+  const compartment = new Compartment()
+  const schemeExt = (dark: boolean): Extension => [EditorView.darkTheme.of(dark), dark ? darkExt : lightExt]
+  const initialDark = appearance.isDark()
 
-export function prefersDarkTheme(win: { matchMedia: (q: string) => { matches: boolean } }) {
-  return win.matchMedia(SELECTOR_PREFERS_DARK_COLOR_SCHEME).matches
-}
-
-export function autoColorScheme(options: {
-  dark?: Extension, light?: Extension, defaultDark?: boolean} = {}): Extension {
-
-  const {
-    dark: darkExt = [],
-    light: lightExt = [],
-    defaultDark = false,
-  } = options
-
-  const darkThemeCompartment = new Compartment()
-
-  function darkThemeExt(dark: boolean): Extension {
-    return dark ? darkExt : lightExt
-  }
-
-  const plugin = ViewPlugin.define((view) => {
-    function colorSchemeChangeHandler(evt: MediaQueryListEvent) {
-      dispatchDarkTheme(evt.matches)
-    }
-
-    function dispatchDarkTheme(dark: boolean) {
-      console.log('dispatch dark theme', dark)
-      view.dispatch({
-        effects: darkThemeCompartment.reconfigure(darkThemeExt(dark)),
-      })
-    }
-
-    const win = view.dom.ownerDocument.defaultView
-    const supportsMatchMedia = typeof win?.matchMedia === 'function'
-
-    if (supportsMatchMedia) {
-      const query = win.matchMedia(SELECTOR_PREFERS_DARK_COLOR_SCHEME)
-      query.addEventListener('change', colorSchemeChangeHandler)
-      if (query.matches !== defaultDark) {
-        dispatchDarkTheme(query.matches)
-      }
-      return {
-        destroy() {
-          query.removeEventListener('change', colorSchemeChangeHandler)
-        }
-      }
-    }
-
-    // matchMedia is unsupported?
-    return {}
+  const plugin = ViewPlugin.define(view => {
+    let current = initialDark
+    const unsubscribe = onAppearanceChange(dark => {
+      if (dark === current) return
+      current = dark
+      view.dispatch({ effects: compartment.reconfigure(schemeExt(dark)) })
+    })
+    return { destroy: unsubscribe }
   })
 
-  return [
-    plugin,
-    darkThemeCompartment.of(darkThemeExt(defaultDark)),
-  ]
+  return [plugin, compartment.of(schemeExt(initialDark))]
 }
 
 export function myCodeMirrorTheme(): Extension {

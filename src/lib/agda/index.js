@@ -1,4 +1,4 @@
-import { autoColorScheme, prefersDarkTheme } from '$lib/codemirror/theme'
+import { autoColorScheme } from '$lib/codemirror/theme'
 import { offsetTracking } from '$lib/codemirror/offsets'
 
 import { agdaHighlight } from './highlight'
@@ -23,7 +23,6 @@ export function agdaSupport(options) {
     autoColorScheme({
       dark: agdaDarkSchemeFromEmacs,
       light: agdaLightSchemeFromEmacs,
-      defaultDark: prefersDarkTheme(window),
     }),
     agdaHighlight(),
     agdaGoals(),

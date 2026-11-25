@@ -17,7 +17,7 @@ import GoalsPanel from '$lib/components/GoalsPanel.svelte'
 import MessagesPanel from '$lib/components/MessagesPanel.svelte'
 import SettingsPanel from '$lib/components/SettingsPanel.svelte'
 import { AgdaController, deployProfiles, resolveProfileLibraries } from '$lib/controller.svelte'
-import { myCodeMirrorTheme, autoColorScheme, prefersDarkTheme } from '$lib/codemirror/theme'
+import { myCodeMirrorTheme, autoColorScheme } from '$lib/codemirror/theme'
 import { agdaInputMethod } from '$lib/codemirror/agda-input'
 import { agdaSupport } from '$lib/agda'
 import { agdaDarkSchemeFromEmacs, agdaLightSchemeFromEmacs } from '$lib/agda/color-scheme'
@@ -848,7 +848,6 @@ function cellSyncExtensions(cellId, cellType) {
           autoColorScheme({
             dark: agdaDarkSchemeFromEmacs,
             light: agdaLightSchemeFromEmacs,
-            defaultDark: prefersDarkTheme(window),
           }),
           agdaKeymap,
           agdaChordKeymap,
@@ -898,6 +897,9 @@ function cellExtensions(cellId, cellType) {
     basicSetup,
     myCodeMirrorTheme(),
     basicTheme,
+    EditorView.contentAttributes.of({
+      'aria-label': cellType === 'code' ? 'Agda code block' : 'Markdown text block',
+    }),
     agdaInputMethod(),
     ...cellSyncExtensions(cellId, cellType),
     // Markdown cells aren't Agda source -- Agda's own hover response for a
@@ -1192,7 +1194,7 @@ $effect(() => {
   <section class="editor-section">
     <header class="header">
       <div class="header-left">
-        <span class="header-title">{title}</span>
+        <h1 class="header-title">{title}</h1>
         {@render picker?.()}
         <AppSwitcher current={appSwitcherCurrent} />
       </div>
@@ -1222,6 +1224,7 @@ $effect(() => {
                   {formatAgdaShortcutHelpBinding(shortcut)}
                 </button>
               {/each}
+              <p class="commands-panel-note">In the editor, Tab indents. To move focus out of the editor with the keyboard, press Esc, then Tab.</p>
             </div>
             <div class="header-menu-backdrop" role="presentation" onclick={() => { commandsPanelVisible = false }}></div>
           {/if}
@@ -1389,16 +1392,18 @@ $effect(() => {
   type="file"
   accept=".agda,.lagda,.lagda.md"
   class="sr-only"
+  tabindex="-1"
+  aria-hidden="true"
   onchange={openAgdaFile}>
 
 <svelte:head>
   <title>{title}</title>
 </svelte:head>
 
-<div
+<main
   bind:clientWidth={width} style="height: 100%; background: var(--quiet-neutral-fill-softer)">
   {@render editor(isMobile ? 'vertical' : 'horizontal')}
-</div>
+</main>
 
 <style>
 .header {
@@ -1420,7 +1425,9 @@ $effect(() => {
 }
 
 .header-title {
-  color: #1f2937;
+  margin: 0;
+  font-weight: normal;
+  color: var(--app-text-strong);
   letter-spacing: 1px;
   font-size: 1rem;
   font-family: monospace;
@@ -1439,7 +1446,7 @@ $effect(() => {
   border: 1px solid var(--quiet-neutral-stroke-softer);
   border-radius: 4px;
   background: var(--quiet-neutral-fill);
-  color: #374151;
+  color: var(--app-text);
   font: inherit;
   font-size: .82rem;
   cursor: pointer;
@@ -1459,7 +1466,7 @@ $effect(() => {
 .header-action-btn:disabled:hover {
   border-color: var(--quiet-neutral-stroke-softer);
   background: var(--quiet-neutral-fill);
-  color: #374151;
+  color: var(--app-text);
 }
 
 .sr-only {
@@ -1537,8 +1544,8 @@ $effect(() => {
   transition: opacity 0.1s ease;
   padding: 4px 6px;
   border-radius: 4px;
-  border: 1px solid rgba(0, 0, 0, 0.2);
-  background: #f6f8fa;
+  border: 1px solid var(--app-border-strong);
+  background: var(--app-code-fill);
   cursor: pointer;
 }
 
@@ -1547,13 +1554,13 @@ $effect(() => {
 }
 
 .literate-cell-code {
-  background: #f0f8ff;
-  border: 1px solid #747775;
+  background: var(--app-cell-focus-fill);
+  border: 1px solid var(--app-cell-border);
   padding: 6px 0;
 }
 
 .literate-cell-markdown {
-  background: #ffffff;
+  background: var(--app-surface);
   border: 2px solid transparent;
 }
 
@@ -1563,11 +1570,11 @@ $effect(() => {
    doesn't shift layout. */
 .literate-cell-code.literate-cell-focused {
   border-width: 2px;
-  border-color: #0b57d0;
+  border-color: var(--app-cell-focus-border);
 }
 
 .literate-cell-markdown.literate-cell-focused {
-  border-color: #0b57d0;
+  border-color: var(--app-cell-focus-border);
 }
 
 .literate-markdown-render {
@@ -1625,8 +1632,8 @@ $effect(() => {
   font-size: 0.8em;
   padding: 2px 8px;
   border-radius: 4px;
-  border: 1px solid rgba(0, 0, 0, 0.2);
-  background: #f6f8fa;
+  border: 1px solid var(--app-border-strong);
+  background: var(--app-code-fill);
   cursor: pointer;
 }
 
@@ -1655,9 +1662,9 @@ $effect(() => {
   right: 14px;
   font-family: var(--font-mono, monospace);
   font-size: 11px;
-  color: var(--color-text, #111);
+  color: var(--app-text-strong);
   background: color-mix(in srgb, var(--quiet-neutral-fill-softer, #e8e8e8) 90%, transparent);
-  border: 1px solid color-mix(in srgb, var(--quiet-neutral-border, #bbb) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--app-border-strong) 70%, transparent);
   border-radius: 4px;
   padding: 2px 7px;
   pointer-events: none;
@@ -1684,7 +1691,7 @@ $effect(() => {
   right: 0;
   width: 8px;
   height: 100%;
-  background: linear-gradient(to left, rgba(0, 0, 0, 0.09), transparent);
+  background: linear-gradient(to left, var(--app-scroll-shade), transparent);
   pointer-events: none;
   z-index: 10;
 }
@@ -1727,7 +1734,7 @@ $effect(() => {
   left: 0;
   right: 0;
   height: 7px;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.07), transparent);
+  background: linear-gradient(to top, var(--app-scroll-shade), transparent);
   pointer-events: none;
   z-index: 10;
 }
@@ -1789,6 +1796,13 @@ $effect(() => {
   position: relative;
 }
 
+.commands-panel-note {
+  flex-basis: 100%;
+  margin: 4px 0 0;
+  font-size: .75rem;
+  color: var(--app-text-secondary);
+}
+
 .commands-panel {
   position: absolute;
   top: calc(100% + 4px);
@@ -1804,7 +1818,7 @@ $effect(() => {
   background: var(--quiet-neutral-fill-softer);
   border: 1px solid var(--quiet-neutral-stroke-softer);
   border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, .1);
+  box-shadow: 0 4px 12px var(--app-shadow);
 }
 
 .command-button {

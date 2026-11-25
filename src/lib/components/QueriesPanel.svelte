@@ -39,7 +39,7 @@ let { agdaController } = $props()
   align-items: center;
   justify-content: space-between;
   margin-bottom: 8px;
-  color: #374151;
+  color: var(--app-text);
   font-size: .78rem;
   font-weight: 700;
   letter-spacing: .02em;
@@ -51,7 +51,7 @@ let { agdaController } = $props()
   border-radius: 4px;
   padding: 1px 7px;
   background: transparent;
-  color: #777;
+  color: var(--app-text-muted);
   font-size: .75rem;
   cursor: pointer;
 }
@@ -68,7 +68,7 @@ let { agdaController } = $props()
 }
 
 .queries-empty {
-  color: #777;
+  color: var(--app-text-muted);
   font-size: .8rem;
 }
 
@@ -83,7 +83,7 @@ let { agdaController } = $props()
   padding: 3px 8px;
   background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 60%, transparent);
   border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
-  color: #666;
+  color: var(--app-text-muted);
   font-size: .75rem;
   font-weight: 700;
   letter-spacing: .02em;

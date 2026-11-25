@@ -1,4 +1,6 @@
 <script>
+import { modalDialog } from '$lib/attachments/modal-dialog'
+import { appearance } from '$lib/appearance.svelte'
 import { agdaShortcutRegistry, formatAgdaShortcutHelpBinding } from '$lib/agda/shortcuts'
 
 /** @type {{
@@ -67,7 +69,9 @@ $effect(() => {
     class="settings-panel"
     role="dialog"
     aria-modal="true"
-    aria-labelledby="settings-panel-title">
+    aria-labelledby="settings-panel-title"
+    tabindex="-1"
+    {@attach modalDialog(onClose)}>
     <header class="settings-panel-header">
       <div>
         <h2 id="settings-panel-title">Playground Settings</h2>
@@ -97,6 +101,14 @@ $effect(() => {
             <h3 id="general-settings-title">General</h3>
             <p class="settings-note">Global playground behavior for demos and practice sessions.</p>
             <div class="settings-option-grid">
+              <label class="settings-field">
+                <span>Appearance</span>
+                <select value={appearance.preference} onchange={(event) => appearance.set(/** @type {import('$lib/appearance.svelte').AppearancePreference} */ (event.currentTarget.value))}>
+                  <option value="system">Match system</option>
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
+                </select>
+              </label>
               <div class="settings-option">
                 <strong>Source buffer</strong>
                 <span>Single-file `/source.agda` playground</span>
@@ -246,7 +258,7 @@ $effect(() => {
   position: fixed;
   inset: 0;
   z-index: 40;
-  background: rgb(0 0 0 / .2);
+  background: var(--app-backdrop);
 }
 
 .settings-panel {
@@ -262,7 +274,7 @@ $effect(() => {
   border: 1px solid var(--quiet-neutral-stroke-softer);
   border-radius: 10px;
   background: var(--quiet-neutral-fill, #fff);
-  box-shadow: 0 18px 60px rgb(0 0 0 / .25);
+  box-shadow: 0 18px 60px var(--app-shadow);
   overflow: hidden;
 }
 
@@ -282,7 +294,7 @@ $effect(() => {
 
 .settings-panel-header p {
   margin: 4px 0 0;
-  color: #666;
+  color: var(--app-text-muted);
   font-size: .82rem;
 }
 
@@ -309,7 +321,7 @@ $effect(() => {
   border: 1px solid transparent;
   border-radius: 999px;
   background: transparent;
-  color: #666;
+  color: var(--app-text-muted);
   cursor: pointer;
   font: inherit;
   font-size: .78rem;
@@ -369,7 +381,7 @@ $effect(() => {
 
 .settings-note {
   margin: 6px 0 12px;
-  color: #666;
+  color: var(--app-text-muted);
   font-size: .8rem;
 }
 
@@ -397,7 +409,7 @@ $effect(() => {
 .settings-option span,
 .settings-field span,
 .settings-toggle-row span {
-  color: #666;
+  color: var(--app-text-muted);
   font-size: .78rem;
 }
 
@@ -412,7 +424,7 @@ $effect(() => {
   border: 1px solid var(--quiet-neutral-stroke-softer);
   border-radius: 4px;
   padding: 4px 6px;
-  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 70%, white);
+  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 70%, var(--quiet-neutral-fill));
   color: inherit;
 }
 
@@ -433,7 +445,7 @@ $effect(() => {
 }
 
 .settings-runtime-list dt {
-  color: #666;
+  color: var(--app-text-muted);
   font-size: .78rem;
 }
 
@@ -466,7 +478,7 @@ $effect(() => {
 }
 
 .shortcut-settings-row span {
-  color: #777;
+  color: var(--app-text-muted);
   font-size: .72rem;
 }
 
@@ -481,7 +493,7 @@ $effect(() => {
   border: 1px solid var(--quiet-neutral-stroke-softer);
   border-radius: 4px;
   padding: 5px 7px;
-  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 70%, white);
+  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 70%, var(--quiet-neutral-fill));
   color: inherit;
   font: inherit;
   font-family: JuliaMono, monospace;
@@ -534,16 +546,16 @@ $effect(() => {
 
 .settings-message {
   margin: 0 0 10px;
-  color: #4f5b36;
+  color: var(--app-success-text);
   font-size: .78rem;
 }
 
 .settings-message.settings-error {
-  color: #9a3412;
+  color: var(--app-danger-text);
 }
 
 .settings-note code {
-  color: #374151;
+  color: var(--app-text);
   font-family: JuliaMono, monospace;
   font-size: .78em;
 }

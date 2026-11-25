@@ -1,4 +1,6 @@
 <script>
+import { modalDialog } from '$lib/attachments/modal-dialog'
+
 /** @type {{
  * visible: boolean,
  * runtimeSummary: () => { label: string, value: string }[],
@@ -8,7 +10,8 @@ let { visible = $bindable(), runtimeSummary } = $props()
 
 {#if visible}
   <div class="about-backdrop" role="presentation" onclick={() => { visible = false }}></div>
-  <div class="about-panel" role="dialog" aria-modal="true" aria-label="About Agda Playground">
+  <div class="about-panel" role="dialog" aria-modal="true" aria-label="About Agda Playground" tabindex="-1"
+    {@attach modalDialog(() => { visible = false })}>
     <div class="about-header">
       <h2 class="about-title">Agda Playground</h2>
       <button type="button" class="about-close" aria-label="Close" onclick={() => { visible = false }}>✕</button>
@@ -31,7 +34,7 @@ let { visible = $bindable(), runtimeSummary } = $props()
   position: fixed;
   inset: 0;
   z-index: 300;
-  background: rgba(0,0,0,.3);
+  background: var(--app-backdrop);
 }
 
 .about-panel {
@@ -44,7 +47,7 @@ let { visible = $bindable(), runtimeSummary } = $props()
   background: var(--quiet-neutral-fill);
   border: 1px solid var(--quiet-neutral-stroke-softer);
   border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0,0,0,.15);
+  box-shadow: 0 8px 24px var(--app-shadow);
   padding: 20px;
 }
 
@@ -67,7 +70,7 @@ let { visible = $bindable(), runtimeSummary } = $props()
   border: none;
   cursor: pointer;
   font-size: .9rem;
-  color: #888;
+  color: var(--app-text-muted);
   padding: 2px 6px;
 }
 
@@ -75,7 +78,7 @@ let { visible = $bindable(), runtimeSummary } = $props()
 
 .about-desc {
   font-size: .85rem;
-  color: #666;
+  color: var(--app-text-muted);
   margin: 0 0 14px;
   line-height: 1.5;
 }
@@ -90,7 +93,7 @@ let { visible = $bindable(), runtimeSummary } = $props()
 
 .about-meta-row { display: contents; }
 
-.about-meta dt { color: #999; }
+.about-meta dt { color: var(--app-text-muted); }
 
 .about-meta code {
   font-size: .75rem;

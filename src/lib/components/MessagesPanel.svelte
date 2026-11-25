@@ -103,14 +103,14 @@ $effect(() => {
   flex: 4.5 4.5 0;
   min-height: 0;
   margin: 0;
-  border: 1px solid #e6e9ee;
+  border: 1px solid var(--app-border);
   overflow: hidden;
 }
 
 .messages-panel.messages-right .messages-header {
-  background: #ffffff;
+  background: var(--app-surface);
   border-bottom-width: 2px;
-  border-bottom-color: #e6e9ee;
+  border-bottom-color: var(--app-border);
 }
 
 /* Goals docked to 'bottom': Messages is alone in the right column and
@@ -122,8 +122,8 @@ $effect(() => {
 .messages-panel:not(.messages-right) {
   margin: 1px 12px 12px 12px;
   border-radius: 10px;
-  border: 1px solid #d0d2d8;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--app-border-strong);
+  box-shadow: 0 2px 8px var(--app-shadow);
   overflow: hidden;
 }
 
@@ -152,7 +152,7 @@ $effect(() => {
 }
 
 .messages-header span {
-  color: #666;
+  color: var(--app-text-muted);
   font-size: .72rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -172,7 +172,7 @@ $effect(() => {
 .messages-tab {
   border: none;
   background: var(--quiet-neutral-fill-softer);
-  color: #374151;
+  color: var(--app-text);
   font: inherit;
   font-size: .72rem;
   padding: 3px 9px;
@@ -204,13 +204,13 @@ $effect(() => {
   overflow: auto;
   border: 1px solid var(--quiet-neutral-stroke-softer);
   border-radius: 6px;
-  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 78%, white);
+  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 78%, var(--quiet-neutral-fill));
 }
 
 .messages-log-entry {
   margin: 0;
   padding: 7px 8px;
-  color: #444;
+  color: var(--app-text-secondary);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-family: JuliaMono, monospace;
@@ -224,7 +224,7 @@ $effect(() => {
 
 .messages-log-empty {
   padding: 8px;
-  color: #777;
+  color: var(--app-text-muted);
   font-size: .8rem;
 }
 </style>

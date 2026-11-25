@@ -72,7 +72,7 @@ function focusDiagnostic(diagnostic) {
 }
 
 .diagnostics-panel-title {
-  color: #374151;
+  color: var(--app-text);
   font-size: .78rem;
   font-weight: 700;
   letter-spacing: .02em;
@@ -85,7 +85,7 @@ function focusDiagnostic(diagnostic) {
 }
 
 .diagnostics-empty {
-  color: #777;
+  color: var(--app-text-muted);
   font-size: .8rem;
 }
 
@@ -105,11 +105,11 @@ function focusDiagnostic(diagnostic) {
 }
 
 .diagnostic-card.error {
-  border-left-color: #c2410c;
+  border-left-color: var(--app-danger-border);
 }
 
 .diagnostic-card.warning {
-  border-left-color: #ca8a04;
+  border-left-color: var(--app-warning-border);
 }
 
 .diagnostic-card.clickable {
@@ -118,7 +118,7 @@ function focusDiagnostic(diagnostic) {
 
 .diagnostic-card.clickable:hover,
 .diagnostic-card.clickable:focus-visible {
-  border-color: #777;
+  border-color: var(--app-text-muted);
   border-left-color: currentColor;
   background: var(--quiet-neutral-fill);
   outline: none;
@@ -138,21 +138,21 @@ function focusDiagnostic(diagnostic) {
 }
 
 .diagnostic-meta code {
-  color: #666;
+  color: var(--app-text-muted);
   font-family: JuliaMono, monospace;
   font-size: .72rem;
   text-transform: none;
 }
 
 .diagnostic-location {
-  color: #444;
+  color: var(--app-text-secondary);
   font-family: JuliaMono, monospace;
   font-size: .76rem;
 }
 
 .diagnostic-card pre {
   margin: 0;
-  color: #374151;
+  color: var(--app-text);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-family: JuliaMono, monospace;

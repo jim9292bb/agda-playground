@@ -121,16 +121,16 @@ function agdaInputAction(el) {
   flex: 5.5 5.5 0;
   min-height: 0;
   margin: 0;
-  border: 1px solid #e6e9ee;
+  border: 1px solid var(--app-border);
   border-top-width: 2px;
   overflow: hidden;
   background: var(--quiet-neutral-fill);
 }
 
 .goals-section.goals-right .panel-header {
-  background: #ffffff;
+  background: var(--app-surface);
   border-bottom-width: 2px;
-  border-bottom-color: #e6e9ee;
+  border-bottom-color: var(--app-border);
 }
 
 .command-input-panel {
@@ -142,7 +142,7 @@ function agdaInputAction(el) {
 .command-input-panel label {
   display: block;
   margin-bottom: 6px;
-  color: #666;
+  color: var(--app-text-muted);
   font-size: .8rem;
   font-weight: 700;
 }
@@ -192,7 +192,7 @@ function agdaInputAction(el) {
 }
 
 .goals-empty {
-  color: #777;
+  color: var(--app-text-muted);
   font-size: .8rem;
   padding: 4px 0;
 }
@@ -229,7 +229,7 @@ function agdaInputAction(el) {
 }
 
 .goal-type-muted {
-  color: #999;
+  color: var(--app-text-muted);
 }
 
 .goal-separator {
@@ -241,11 +241,11 @@ function agdaInputAction(el) {
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  color: var(--quiet-muted-text, #555);
+  color: var(--app-text-secondary);
 }
 
 .goal-context-empty {
-  color: #777;
+  color: var(--app-text-muted);
   font-size: .8rem;
 }
 </style>

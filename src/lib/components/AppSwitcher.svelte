@@ -31,7 +31,7 @@ const hasPlfaProfile = deployProfiles.some(p => p.plfa === true)
 .app-switcher-link {
   font-size: .8rem;
   font-weight: 600;
-  color: var(--quiet-neutral-seed, #8b8c93);
+  color: var(--app-text-muted);
   text-decoration: none;
   white-space: nowrap;
 }

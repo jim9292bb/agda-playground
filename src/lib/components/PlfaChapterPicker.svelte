@@ -68,7 +68,7 @@ const groups = $derived(
   border: 1px solid var(--quiet-neutral-stroke-softer);
   border-radius: 4px;
   background: var(--quiet-neutral-fill);
-  color: #374151;
+  color: var(--app-text);
   font: inherit;
   font-size: .82rem;
   font-weight: 600;
@@ -102,7 +102,7 @@ const groups = $derived(
   background: var(--quiet-neutral-fill-softer);
   border: 1px solid var(--quiet-neutral-stroke-softer);
   border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0,0,0,.1);
+  box-shadow: 0 4px 12px var(--app-shadow);
 }
 
 .header-menu-backdrop {
@@ -118,7 +118,7 @@ const groups = $derived(
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .03em;
-  color: var(--quiet-neutral-seed, #8b8c93);
+  color: var(--app-text-muted);
 }
 
 .header-examples-item {

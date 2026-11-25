@@ -1,6 +1,7 @@
 import { EditorView } from '@codemirror/view'
 
-export const agdaLightSchemeFromEmacs = EditorView.theme({
+/** The light Agda highlighting palette, as an `EditorView.theme` spec. */
+export const agdaLightSchemeSpec = {
   // not a part of Agda's theme, but Emacs' built-in palette
   '.agda-hole': { background: '#b4eeb4C0' },  // darkseagreen2
   '.agda-hole[data-goal-id]::after': {
@@ -15,13 +16,15 @@ export const agdaLightSchemeFromEmacs = EditorView.theme({
   // make error markers opaque
   '.agda-error *': { color: 'currentColor !important' },
 
-  // extracted from Agda's Emacs theme
+  // extracted from Agda's Emacs theme, with the few colors that fall short
+  // of WCAG AA contrast (4.5:1) against the editor's backgrounds adjusted in
+  // lightness only (hue kept) -- see color-scheme.test.js
   // definitions are from `Agda/Syntax/Common/Aspect.hs`
   // strings are from `toAtoms :: Aspects -> [String]`
 
   // -- aspects
-  '.agda-comment':                  { color: '#777', fontStyle: 'italic' },
-  '.agda-keyword':                  { color: '#cd6600' },  // DarkOrange3
+  '.agda-comment':                  { color: '#6f6f6f', fontStyle: 'italic' },  // #777, darkened for contrast
+  '.agda-keyword':                  { color: '#ae5700' },  // DarkOrange3 (#cd6600), darkened for contrast
   '.agda-string':                   { color: '#b22222' },  // firebrick
   '.agda-number':                   { color: '#a020f0' },  // purple
   //   hole; see above
@@ -30,22 +33,22 @@ export const agdaLightSchemeFromEmacs = EditorView.theme({
   //   -- name kinds
   //     bound
   //     generalizable
-    '.agda-inductiveconstructor':   { color: '#008b00' },  // green4
-    '.agda-coinductiveconstructor': { color: '#8b7500' },  // gold4
+    '.agda-inductiveconstructor':   { color: '#008100' },  // green4 (#008b00), darkened for contrast
+    '.agda-coinductiveconstructor': { color: '#836f00' },  // gold4 (#8b7500), darkened for contrast
     '.agda-datatype':               { color: '#0000cd' },  // medium blue
-    '.agda-field':                  { color: '#ee1289' },  // DeepPink2
+    '.agda-field':                  { color: '#d70f7b' },  // DeepPink2 (#ee1289), darkened for contrast
     '.agda-function':               { color: '#0000cd' },  // medium blue
     '.agda-module':                 { color: '#a020f0' },  // purple
     '.agda-postulate':              { color: '#0000cd' },  // medium blue
     '.agda-primitive':              { color: '#0000cd' },  // medium blue
     '.agda-record':                 { color: '#0000cd' },  // medium blue
   //     argument
-    '.agda-macro':                  { color: '#458b74' },  // aquamarine4
+    '.agda-macro':                  { color: '#3d7a66' },  // aquamarine4 (#458b74), darkened for contrast
   //   -- end of name kinds
   //   pragma, background, markup
 
   // -- "other" aspects
-  '.agda-error':                    { color: 'red' },
+  '.agda-error':                    { color: '#e00000' },  // red, darkened for contrast
   '.agda-errorwarning':             { backgroundColor: '#f0808080' },  // light coral
   // dottedpattern
   '.agda-unsolvedmeta':             { backgroundColor: '#ffff0080' },  // yellow
@@ -62,16 +65,19 @@ export const agdaLightSchemeFromEmacs = EditorView.theme({
   '.agda-cosmeticproblem':          { backgroundColor: '#f5f5f580' },  // white smoke
   '.agda-catchallclause':           { backgroundColor: '#f5f5f580' },  // white smoke
   '.agda-confluenceproblem':        { backgroundColor: '#ffc0cb80' },  // pink
-})
+}
 
-export const agdaDarkSchemeFromEmacs = EditorView.theme({
+export const agdaLightSchemeFromEmacs = EditorView.theme(agdaLightSchemeSpec)
+
+/** The dark Agda highlighting palette, as an `EditorView.theme` spec. */
+export const agdaDarkSchemeSpec = {
   // not a part of Agda's theme, but Emacs' built-in palette
   '.agda-hole': { background: '#556B2FC0' },  // DarkOliveGreen
   '.agda-hole[data-goal-id]::after': {
     content: 'attr(data-goal-id)',
     marginInlineStart: '0.2em',
     fontFamily: 'inherit',
-    color: 'black',
+    color: 'white',
     fontSize: 'inherit',
     pointerEvents: 'none',
     userSelect: 'none',
@@ -86,8 +92,8 @@ export const agdaDarkSchemeFromEmacs = EditorView.theme({
   // -- aspects
   '.agda-comment':                  { color: '#999', fontStyle: 'italic' },
   '.agda-keyword':                  { color: '#FF9932' },
-  '.agda-string':                   { color: '#DD4D4D' },
-  '.agda-number':                   { color: '#9010E0' },
+  '.agda-string':                   { color: '#E26969' },  // #DD4D4D, lightened for contrast
+  '.agda-number':                   { color: '#BE67F4' },  // #9010E0, lightened for contrast
   //   hole; see above
   '.agda-symbol':                   { color: '#BFBFBF' },  // gray75
   '.agda-primitivetype':            { color: '#8080FF' },
@@ -109,7 +115,7 @@ export const agdaDarkSchemeFromEmacs = EditorView.theme({
   //   pragma, background, markup
 
   // -- "other" aspects
-  '.agda-error':                    { color: '#FF0000' },
+  '.agda-error':                    { color: '#FF4D4D' },  // #FF0000, lightened for contrast
   '.agda-errorwarning':             { backgroundColor: '#80240080' },
   // dottedpattern
   '.agda-unsolvedmeta':             { backgroundColor: '#806B0080' },
@@ -126,4 +132,6 @@ export const agdaDarkSchemeFromEmacs = EditorView.theme({
   '.agda-cosmeticproblem':          { backgroundColor: '#40404080' },
   '.agda-catchallclause':           { backgroundColor: '#40404080' },
   '.agda-confluenceproblem':        { backgroundColor: '#80008080' },
-}, { dark: true })
+}
+
+export const agdaDarkSchemeFromEmacs = EditorView.theme(agdaDarkSchemeSpec, { dark: true })
