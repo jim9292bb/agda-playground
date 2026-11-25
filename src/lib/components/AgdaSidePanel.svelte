@@ -5,6 +5,7 @@ import GoalsPanel from '$lib/components/GoalsPanel.svelte'
 import MessagesPanel from '$lib/components/MessagesPanel.svelte'
 import SplitPane from '$lib/components/SplitPane.svelte'
 import { alsStatusMeta } from '$lib/agda/als-status'
+import { loadSplitRatio, saveSplitRatio } from '$lib/split-ratio'
 
 /**
  * The right-hand Agda panel every route shares: Agda's status and
@@ -51,16 +52,6 @@ let {
   mobile = null,
 } = $props()
 
-/** @param {string} key */
-function loadSplit(key) {
-  try {
-    const saved = Number(localStorage.getItem(key))
-    return saved >= 0.2 && saved <= 0.85 ? saved : 0.5
-  } catch {
-    return 0.5
-  }
-}
-
 const statusMeta = $derived(alsStatusMeta(agdaController))
 let statusOpen = $state(false)
 
@@ -74,16 +65,8 @@ const summary = $derived.by(() => {
 })
 
 // The storage key is fixed for the page's lifetime.
-let goalsShare = $state(untrack(() => loadSplit(splitStorageKey)))
-
-$effect(() => {
-  const value = goalsShare.toFixed(3)
-  try {
-    localStorage.setItem(splitStorageKey, value)
-  } catch {
-    // Storage unavailable: the split just isn't remembered.
-  }
-})
+let goalsShare = $state(untrack(() => loadSplitRatio(splitStorageKey, 0.5, [0.2, 0.85])))
+$effect(() => saveSplitRatio(splitStorageKey, goalsShare))
 </script>
 
 {#snippet goals()}
@@ -179,7 +162,7 @@ $effect(() => {
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 60%, var(--quiet-neutral-fill));
+  background: var(--app-panel);
 }
 
 .agda-side-split {

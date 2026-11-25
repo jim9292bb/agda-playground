@@ -39,10 +39,12 @@ button, input, select, textarea {
   --quiet-messages-fill: light-dark(#fbfbfe, #1b1c22);
   --quiet-messages-fill-softer: light-dark(#f8f8fd, #16171c);
   --quiet-messages-stroke: light-dark(#e5e6f0, #353841);
-  --quiet-primary-fill-soft: var(--quiet-primary-200);
-  --quiet-primary-stroke: var(--quiet-primary-seed);
-  --quiet-primary-stroke-soft: var(--quiet-primary-300);
-  --quiet-primary-text: light-dark(color-mix(in oklab, var(--quiet-primary-seed), black 42%), color-mix(in oklab, var(--quiet-primary-seed), white 35%));
+  /* The accent (indigo, from the redesign canvas): selected and active
+     states, focus rings, counts. */
+  --quiet-primary-fill-soft: light-dark(#e6eafd, #262c4f);
+  --quiet-primary-stroke: light-dark(#3b4fd8, #8fa0ff);
+  --quiet-primary-stroke-soft: light-dark(#aab4f2, #4c5694);
+  --quiet-primary-text: light-dark(#3b4fd8, #8fa0ff);
   --quiet-destructive-text: light-dark(color-mix(in oklab, var(--quiet-destructive-seed), black 12.5%), color-mix(in oklab, var(--quiet-destructive-seed), white 30%));
 
   /* Text, strongest to quietest. */
@@ -53,6 +55,10 @@ button, input, select, textarea {
 
   /* Surfaces and lines beyond the --quiet-* ones above. */
   --app-surface: var(--quiet-neutral-fill);
+  /* The header bar and the editor gutter, a step grayer than the page. */
+  --app-chrome: light-dark(#f3f4f7, #1a1c22);
+  /* The Agda side panel's own ground, between the editor and the chrome. */
+  --app-panel: light-dark(#fafbfc, #191b21);
   --app-border: light-dark(#e6e9ee, #353841);
   --app-border-strong: light-dark(#c9ccd3, #4a4e58);
   --app-code-fill: light-dark(#f6f8fa, #23262d);

@@ -112,6 +112,12 @@ export function myCodeMirrorTheme(): Extension {
   return [
     myBaseTheme,
     EditorView.theme({
+      // The gutter shares the header's "chrome" gray, in both schemes.
+      '.cm-gutters': {
+        backgroundColor: 'var(--app-chrome)',
+        color: 'var(--app-text-muted)',
+        borderRight: '1px solid var(--app-border)',
+      },
       '.cm-tooltip': {
         overflow: 'auto',
         zIndex: 500,  // must be > 300 (.cm-panels)

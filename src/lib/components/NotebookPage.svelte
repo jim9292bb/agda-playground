@@ -14,6 +14,7 @@ import AboutPanel from '$lib/components/AboutPanel.svelte'
 import AppHeader from '$lib/components/AppHeader.svelte'
 import AgdaSidePanel from '$lib/components/AgdaSidePanel.svelte'
 import { MobilePanelState } from '$lib/mobile-panel-state.svelte'
+import { loadSplitRatio, saveSplitRatio } from '$lib/split-ratio'
 import SettingsPanel from '$lib/components/SettingsPanel.svelte'
 import { AgdaController, deployProfiles, resolveProfileLibraries } from '$lib/controller.svelte'
 import { myCodeMirrorTheme, autoColorScheme } from '$lib/codemirror/theme'
@@ -175,6 +176,7 @@ async function onDeploymentProfileChange(profileLabel) {
 
 const LS_SHORTCUT_OVERRIDES_KEY = `agda-playground-${initialConfig.storageNamespace}.shortcut-overrides.v1`
 const LS_PANEL_SPLIT_KEY = `agda-playground-${initialConfig.storageNamespace}.goals-messages-split.v1`
+const LS_WORKSPACE_SPLIT_KEY = `agda-playground-${initialConfig.storageNamespace}.workspace-split.v1`
 
 /** @param {string} source @returns {import('$lib/agda/literate-cells').LiterateCell[]} */
 function cellsFromSource(source) {
@@ -1092,6 +1094,13 @@ let activeGoalDetailError = $state('')
 let selectedMessageTab = $state(/** @type {'log' | 'queries' | 'errors'} */('log'))
 let previousQueryResultCount = 0
 let previousDiagnosticCount = 0
+// The editor's share of the workspace: on desktop the Agda panel defaults
+// to roughly 380px at common widths and the user's own split is remembered;
+// phones (editor over panel) keep their own split.
+let desktopSplit = $state(loadSplitRatio(LS_WORKSPACE_SPLIT_KEY, 0.72, [0.25, 0.9]))
+let phoneSplit = $state(0.58)
+$effect(() => saveSplitRatio(LS_WORKSPACE_SPLIT_KEY, desktopSplit))
+
 // Phones: the editor over a collapsible Goals / Messages panel.
 const mobilePanel = new MobilePanelState()
 $effect(() => mobilePanel.watchKeyboard(window))
@@ -1187,7 +1196,10 @@ $effect(() => {
 </script>
 
 {#snippet editor(/** @type {'horizontal' | 'vertical'} */ orientation)}
-<SplitPane {orientation} position={.6} class={isMobile ? (mobilePanel.collapsed ? 'mobile-split collapsed' : 'mobile-split') : ''} dividerLabel="Resize notebook and Agda panel" style="--divider-min-position: 25%; --divider-max-position: 90%;">
+<SplitPane
+  {orientation}
+  bind:ratio={() => (isMobile ? phoneSplit : desktopSplit), (value) => { if (isMobile) phoneSplit = value; else desktopSplit = value }}
+  class={isMobile ? (mobilePanel.collapsed ? 'mobile-split collapsed' : 'mobile-split') : ''} dividerLabel="Resize notebook and Agda panel" style="--divider-min-position: 25%; --divider-max-position: 90%;">
   {#snippet start()}
   <section class="editor-section">
   <section class="editor-pane">

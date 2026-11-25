@@ -34,7 +34,7 @@ function token(name) {
 // focused notebook cell.
 const codeSurfaces = ['quiet-neutral-fill', 'quiet-neutral-fill-softer', 'app-code-fill', 'app-cell-focus-fill'].map(token)
 // Everything UI text is drawn on.
-const uiSurfaces = ['quiet-neutral-fill', 'quiet-neutral-fill-softer', 'quiet-messages-fill', 'app-code-fill'].map(token)
+const uiSurfaces = ['quiet-neutral-fill', 'quiet-neutral-fill-softer', 'quiet-messages-fill', 'app-code-fill', 'app-chrome', 'app-panel'].map(token)
 
 /**
  * The text colors of a palette spec: rules that set a hex `color` without a
@@ -66,7 +66,7 @@ describe('Agda highlighting palettes meet WCAG AA (4.5:1)', () => {
 describe('UI text colors meet WCAG AA (4.5:1)', () => {
   const textTokens = [
     'app-text-strong', 'app-text', 'app-text-secondary', 'app-text-muted',
-    'app-success-text', 'app-warning-text', 'app-danger-text',
+    'app-success-text', 'app-warning-text', 'app-danger-text', 'quiet-primary-text',
   ]
 
   it.each([['light', 0], ['dark', 1]])('%s scheme, on every UI surface', (_name, scheme) => {
@@ -79,5 +79,10 @@ describe('UI text colors meet WCAG AA (4.5:1)', () => {
       }
     }
     expect(failures).toEqual([])
+  })
+
+  it.each([['light', 0], ['dark', 1]])('%s scheme, accent text on its own soft fill', (_name, scheme) => {
+    const ratio = contrast(token('quiet-primary-text')[scheme], token('quiet-primary-fill-soft')[scheme])
+    expect(ratio).toBeGreaterThanOrEqual(4.5)
   })
 })

@@ -138,7 +138,7 @@ function runFromMore(action) {
   align-items: center;
   gap: 6px 12px;
   padding: 7px 10px;
-  background: var(--quiet-neutral-fill-softer);
+  background: var(--app-chrome);
   border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
 }
 
