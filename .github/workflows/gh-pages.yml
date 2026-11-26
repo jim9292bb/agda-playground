@@ -32,6 +32,10 @@ jobs:
 
     - name: Build
       run: NODE_ENV=production npm run build
+      env:
+        # Public origin for canonical URLs and the sitemap (scripts/seo.mjs).
+        # A repository variable, so a fork's Pages site doesn't claim ours.
+        SITE_URL: ${{ vars.SITE_URL }}
 
     - name: Drop a .nojekyll
       run: touch build/.nojekyll

@@ -160,6 +160,33 @@ four profiles is several GB once `.deploy-assets/`, `static/`, and
 filesystem can fail the build with a misleading disk-space error partway
 through `vite build`'s asset-copy step.)
 
+## Search engines and AI crawlers
+
+The app renders client-side only, so the prerendered pages would otherwise
+have nothing in them for a crawler. `npm run build` therefore runs
+`scripts/seo.mjs` afterwards (the `postbuild` script), which writes into
+`build/`:
+
+- each page's own `<title>`, description, canonical URL, Open Graph /
+  Twitter card tags (with `static/og-image.png`) and schema.org JSON-LD, and
+  a static description of the page in its `<noscript>`;
+- `robots.txt`, `sitemap.xml` (`/`, `/literate`, and `/plfa` when a PLFA
+  profile is configured; otherwise `/plfa` is marked `noindex`) and
+  `llms.txt`.
+
+The public origin those URLs use comes from the **`SITE_URL`** environment
+variable, e.g. `SITE_URL=https://example.org`. On Vercel it defaults to the
+project's production domain, so nothing needs setting there. The GitHub
+Pages workflow reads it from the repository variable `SITE_URL` (Settings ›
+Secrets and variables › Actions › Variables); this repository sets it to
+`https://agda-playground.vercel.app`, so the Pages copy points search engines
+at the Vercel site. Without a site URL, the canonical URL, `og:url`,
+`og:image` and `sitemap.xml` are simply left out.
+
+The text itself (titles, descriptions, feature lists) lives in
+`src/lib/seo.js`; `llms.txt` lists the Agda commands straight from the
+shortcut registry, so it stays current.
+
 ## Reference
 
 ### Supported ALS versions
