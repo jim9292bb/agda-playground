@@ -296,6 +296,54 @@ describe('ResponseJSONRaw > DisplayInfo', () => {
     expect(view.dispatchLog).toEqual([])
   })
 
+  it('prints an unsolved meta that is not a goal by its own name, as Agda does', () => {
+    const { view, handlers } = makeSetup('')
+    handlers.ResponseJSONRaw?.(/** @type {any} */ ({
+      kind: 'DisplayInfo',
+      info: {
+        kind: 'AllGoalsWarnings',
+        errors: [],
+        warnings: [],
+        visibleGoals: [{ kind: 'OfType', constraintObj: { id: 0 }, type: 'N' }],
+        invisibleGoals: [{ kind: 'OfType', constraintObj: { name: '_17' }, type: 'N' }],
+      },
+    }))
+    const emitSpec = view.dispatchLog.find(spec =>
+      /** @type {any} */ (spec.effects)?.value?.message?.includes('?0'))
+    expect(/** @type {any} */ (emitSpec?.effects).value.message).toBe('?0 : N\n\n_17 : N\n')
+  })
+
+  it("marks AllGoalsWarnings' non-fatal errors in the editor without failing the command", () => {
+    const { controller, handlers } = makeSetup('')
+    handlers.ResponseJSONRaw?.(/** @type {any} */ ({
+      kind: 'DisplayInfo',
+      info: {
+        kind: 'AllGoalsWarnings',
+        errors: [{ message: '/source.agda:19,7-8\nFailed to solve the following constraints:\n  g _17 = z : N (blocked on _17)' }],
+        warnings: [],
+        visibleGoals: [],
+        invisibleGoals: [],
+      },
+    }))
+    expect(controller.lastAgdaError).toBeNull()
+    expect(controller.lastAgdaDiagnostics).toHaveLength(1)
+  })
+
+  it('routes Show constraints to the Queries panel as Agda-formatted text', () => {
+    const { controller, handlers } = makeSetup('')
+    handlers.ResponseJSONRaw?.(/** @type {any} */ ({
+      kind: 'DisplayInfo',
+      info: {
+        kind: 'Constraints',
+        constraints: [{
+          constraint: { kind: 'Assign', constraintObj: '?0', value: 'z' },
+          problems: [], range: [], unblocker: { kind: 'UnblockOnAll', blockers: [] },
+        }],
+      },
+    }))
+    expect(controller.queryResults).toEqual([{ label: 'Constraints', content: '?0 := z' }])
+  })
+
   it('appends query results instead of the running-info log when not suppressed', () => {
     const { controller, handlers } = makeSetup('')
     handlers.ResponseJSONRaw?.(/** @type {any} */ ({

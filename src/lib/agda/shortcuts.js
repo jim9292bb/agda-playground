@@ -138,6 +138,16 @@ export const agdaShortcutRegistry = Object.freeze([
     bindings: [{ kind: 'chord', key: 'w', ctrl: true, label: 'Ctrl-c Ctrl-w' }],
   },
   {
+    id: 'show-constraints',
+    label: 'Show constraints',
+    bindings: [{ kind: 'chord', key: '=', ctrl: true, label: 'Ctrl-c Ctrl-=' }],
+  },
+  {
+    id: 'show-goals',
+    label: 'Show goals',
+    bindings: [{ kind: 'chord', key: '?', ctrl: true, label: 'Ctrl-c Ctrl-?' }],
+  },
+  {
     id: 'toggle-implicit-args',
     label: 'Toggle implicit arguments',
     bindings: [{

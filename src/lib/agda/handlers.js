@@ -5,6 +5,7 @@ import { buildGoalTransaction, buildLegacyGoalTransaction } from './goals'
 import { getAgdaDocumentVersion } from './goal-state'
 import { removeGoalBoundary, replaceGoal, replaceGoalClause } from './editor-mutations'
 import { focusAgdaUtf8Position, parseAgdaDiagnostic } from './diagnostics'
+import { formatConstraints } from './constraints'
 
 /** @import { EditorView } from '@codemirror/view' */
 /** @import { ALSMessageRouter } from './transport' */
@@ -79,9 +80,13 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
    *  `"?N : Sort s"` rendering (`BasicOps.hs`'s `Pretty (OutputConstraint ...)`
    *  instance, mirrored by agda-mode-vscode's `Agda.res`) -- without this,
    *  a goal's AllGoalsWarnings entry is indistinguishable from any other.
+   *  An unsolved meta that isn't a goal (an invisible goal) already comes
+   *  with its own name, e.g. `_17`, and is printed as is.
    *  @param {any} constraint */
   function formatConstraint(constraint) {
-    const id = `?${getConstraintId(constraint.constraintObj)}`
+    const id = 'id' in (constraint.constraintObj ?? {})
+      ? `?${constraint.constraintObj.id}`
+      : String(getConstraintId(constraint.constraintObj))
     // JustSort (an interaction point whose type is only known to be some
     // Set, not further constrained) carries no separate `sort` field --
     // upstream's own `Pretty (OutputConstraint ...)` instance
@@ -237,6 +242,7 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       case 'ModuleContents': return { label: 'Module Contents', content: formatModuleContents(info) }
       case 'NormalForm':     return { label: 'Normal Form', content: info.expr ?? '' }
       case 'InferredType':   return { label: 'Inferred Type', content: info.expr ?? '' }
+      case 'Constraints':    return { label: 'Constraints', content: formatConstraints(info.constraints) }
       default: return null
     }
   }
@@ -377,7 +383,10 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
         controller.lastAgdaDiagnostics = [parseAgdaDiagnostic(info.error.message, 'error')]
           .filter(isAgdaDiagnostic)
       } else if (info.kind === 'AllGoalsWarnings' && (info.errors?.length ?? 0) > 0) {
-        controller.lastAgdaError = message
+        // Agda's non-fatal errors (unsolved metas or constraints): shown and
+        // marked in the editor, but the command that reported them still
+        // did its job -- a Give that worked, or Show goals itself -- so they
+        // don't fail it, as in agda-mode-vscode's "All Goals, Errors" panel.
         controller.lastAgdaDiagnostics = [
           ...(info.errors ?? []).map(e => parseAgdaDiagnostic(e.message, 'error')),
           ...(info.warnings ?? []).map(w => parseAgdaDiagnostic(w.message, 'warning')),

@@ -187,6 +187,21 @@ export function computeToplevelCommand(computeMode, content) {
   return `(Cmd_compute_toplevel ${computeMode} ${quoted(content)})`
 }
 
+/** Lists the constraints Agda still has to solve. Takes no normalization
+ *  before Agda 2.9 (both 2.7.0.1 and 2.8.0 declare a bare `Cmd_constraints`),
+ *  which is also how agda-mode-vscode sends it to those versions. */
+export function constraintsCommand() {
+  return '(Cmd_constraints)'
+}
+
+/**
+ * All goals and unsolved metas; answered with AllGoalsWarnings, like Load.
+ * @param {Normalization} normalization
+ */
+export function metasCommand(normalization) {
+  return `(Cmd_metas ${normalization})`
+}
+
 /** Flips whether subsequent goal/query output shows implicit `{...}`
  *  arguments -- matches agda-mode-vscode's own scope: only Toggle is
  *  user-facing there (`ShowImplicitArgs Bool` exists in Agda's own

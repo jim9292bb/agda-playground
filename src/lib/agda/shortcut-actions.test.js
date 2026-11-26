@@ -4,6 +4,7 @@ import {
   autoOneCommand,
   computeCommand,
   computeToplevelCommand,
+  constraintsCommand,
   contextCommand,
   elaborateGiveCommand,
   giveCommand,
@@ -15,6 +16,7 @@ import {
   inferCommand,
   inferToplevelCommand,
   makeCaseCommand,
+  metasCommand,
   moduleContentsCommand,
   moduleContentsToplevelCommand,
   refineCommand,
@@ -130,6 +132,16 @@ describe('dispatchAgdaShortcut', () => {
     expect(kind).toBe('prompt')
     expect(command(inGoal, 'e')).toBe(inGoalCmd)
     expect(command(noGoal, 'e')).toBe(toplevelCmd)
+  })
+
+  it.each([
+    ['show-constraints', constraintsCommand()],
+    ['show-goals', metasCommand('AsIs')],
+  ])('%s runs file-wide, in or out of a goal, without prompting', (id, expected) => {
+    const { kind, command } = dispatch(id)
+    expect(kind).toBe('run')
+    expect(command(inGoal)).toBe(expected)
+    expect(command(noGoal)).toBe(expected)
   })
 
   it('search-about is always toplevel', () => {
@@ -252,7 +264,7 @@ describe('C-u normalization prefix', () => {
   })
 
   it('maps prefix counts like agda-mode-vscode (AsIs-default commands)', () => {
-    for (const id of ['auto', 'helper-function']) {
+    for (const id of ['auto', 'helper-function', 'show-goals']) {
       expect([0, 1, 2, 3].map(n => normalizationForPrefix(id, n)), id)
         .toEqual(['AsIs', 'Simplified', 'Normalised', 'HeadNormal'])
     }
@@ -269,7 +281,7 @@ describe('C-u normalization prefix', () => {
   })
 
   it('reports no normalization for commands that take none', () => {
-    for (const id of ['load', 'give', 'refine', 'case-split', 'why-in-scope', 'compute', 'toggle-implicit-args']) {
+    for (const id of ['load', 'give', 'refine', 'case-split', 'why-in-scope', 'compute', 'toggle-implicit-args', 'show-constraints']) {
       expect(normalizationForPrefix(id, 2), id).toBeNull()
     }
   })

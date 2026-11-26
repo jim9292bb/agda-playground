@@ -30,7 +30,7 @@ namespace Agda {
   // see: instance EncodeTCM DisplayInfo where
   type _Info =
   // | CompilationOk
-  // | Constraints
+  | Constraints
   | AllGoalsWarnings
   // | Time
   | Error
@@ -45,6 +45,12 @@ namespace Agda {
   | Context
   | Version
   | GoalSpecific
+
+  // The answer to Cmd_constraints; rendered by src/lib/agda/constraints.js.
+  type Constraints = {
+    kind: 'Constraints',
+    constraints: import('$lib/agda/constraints').AgdaOutputForm[],
+  }
 
   type _ConstraintObj = { range: _Range[] } & (
     { name: string } | { id: number })

@@ -563,10 +563,14 @@ UI when it does not fit the browser playground.
 Goal: expose constraints and metas only where they help learning and debugging
 single-file exercises.
 
-- [ ] Implement Show constraints using `Cmd_constraints`.
+- [x] Implement Show constraints using `Cmd_constraints` (`C-c C-=`), rendered
+      as Agda's Emacs mode does (`src/lib/agda/constraints.js`). Regression-tested
+      with `npm run test:browser:constraints-and-goals` and its `/literate`
+      counterpart.
 - [ ] Implement Solve one constraint using `Cmd_solveOne`.
 - [ ] Implement Solve all constraints using `Cmd_solveAll`.
-- [ ] Implement Show goals/metas using `Cmd_metas`.
+- [x] Implement Show goals/metas using `Cmd_metas` (`C-c C-?`, `C-u` prefix as
+      agda-mode-vscode). Same regression tests as Show constraints.
 - [ ] Display constraints in a structured panel.
 - [ ] Handle Agda version differences in command syntax.
 

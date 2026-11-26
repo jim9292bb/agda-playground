@@ -14,6 +14,7 @@ import {
   autoOneCommand,
   computeCommand,
   computeToplevelCommand,
+  constraintsCommand,
   contextCommand,
   elaborateGiveCommand,
   giveCommand,
@@ -25,6 +26,7 @@ import {
   inferCommand,
   inferToplevelCommand,
   makeCaseCommand,
+  metasCommand,
   moduleContentsCommand,
   moduleContentsToplevelCommand,
   refineCommand,
@@ -67,7 +69,9 @@ export const MAX_PREFIX_COUNT = 3
 // `C-u` prefix count -> normalization, mirroring agda-mode-vscode's own
 // keybindings (package.json): most query commands default to Simplified,
 // while Auto and Helper function default to AsIs and so reach Simplified on
-// the first `C-u` instead of Instantiated.
+// the first `C-u` instead of Instantiated. Show goals follows the AsIs
+// family too; Show constraints takes no normalization at all before Agda
+// 2.9 (see commands.js's constraintsCommand), so its prefix is ignored.
 /** @type {readonly Normalization[]} */
 const SIMPLIFIED_FAMILY = ['Simplified', 'Instantiated', 'Normalised', 'HeadNormal']
 /** @type {readonly Normalization[]} */
@@ -82,7 +86,7 @@ const simplifiedFamilyIds = new Set([
   'goal-type-context-check', 'search-about', 'module-contents',
   'elaborate-give', 'infer',
 ])
-const asIsFamilyIds = new Set(['auto', 'helper-function'])
+const asIsFamilyIds = new Set(['auto', 'helper-function', 'show-goals'])
 
 /** @param {number} prefixCount */
 function clampPrefix(prefixCount) {
@@ -289,6 +293,13 @@ export function dispatchAgdaShortcut(shortcut, host, prefixCount = 0) {
           ? inferCommand(norm, goal, input)
           : inferToplevelCommand(norm, input)
       })
+      break
+    case 'show-constraints':
+      // File-level, like Show goals below: no goal or input needed.
+      host.run(label, () => constraintsCommand())
+      break
+    case 'show-goals':
+      host.run(label, () => metasCommand(norm))
       break
     case 'toggle-implicit-args':
       // Goal-independent: no content, no cursor-in-goal requirement --
