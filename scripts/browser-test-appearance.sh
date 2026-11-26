@@ -36,7 +36,7 @@ scheme_state() {
     const keywordColor = keyword ? getComputedStyle(keyword).color : null
     return 'page=' + (lum(page) < 0.5 ? 'dark' : 'light')
       + ' editor=' + (lum(editor) < 0.5 ? 'dark' : 'light')
-      + ' keyword=' + (keywordColor ? (lum(keywordColor) > 0.45 ? 'dark' : 'light') : 'none')
+      + ' keyword=' + (keywordColor ? (lum(keywordColor) > 0.55 ? 'dark' : 'light') : 'none')
   })()" | tail -n 1 | tr -d '"'
 }
 
