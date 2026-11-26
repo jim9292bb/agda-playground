@@ -48,6 +48,10 @@ export class ALSMessageRouter {
     this.pendingCaseSplitGoal = undefined
     /** @type {{id: number, from: number, to: number, text: string} | undefined} */
     this.pendingGiveGoal = undefined
+    /** The goals a Solve constraints run can fill in (its SolveAll
+     *  response), for the controller to give once the command is done.
+     *  @type {{id: number, expression: string}[] | undefined} */
+    this.pendingSolutions = undefined
     /** @type {number | null} */
     this.activeDocumentVersion = null
     /** @type {(label: string, content: string) => void} */

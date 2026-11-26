@@ -21,6 +21,8 @@ import {
   moduleContentsToplevelCommand,
   refineCommand,
   searchAboutToplevelCommand,
+  solveAllCommand,
+  solveOneCommand,
   toggleImplicitArgsCommand,
   toggleIrrelevantArgsCommand,
   whyInScopeCommand,
@@ -144,6 +146,14 @@ describe('dispatchAgdaShortcut', () => {
     expect(command(noGoal)).toBe(expected)
   })
 
+  it('solve-constraints solves the goal under the cursor, else every goal', () => {
+    const { kind, command } = dispatch('solve-constraints')
+    expect(kind).toBe('run')
+    expect(command(inGoal)).toBe(solveOneCommand('AsIs', goal))
+    expect(command(noGoal)).toBe(solveAllCommand('AsIs'))
+    expect(dispatch('solve-constraints', 2).command(noGoal)).toBe(solveAllCommand('Normalised'))
+  })
+
   it('search-about is always toplevel', () => {
     const { command } = dispatch('search-about')
     expect(command(inGoal, 'e')).toBe(searchAboutToplevelCommand('Simplified', 'e'))
@@ -264,7 +274,7 @@ describe('C-u normalization prefix', () => {
   })
 
   it('maps prefix counts like agda-mode-vscode (AsIs-default commands)', () => {
-    for (const id of ['auto', 'helper-function', 'show-goals']) {
+    for (const id of ['auto', 'helper-function', 'solve-constraints', 'show-goals']) {
       expect([0, 1, 2, 3].map(n => normalizationForPrefix(id, n)), id)
         .toEqual(['AsIs', 'Simplified', 'Normalised', 'HeadNormal'])
     }

@@ -101,6 +101,24 @@ export function replaceGoal(editorView, interactionPoint, replacement, fallbackG
 }
 
 /**
+ * Replaces what is written inside a goal, keeping the goal itself -- how
+ * Solve constraints puts a solution in before giving it, like
+ * agda-mode-vscode's `Goals.modify`.
+ * @param {EditorView} editorView
+ * @param {number} interactionPoint
+ * @param {string} content
+ * @returns {boolean} false when the goal isn't in the editor
+ */
+export function setGoalContent(editorView, interactionPoint, content) {
+  const range = resolveGoalRange(editorView, interactionPoint, undefined)
+  if (!range || goalContent(editorView.state.doc.sliceString(range.from, range.to)) === null) return false
+  editorView.dispatch({
+    changes: { from: range.from + 2, to: range.to - 2, insert: ` ${content} ` },
+  })
+  return true
+}
+
+/**
  * Implements agda-mode-vscode's GiveNoParen/GiveParen behavior: keep the
  * goal content, optionally parenthesized, then remove `{!` and `!}`.
  *

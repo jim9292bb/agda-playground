@@ -4,7 +4,7 @@ import { EditorState } from '@codemirror/state'
 import { offsetTracking } from '$lib/codemirror/offsets'
 import { agdaGoalState, getAgdaGoals } from './goal-state'
 import { buildGoalTransaction } from './goals'
-import { replaceGoal, removeGoalBoundary, replaceGoalClause } from './editor-mutations'
+import { replaceGoal, removeGoalBoundary, replaceGoalClause, setGoalContent } from './editor-mutations'
 
 // A fake EditorView: `dispatch` reduces into `.state` just like the real
 // thing, and `.dom` is a plain dispatchEvent-capturing stub -- none of
@@ -117,6 +117,21 @@ describe('removeGoalBoundary', () => {
     expect(view.state.doc.toString()).toBe('foo = s {!   !}')
     expect(view.dispatchedEvents).toHaveLength(1)
     expect(/** @type {CustomEvent} */ (view.dispatchedEvents[0]).type).toBe('agda-reload-needed')
+  })
+})
+
+describe('setGoalContent', () => {
+  it("rewrites a goal's content and keeps tracking the goal", () => {
+    const view = makeView('p = refl {x = {! !}}', { id: 0, hole: '{! !}' })
+    expect(setGoalContent(view, 0, 'z')).toBe(true)
+    expect(view.state.doc.toString()).toBe('p = refl {x = {! z !}}')
+    expect(getAgdaGoals(view.state).map(goal => [goal.id, goal.text])).toEqual([[0, '{! z !}']])
+  })
+
+  it('returns false, changing nothing, when the goal is not in the editor', () => {
+    const view = makeView('p = refl')
+    expect(setGoalContent(view, 0, 'z')).toBe(false)
+    expect(view.state.doc.toString()).toBe('p = refl')
   })
 })
 

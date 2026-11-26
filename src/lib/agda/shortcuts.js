@@ -143,6 +143,11 @@ export const agdaShortcutRegistry = Object.freeze([
     bindings: [{ kind: 'chord', key: '=', ctrl: true, label: 'Ctrl-c Ctrl-=' }],
   },
   {
+    id: 'solve-constraints',
+    label: 'Solve constraints',
+    bindings: [{ kind: 'chord', key: 's', ctrl: true, label: 'Ctrl-c Ctrl-s' }],
+  },
+  {
     id: 'show-goals',
     label: 'Show goals',
     bindings: [{ kind: 'chord', key: '?', ctrl: true, label: 'Ctrl-c Ctrl-?' }],

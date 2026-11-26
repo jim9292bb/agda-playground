@@ -555,8 +555,8 @@ UI when it does not fit the browser playground.
       counterpart).
 - [x] Apply normalization variants to Goal type, Context, Auto, Compute, and Search
       (plus the other query/give commands agda-mode-vscode prefixes).
-- [ ] Apply normalization variants to Constraints -- once the commands in
-      "Constraints and Metas" below exist.
+- [x] Apply normalization variants to Constraints: Solve constraints and Show
+      goals take the `AsIs` family; Show constraints takes none before Agda 2.9.
 
 ## Constraints and Metas
 
@@ -567,8 +567,11 @@ single-file exercises.
       as Agda's Emacs mode does (`src/lib/agda/constraints.js`). Regression-tested
       with `npm run test:browser:constraints-and-goals` and its `/literate`
       counterpart.
-- [ ] Implement Solve one constraint using `Cmd_solveOne`.
-- [ ] Implement Solve all constraints using `Cmd_solveAll`.
+- [x] Implement Solve one constraint using `Cmd_solveOne` (`C-c C-s` inside a
+      goal).
+- [x] Implement Solve all constraints using `Cmd_solveAll` (`C-c C-s` outside
+      any goal); the solutions Agda sends back are given one by one, as in
+      Emacs and agda-mode-vscode. Same regression tests as Show constraints.
 - [x] Implement Show goals/metas using `Cmd_metas` (`C-c C-?`, `C-u` prefix as
       agda-mode-vscode). Same regression tests as Show constraints.
 - [ ] Display constraints in a structured panel.

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Show constraints (C-c C-=) lists Agda's open constraints in the Queries
 # panel, formatted as Agda's Emacs mode prints them; Show goals (C-c C-?)
-# lists every goal and unsolved meta, as after Load.
+# lists every goal and unsolved meta, as after Load; Solve constraints
+# (C-c C-s) outside any goal fills in every goal Agda's constraints decide.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -29,5 +30,16 @@ press_agda_chord "?" "Slash"
 wait_for_log_contains "Show goals finished." 20000
 assert_log_contains "?0 : N" "Show goals lists the goal"
 assert_log_contains "_17 : N" "Show goals names the unsolved meta as Agda does"
+
+press_agda_chord "s" "KeyS"
+wait_for_log_contains "Solve constraints finished." 20000
+assert_log_contains "1 goal solved." "Solve constraints reports what it solved"
+assert_editor_contains "p = refl {x = z}" "Solve constraints gives the solution"
+assert_editor_contains "r = refl" "Solve constraints leaves the rest alone"
+
+# Nothing left to solve: Agda answers with no solutions.
+press_agda_chord "s" "KeyS"
+wait_for_log_matches "Solve constraints finished\\.[\\s\\S]*Solve constraints finished\\." 20000
+assert_log_contains "No solutions found." "a second Solve has nothing left to fill in"
 
 echo "browser-test-constraints-and-goals: PASS"

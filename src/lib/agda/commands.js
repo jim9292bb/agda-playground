@@ -202,6 +202,25 @@ export function metasCommand(normalization) {
   return `(Cmd_metas ${normalization})`
 }
 
+/**
+ * Asks Agda which goals its constraints already determine. Agda only
+ * answers with the solutions (a SolveAll response); filling them in is up
+ * to the client, as in Emacs and agda-mode-vscode.
+ * @param {Normalization} normalization
+ */
+export function solveAllCommand(normalization) {
+  return `(Cmd_solveAll ${normalization})`
+}
+
+/**
+ * Like solveAllCommand, for one goal only.
+ * @param {Normalization} normalization
+ * @param {AgdaCommandGoal} goal
+ */
+export function solveOneCommand(normalization, goal) {
+  return `(Cmd_solveOne ${normalization} ${goal.id} noRange "")`
+}
+
 /** Flips whether subsequent goal/query output shows implicit `{...}`
  *  arguments -- matches agda-mode-vscode's own scope: only Toggle is
  *  user-facing there (`ShowImplicitArgs Bool` exists in Agda's own

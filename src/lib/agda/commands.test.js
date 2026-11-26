@@ -23,6 +23,10 @@ import {
   computeToplevelCommand,
   toggleImplicitArgsCommand,
   toggleIrrelevantArgsCommand,
+  constraintsCommand,
+  metasCommand,
+  solveAllCommand,
+  solveOneCommand,
 } from './commands'
 
 const goal = { id: 3 }
@@ -161,5 +165,20 @@ describe('implicit/irrelevant args toggles', () => {
 
   it('toggleIrrelevantArgsCommand', () => {
     expect(toggleIrrelevantArgsCommand()).toBe('(ToggleIrrelevantArgs)')
+  })
+})
+
+describe('constraints and goals', () => {
+  it('sends a bare Cmd_constraints, as Agda 2.7.0.1 and 2.8.0 declare it', () => {
+    expect(constraintsCommand()).toBe('(Cmd_constraints)')
+  })
+
+  it('metasCommand', () => {
+    expect(metasCommand('AsIs')).toBe('(Cmd_metas AsIs)')
+  })
+
+  it('solveAllCommand / solveOneCommand', () => {
+    expect(solveAllCommand('AsIs')).toBe('(Cmd_solveAll AsIs)')
+    expect(solveOneCommand('Normalised', goal)).toBe('(Cmd_solveOne Normalised 3 noRange "")')
   })
 })

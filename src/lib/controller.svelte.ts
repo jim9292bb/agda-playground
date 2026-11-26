@@ -10,7 +10,11 @@ import {
 } from '$lib'
 import { ALSMessageRouter, makeLSPTransport, type AgdaIOTCMStatus } from './agda/transport'
 import { commit } from './codemirror/offsets'
-import { getAgdaDocumentVersion } from './agda/goal-state'
+import { getAgdaDocumentVersion, getAgdaGoalById, goalToLegacyRange } from './agda/goal-state'
+import { giveCommand } from './agda/commands'
+import { setGoalContent } from './agda/editor-mutations'
+import { emitRunningInfo } from './agda/effects'
+import { goalContentToAgdaRange } from './agda/ranges'
 import { truncateToBlock, type LiterateBlock } from './agda/literate-blocks'
 import { createPerformanceTrace, formatDurationMs, formatPerformanceEntry } from './performance'
 import type { DriveProxyStats, PerformanceEntry, WASMLoadingProgress } from './worker/types'
@@ -475,6 +479,7 @@ export class AgdaController {
 
     this.alsRouter!.lastAgdaInternalError = null
     this.alsRouter!.lastAgdaError = null
+    this.alsRouter!.pendingSolutions = undefined
     await this.runAgdaCommand({
       tag: 'CmdReq',
       contents: `IOTCM ${encodedFilePath} NonInteractive Direct ${interaction}`,
@@ -485,6 +490,37 @@ export class AgdaController {
     if (this.alsRouter!.lastAgdaError) {
       throw new Error(this.alsRouter!.lastAgdaError)
     }
+    const solutions = this.alsRouter!.pendingSolutions
+    this.alsRouter!.pendingSolutions = undefined
+    if (solutions) await this.giveSolutions(solutions)
+  }
+
+  /**
+   * Fills in the goals a Solve constraints run found solutions for: each
+   * solution is written into its goal and given, one after the other, as
+   * Emacs and agda-mode-vscode do (Agda's SolveAll response leaves the
+   * editing to the client). A goal no longer in the editor is skipped; a
+   * Give that fails stops the rest.
+   */
+  private async giveSolutions(solutions: { id: number, expression: string }[]) {
+    const view = this.editorView!
+    let solved = 0
+    for (const { id, expression } of solutions) {
+      if (!setGoalContent(view, id, expression)) continue
+      const goal = getAgdaGoalById(view.state, id)
+      if (!goal) continue
+      const range = goalContentToAgdaRange(view.state, this.currentFilePath, goal, this.receivedNumericAgdaVersion)
+      this.alsRouter!.pendingGiveGoal = goalToLegacyRange(goal)
+      try {
+        await this.runAgdaInteraction(giveCommand(goal, range, expression))
+      } catch (err) {
+        this.alsRouter!.pendingGiveGoal = undefined
+        throw err
+      }
+      solved++
+    }
+    const message = solved === 0 ? 'No solutions found.' : `${solved} goal${solved === 1 ? '' : 's'} solved.`
+    view.dispatch({ effects: emitRunningInfo.of({ message: `${message}\n`, debugLevel: 1 }) })
   }
 
   /**

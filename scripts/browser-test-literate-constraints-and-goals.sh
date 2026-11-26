@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Notebook counterpart of test:browser:constraints-and-goals: Show
-# constraints (C-c C-=) and Show goals (C-c C-?) from a cell's own editor.
+# constraints (C-c C-=), Show goals (C-c C-?) and Solve constraints
+# (C-c C-s, here for the goal under the cursor only) from a cell's own editor.
 # Also checks that both chords consume their second key -- Ctrl-= is the
 # browser's zoom-in shortcut, so it must not reach the browser.
 set -euo pipefail
@@ -47,5 +48,11 @@ echo "PASS Show constraints lists the cell's open constraints"
 consumed_chord_in_cell "?" "Slash"
 wait_for_log_contains "Show goals finished." 20000
 assert_log_contains "_17 : N" "Show goals lists the unsolved meta"
+
+cursor_in_cell_goal 0 0 >/dev/null
+press_agda_chord_in_cell 0 "s" "KeyS" >/dev/null
+wait_for_log_contains "Solve constraints finished." 20000
+assert_log_contains "1 goal solved." "Solve constraints reports what it solved"
+assert_cell_contains 0 "p = refl {x = z}" "Solve constraints gives the goal's solution in the cell"
 
 echo "browser-test-literate-constraints-and-goals: PASS"

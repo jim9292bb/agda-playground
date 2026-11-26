@@ -31,6 +31,8 @@ import {
   moduleContentsToplevelCommand,
   refineCommand,
   searchAboutToplevelCommand,
+  solveAllCommand,
+  solveOneCommand,
   toggleImplicitArgsCommand,
   toggleIrrelevantArgsCommand,
   whyInScopeCommand,
@@ -69,8 +71,8 @@ export const MAX_PREFIX_COUNT = 3
 // `C-u` prefix count -> normalization, mirroring agda-mode-vscode's own
 // keybindings (package.json): most query commands default to Simplified,
 // while Auto and Helper function default to AsIs and so reach Simplified on
-// the first `C-u` instead of Instantiated. Show goals follows the AsIs
-// family too; Show constraints takes no normalization at all before Agda
+// the first `C-u` instead of Instantiated. Solve constraints and Show goals
+// follow the AsIs family too; Show constraints takes no normalization at all before Agda
 // 2.9 (see commands.js's constraintsCommand), so its prefix is ignored.
 /** @type {readonly Normalization[]} */
 const SIMPLIFIED_FAMILY = ['Simplified', 'Instantiated', 'Normalised', 'HeadNormal']
@@ -86,7 +88,7 @@ const simplifiedFamilyIds = new Set([
   'goal-type-context-check', 'search-about', 'module-contents',
   'elaborate-give', 'infer',
 ])
-const asIsFamilyIds = new Set(['auto', 'helper-function', 'show-goals'])
+const asIsFamilyIds = new Set(['auto', 'helper-function', 'solve-constraints', 'show-goals'])
 
 /** @param {number} prefixCount */
 function clampPrefix(prefixCount) {
@@ -297,6 +299,14 @@ export function dispatchAgdaShortcut(shortcut, host, prefixCount = 0) {
     case 'show-constraints':
       // File-level, like Show goals below: no goal or input needed.
       host.run(label, () => constraintsCommand())
+      break
+    case 'solve-constraints':
+      // The goal under the cursor only, else every goal -- as in
+      // agda-mode-vscode. The controller gives the solutions Agda sends
+      // back (AgdaController.runAgdaInteraction).
+      host.run(label, context => context.goal
+        ? solveOneCommand(norm, context.goal)
+        : solveAllCommand(norm))
       break
     case 'show-goals':
       host.run(label, () => metasCommand(norm))

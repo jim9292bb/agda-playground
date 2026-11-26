@@ -45,6 +45,7 @@ for this browser-hosted single-file Agda playground IDE. Use it before searching
 | Shortcut | agda-mode-vscode command | Browser command |
 | --- | --- | --- |
 | `C-c C-=` | Show constraints | `Cmd_constraints` (no normalization before Agda 2.9) |
+| `C-c C-s` | Solve constraints `[AsIs]` | `Cmd_solveOne AsIs goalId noRange ""` in a goal, else `Cmd_solveAll AsIs` |
 | `C-c C-?` | Show goals `[AsIs]` | `Cmd_metas AsIs` |
 
 Show constraints renders each constraint as Agda's Emacs mode does in its
@@ -54,6 +55,12 @@ refreshes and the list goes to the log, with unsolved metas named as Agda
 names them (`_17 : N`). Errors in an `AllGoalsWarnings` are Agda's non-fatal
 ones (unsolved metas or constraints): they are marked in the editor but don't
 fail the command that reported them.
+
+Agda answers Solve constraints with a `SolveAll` response listing the goals
+its constraints decide, and leaves the editing to the client. As in Emacs and
+agda-mode-vscode, each solution is written into its goal and given, one after
+the other (`AgdaController.runAgdaInteraction`); the log then says how many
+goals were solved, or "No solutions found.".
 
 ## Normalization Prefix (`C-u`)
 
@@ -66,7 +73,7 @@ dispatch live in `src/lib/agda/shortcut-actions.js` (`normalizationForPrefix`,
 | Commands | none | `C-u` | `C-u C-u` | `C-u C-u C-u` |
 | --- | --- | --- | --- | --- |
 | Goal type, Context, Goal type and context, ...inferred type, ...checked type, Infer type, Search about, Module contents, Elaborate and give | `Simplified` | `Instantiated` | `Normalised` | `HeadNormal` |
-| Auto, Helper function type, Show goals | `AsIs` | `Simplified` | `Normalised` | `HeadNormal` |
+| Auto, Helper function type, Solve constraints, Show goals | `AsIs` | `Simplified` | `Normalised` | `HeadNormal` |
 | Compute normal form | `DefaultCompute` | `IgnoreAbstract` | `UseShowInstance` | `UseShowInstance` (agda-mode-vscode binds no third level) |
 
 Other shortcuts ignore the prefix, Show constraints included: agda-mode-vscode
@@ -123,6 +130,7 @@ file, no `ert-deftest` anywhere in the Agda repo).
 | `C-c C-o` | Module contents | `query-shortcuts`, `module-contents-submodules` | `Test__ModuleContents.res` | — |
 | `C-c C-w` | Why in scope | `query-shortcuts` | `Test__WhyInScope.res` | — |
 | `C-c C-=` | Show constraints | `constraints-and-goals`, `literate-constraints-and-goals` | — | — |
+| `C-c C-s` | Solve constraints | `constraints-and-goals`, `literate-constraints-and-goals` | `Test__SolveConstraints.res` | — |
 | `C-c C-?` | Show goals | `constraints-and-goals`, `literate-constraints-and-goals` | `Test__ShowGoals.res` | — |
 
 Not bound to a shortcut in als-demo today (see "Known gaps" below), but
@@ -131,7 +139,6 @@ covered on the agda-mode-vscode side:
 | Feature | agda-mode-vscode test | Status in als-demo |
 | --- | --- | --- |
 | Jump to definition | `Test__JumpToTarget.res` | Not implemented -- `definitionSite` is parsed but never acted on (ROADMAP.md). |
-| Solve constraints (`Cmd_solveAll`/`Cmd_solveOne`) | `Test__SolveConstraints.res` | `SolveAll` is typed in `app.d.ts` but not wired to any shortcut. |
 
 All commands now have als-demo browser test coverage. Every als-demo query
 result in this table has also been directly compared against a live

@@ -23,6 +23,7 @@ import { formatConstraints } from './constraints'
  * @prop {{filepath: string, position: number, cmPosition?: number} | null} lastJumpToError
  * @prop {{id: number, from: number, to: number, text: string} | undefined} [pendingCaseSplitGoal]
  * @prop {{id: number, from: number, to: number, text: string} | undefined} [pendingGiveGoal]
+ * @prop {{id: number, expression: string}[] | undefined} [pendingSolutions]
  * @prop {number | null} activeDocumentVersion
  * @prop {(documentVersion: number) => boolean} acceptsDocumentVersion
  * @prop {(documentVersion: number) => void} acceptDocumentVersion
@@ -471,6 +472,16 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       if (!replaced) emitMessage(`Could not find goal ${interactionPointId} in the editor.`)
       controller.pendingGiveGoal = undefined
       acceptCurrentDocumentVersion()
+    },
+    /** Solve constraints' answer: which goals Agda's constraints already
+     *  determine. Only recorded here -- the controller gives each one once
+     *  the command is done, as Emacs and agda-mode-vscode do. */
+    SolveAll({ solutions }) {
+      if (!shouldAcceptEditorResponse('SolveAll')) return
+      controller.pendingSolutions = solutions.map(({ interactionPoint, expression }) => ({
+        id: getInteractionPointId(interactionPoint),
+        expression,
+      }))
     },
     MakeCase({ variant, clauses }) {
       if (!shouldAcceptEditorResponse('MakeCase')) {

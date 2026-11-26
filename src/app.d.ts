@@ -215,7 +215,7 @@ namespace Agda {
 
   type SolveAll = {
     kind: 'SolveAll',
-    solutions: unknown[],
+    solutions: { interactionPoint: number | _InteractionPoint, expression: string }[],
   }
 
   // see Agda/Interaction/JSONTop.hs: instance EncodeTCM Response where

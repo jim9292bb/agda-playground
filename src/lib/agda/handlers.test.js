@@ -329,6 +329,18 @@ describe('ResponseJSONRaw > DisplayInfo', () => {
     expect(controller.lastAgdaDiagnostics).toHaveLength(1)
   })
 
+  it("records Solve's SolveAll answer for the controller to give", () => {
+    const { controller, handlers } = makeSetup('')
+    handlers.ResponseJSONRaw?.(/** @type {any} */ ({
+      kind: 'SolveAll',
+      solutions: [{ interactionPoint: 0, expression: 'z' }, { interactionPoint: { id: 2 }, expression: 's z' }],
+    }))
+    expect(/** @type {any} */ (controller).pendingSolutions).toEqual([
+      { id: 0, expression: 'z' },
+      { id: 2, expression: 's z' },
+    ])
+  })
+
   it('routes Show constraints to the Queries panel as Agda-formatted text', () => {
     const { controller, handlers } = makeSetup('')
     handlers.ResponseJSONRaw?.(/** @type {any} */ ({
