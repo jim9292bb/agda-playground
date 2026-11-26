@@ -49,9 +49,7 @@ function agdaInputAction(el) {
 <section class="goals-section" aria-label="Goals">
   {#if showHeader}
     <header class="goals-header">
-      <svg class="panel-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="3"></circle></svg>
       <h2 class="panel-heading">Goals</h2>
-      <span class="goals-count" class:open={panelGoalInfos.length > 0} aria-label="{panelGoalInfos.length} goals">{panelGoalInfos.length} open</span>
     </header>
   {/if}
   {#if commandInputPrompt}
@@ -127,37 +125,11 @@ function agdaInputAction(el) {
   background: var(--quiet-neutral-fill-softer);
 }
 
-.panel-icon {
-  flex: 0 0 auto;
-  width: 15px;
-  height: 15px;
-  fill: none;
-  stroke: var(--app-text-muted);
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
 .panel-heading {
   margin: 0;
   font-size: .66rem;
   font-weight: 650;
   color: var(--app-text-strong);
-}
-
-/* "n open": amber while there's work left, quiet once there isn't. */
-.goals-count {
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: var(--app-switcher-track);
-  color: var(--app-text-secondary);
-  font-size: .6rem;
-  font-weight: 600;
-}
-
-.goals-count.open {
-  background: var(--app-warning-fill);
-  color: var(--app-warning-text);
 }
 
 .command-input-panel {

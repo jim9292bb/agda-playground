@@ -91,12 +91,11 @@ $effect(() => {
     </button>
   {/snippet}
 
-  <!-- The head (icon, title, copy), then the Log / Queries / Errors tabs on
+  <!-- The head (title, copy), then the Log / Queries / Errors tabs on
        a row of their own. On phones the panel's bar names the panel, so the
        head is left out and the copy button joins the tabs. -->
   {#if showHeading}
     <header class="messages-header">
-      <svg class="panel-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 6 6 6-6 6m9 0h6"></path></svg>
       <h2 class="panel-heading">Messages</h2>
       <span class="messages-header-spacer"></span>
       {@render copyButton()}
@@ -156,17 +155,6 @@ $effect(() => {
   padding: 0 6px 0 12px;
   border-bottom: 1px solid var(--app-border);
   background: var(--quiet-neutral-fill-softer);
-}
-
-.panel-icon {
-  flex: 0 0 auto;
-  width: 15px;
-  height: 15px;
-  fill: none;
-  stroke: var(--app-text-muted);
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }
 
 .panel-heading {

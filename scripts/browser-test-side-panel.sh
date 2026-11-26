@@ -43,11 +43,11 @@ ab wait 200 >/dev/null
 [[ "$(js "document.activeElement?.classList.contains('agda-env-toggle') ?? false")" == "true" ]] || fail "Escape didn't return focus to the environment toggle"
 echo "PASS: environment menu opens on the selected option, moves with arrows, closes on Escape"
 
-# ── Goals: list, count, active goal expanded with its context ───────────────
+# ── Goals: list, active goal expanded with its context ───────────────
 set_editor_fixture "test-fixtures/agda/query-goal.agda" "{! n !}" 4 >/dev/null
 load_agda >/dev/null
 ab wait 1500 >/dev/null
-[[ "$(js "document.querySelector('.goals-count')?.textContent.trim()")" == '"1 open"' ]] || fail "goal count isn't 1 open"
+[[ "$(js "document.querySelectorAll('.goals-section .goal-entry').length")" == "1" ]] || fail "goals list should hold exactly one goal"
 assert_active_goal_contains "?0 : N" "the active goal reads ?0 : N"
 assert_active_goal_contains "n : N" "the active goal is expanded to its context"
 [[ "$(js "document.querySelector('.goal-entry.active .goal-row')?.getAttribute('aria-expanded')")" == '"true"' ]] || fail "active goal row isn't aria-expanded"

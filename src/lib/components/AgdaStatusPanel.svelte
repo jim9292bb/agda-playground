@@ -100,7 +100,6 @@ function onListKeydown(event) {
 
   {#if environments.length > 1}
     <div class="agda-env">
-      <span class="agda-env-caption" aria-hidden="true">Environment</span>
       <button
         bind:this={toggleEl}
         type="button"
@@ -151,7 +150,7 @@ function onListKeydown(event) {
     </div>
   {:else if current}
     <div class="agda-env">
-      <span class="agda-env-caption">Environment</span>
+      <span class="sr-only">Agda environment:</span>
       <span class="agda-env-static">{current.summary}</span>
     </div>
   {/if}
@@ -236,10 +235,13 @@ function onListKeydown(event) {
   min-width: 0;
 }
 
-.agda-env-caption {
-  flex: 0 0 auto;
-  color: var(--app-text-muted);
-  font-size: .62rem;
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .agda-env-toggle {

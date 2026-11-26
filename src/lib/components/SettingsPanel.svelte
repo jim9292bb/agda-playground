@@ -160,7 +160,7 @@ $effect(() => {
             <h3 id="runtime-settings-title">Runtime and libraries</h3>
             <p class="settings-note">
               {#if deployProfiles.length > 1}
-                Switch the Agda environment from the "Environment" selector below the Agda status card. Switching restarts the worker.
+                Switch the Agda environment from the environment selector in the Agda status card. Switching restarts the worker.
               {:else}
                 This deployment has a single configured environment.
               {/if}

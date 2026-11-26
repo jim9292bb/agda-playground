@@ -3,14 +3,14 @@ import AppSwitcher from '$lib/components/AppSwitcher.svelte'
 import { appearance, onAppearanceChange } from '$lib/appearance.svelte'
 
 /**
- * The one global header every route shares: the app's mark and title, the
+ * The one global header every route shares: the app's title, the
  * app switcher, then icon buttons for the light/dark theme, the source on
  * GitHub, About and Settings. Everything about the document itself (the
  * example or chapter picker, Commands, Open / Export) lives in the editor
  * panel's own head (EditorPanelHead.svelte).
  *
- * Phones (`compact`): the title shrinks to the mark and the GitHub link
- * (also in About) is dropped, so everything fits one row.
+ * Phones (`compact`): the title is hidden (still read out) and the GitHub
+ * link (also in About) is dropped, so everything fits one row.
  * @type {{
  * title: string,
  * current: 'playground' | 'notebook' | 'plfa',
@@ -31,7 +31,6 @@ $effect(() => onAppearanceChange(isDark => { dark = isDark }))
 
 <header class="header" class:compact>
   <div class="header-brand">
-    <span class="header-mark" aria-hidden="true">∀</span>
     <h1 class="header-title">{title}</h1>
   </div>
   <AppSwitcher {current} />
@@ -81,17 +80,6 @@ $effect(() => onAppearanceChange(isDark => { dark = isDark }))
   align-items: center;
   gap: 7px;
   flex: 0 0 auto;
-}
-
-.header-mark {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 5px;
-  background: var(--quiet-primary-stroke);
-  color: var(--app-surface);
-  font: 19px/1 Georgia, 'Times New Roman', serif;
 }
 
 .header-title {
@@ -155,7 +143,7 @@ $effect(() => onAppearanceChange(isDark => { dark = isDark }))
   outline-offset: 1px;
 }
 
-/* Phones: the mark stands in for the title (still read out). */
+/* Phones: the title is hidden but still read out. */
 .header.compact {
   gap: 4px;
   padding: 0 8px;
