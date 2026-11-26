@@ -2,18 +2,19 @@ import { EditorView } from '@codemirror/view'
 
 /** The light Agda highlighting palette, as an `EditorView.theme` spec. */
 export const agdaLightSchemeSpec = {
-  // Holes: an amber chip, like the goal badges in the side panel.
+  // Holes: a quiet sage-green chip -- green like Agda's Emacs mode, and kept
+  // clear of the yellows and oranges of unsolved metas and other problems.
   '.agda-hole': {
-    backgroundColor: '#fef3c7',
-    color: '#92400e',
-    boxShadow: 'inset 0 0 0 1px #d9770680',
+    backgroundColor: '#ebf6ed',
+    color: '#2f5d3a',
+    boxShadow: 'inset 0 0 0 1px #5f9a6c80',
     borderRadius: '3px',
   },
   '.agda-hole[data-goal-id]::after': {
     content: 'attr(data-goal-id)',
     marginInlineStart: '0.2em',
     fontFamily: 'inherit',
-    color: '#92400e',
+    color: '#2f5d3a',
     fontSize: 'inherit',
     pointerEvents: 'none',
     userSelect: 'none',
@@ -76,18 +77,19 @@ export const agdaLightScheme = EditorView.theme(agdaLightSchemeSpec)
 
 /** The dark Agda highlighting palette, as an `EditorView.theme` spec. */
 export const agdaDarkSchemeSpec = {
-  // Holes: an amber chip, like the goal badges in the side panel.
+  // Holes: a quiet sage-green chip -- green like Agda's Emacs mode, and kept
+  // clear of the yellows and oranges of unsolved metas and other problems.
   '.agda-hole': {
-    backgroundColor: '#42351e',
-    color: '#fbbf24',
-    boxShadow: 'inset 0 0 0 1px #f59e0b66',
+    backgroundColor: '#253a2c',
+    color: '#a8dbb1',
+    boxShadow: 'inset 0 0 0 1px #6fae7c66',
     borderRadius: '3px',
   },
   '.agda-hole[data-goal-id]::after': {
     content: 'attr(data-goal-id)',
     marginInlineStart: '0.2em',
     fontFamily: 'inherit',
-    color: '#fbbf24',
+    color: '#a8dbb1',
     fontSize: 'inherit',
     pointerEvents: 'none',
     userSelect: 'none',
