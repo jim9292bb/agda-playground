@@ -76,11 +76,14 @@ export const agdaLightScheme = EditorView.theme(agdaLightSchemeSpec)
 
 /** The dark Agda highlighting palette, as an `EditorView.theme` spec. */
 export const agdaDarkSchemeSpec = {
-  // Holes: Emacs's `highlight` face (darkolivegreen #556b2f), which agda2-mode
-  // puts on every goal. Background only: the hole's contents keep their own
-  // colors, and the goal number shares the chip.
+  // Holes: Emacs's `highlight` face, but not its darkolivegreen #556b2f
+  // fill, on which most of the palette below is unreadable. A fill no lighter
+  // than the editor keeps the hole's contents as legible as anywhere else,
+  // and a ring in the light-background `highlight` color (darkseagreen2) marks
+  // the hole. The problem overlays below follow the same rule.
   '.agda-hole': {
-    backgroundColor: '#556b2f',
+    backgroundColor: '#19200e',
+    boxShadow: 'inset 0 0 0 1px #b4eeb4',
   },
   '.agda-hole[data-goal-id]::after': {
     content: 'attr(data-goal-id)',
@@ -93,11 +96,13 @@ export const agdaDarkSchemeSpec = {
   // make error markers opaque
   '.agda-error *': { color: 'currentColor !important' },
 
-  // Agda's Emacs mode defaults, as is: the dark-background faces of
+  // Agda's Emacs mode defaults: the dark-background faces of
   // `agda2-highlight.el` (agda/src/data/emacs-mode), and Emacs's own
   // `font-lock-comment-face` (chocolate1) for comments. Kept identical to
-  // Emacs on purpose, so some colors fall short of WCAG AA on this app's
-  // backgrounds -- see color-scheme.test.js.
+  // Emacs on purpose (strings and errors fall a little short of WCAG AA here)
+  // with two exceptions, both because Emacs's own dark colors are close to
+  // unreadable: numbers, and the hole and problem fills -- see
+  // color-scheme.test.js.
   // definitions are from `Agda/Syntax/Common/Aspect.hs`
   // strings are from `toAtoms :: Aspects -> [String]`
 
@@ -105,7 +110,9 @@ export const agdaDarkSchemeSpec = {
   '.agda-comment':                  { color: '#ff7f24' },
   '.agda-keyword':                  { color: '#ff9932' },
   '.agda-string':                   { color: '#dd4d4d' },
-  '.agda-number':                   { color: '#9010e0' },
+  // Not Emacs's dark #9010e0 (2.4:1 here): the module purple, as numbers
+  // and modules share purple on a light background in Emacs.
+  '.agda-number':                   { color: '#cd80ff' },
   //   hole; see above
   '.agda-symbol':                   { color: '#bfbfbf' },
   '.agda-primitivetype':            { color: '#8080ff' },
@@ -127,23 +134,26 @@ export const agdaDarkSchemeSpec = {
   //   pragma, background, markup
 
   // -- "other" aspects
+  // Problem overlays: Emacs's dark fills (noted after each) are mid-tones that
+  // hide nearly every text color, so each is darkened until text reads as
+  // well as on the editor, and ringed in the light-background Emacs color.
   '.agda-error':                    { color: '#ff0000', textDecoration: 'underline' },
-  '.agda-errorwarning':             { backgroundColor: '#802400', textDecoration: 'underline' },
+  '.agda-errorwarning':             { backgroundColor: '#3a1000', boxShadow: 'inset 0 0 0 1px #f08080', textDecoration: 'underline' },  // #802400
   // dottedpattern
-  '.agda-unsolvedmeta':             { backgroundColor: '#806b00' },
-  '.agda-unsolvedconstraint':       { backgroundColor: '#806b00' },
-  '.agda-terminationproblem':       { backgroundColor: '#802400' },
-  '.agda-positivityproblem':        { backgroundColor: '#803f00' },
-  '.agda-deadcode':                 { backgroundColor: '#808080' },
-  '.agda-shadowingintelescope':     { backgroundColor: '#808080' },
-  '.agda-coverageproblem':          { backgroundColor: '#805300' },
+  '.agda-unsolvedmeta':             { backgroundColor: '#231d00', boxShadow: 'inset 0 0 0 1px #ffff00' },  // #806b00
+  '.agda-unsolvedconstraint':       { backgroundColor: '#231d00', boxShadow: 'inset 0 0 0 1px #ffff00' },  // #806b00
+  '.agda-terminationproblem':       { backgroundColor: '#3a1000', boxShadow: 'inset 0 0 0 1px #ffa07a' },  // #802400
+  '.agda-positivityproblem':        { backgroundColor: '#2f1700', boxShadow: 'inset 0 0 0 1px #cd853f' },  // #803f00
+  '.agda-deadcode':                 { backgroundColor: '#1d1d1d', boxShadow: 'inset 0 0 0 1px #a9a9a9' },  // #808080
+  '.agda-shadowingintelescope':     { backgroundColor: '#1d1d1d', boxShadow: 'inset 0 0 0 1px #a9a9a9' },  // #808080
+  '.agda-coverageproblem':          { backgroundColor: '#2a1b00', boxShadow: 'inset 0 0 0 1px #f5deb3' },  // #805300
   // incompletepattern
   '.agda-typechecks':               { color: 'white', backgroundColor: '#006080' },
-  '.agda-missingdefinition':        { backgroundColor: '#804040' },
-  '.agda-instanceproblem':          { backgroundColor: '#805300' },
-  '.agda-cosmeticproblem':          { backgroundColor: '#404040' },
-  '.agda-catchallclause':           { backgroundColor: '#404040' },
-  '.agda-confluenceproblem':        { backgroundColor: '#800080' },
+  '.agda-missingdefinition':        { backgroundColor: '#2e1717', boxShadow: 'inset 0 0 0 1px #ffa500' },  // #804040
+  '.agda-instanceproblem':          { backgroundColor: '#2a1b00', boxShadow: 'inset 0 0 0 1px #f5deb3' },  // #805300
+  '.agda-cosmeticproblem':          { backgroundColor: '#1d1d1d', boxShadow: 'inset 0 0 0 1px #f5f5f5' },  // #404040
+  '.agda-catchallclause':           { backgroundColor: '#1d1d1d', boxShadow: 'inset 0 0 0 1px #f5f5f5' },  // #404040
+  '.agda-confluenceproblem':        { backgroundColor: '#3c003c', boxShadow: 'inset 0 0 0 1px #ffc0cb' },  // #800080
 }
 
 export const agdaDarkScheme = EditorView.theme(agdaDarkSchemeSpec, { dark: true })

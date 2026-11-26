@@ -33,12 +33,40 @@ function token(name) {
 // Everything UI text is drawn on.
 const uiSurfaces = ['quiet-neutral-fill', 'quiet-neutral-fill-softer', 'app-code-fill', 'app-chrome', 'app-panel', 'app-canvas', 'app-cell-focus-fill', 'app-switcher-track'].map(token)
 
-// The Agda highlighting palettes copy Agda's Emacs mode as is
-// (color-scheme.js), so they are deliberately not held to WCAG AA here: some
-// of Emacs's colors fall short of it on this app's backgrounds.
+// The Agda highlighting palettes copy Agda's Emacs mode (color-scheme.js), so
+// they are deliberately not held to WCAG AA as a whole: some of Emacs's colors
+// fall short of it on this app's backgrounds. The dark palette's exceptions
+// to Emacs -- numbers, and the hole and problem fills -- are what's checked.
 describe('Agda highlighting palettes', () => {
   it('style the same selectors in light and dark', () => {
     expect(Object.keys(agdaDarkSchemeSpec).sort()).toEqual(Object.keys(agdaLightSchemeSpec).sort())
+  })
+
+  const dark = /** @type {Record<string, Record<string, string>>} */ (agdaDarkSchemeSpec)
+  const darkCodeSurfaces = ['quiet-neutral-fill', 'quiet-neutral-fill-softer', 'app-cell-focus-fill', 'app-active-line'].map(name => token(name)[1])
+  const darkText = [
+    ...Object.entries(dark).filter(([, style]) => /^#/.test(style.color ?? '') && !style.backgroundColor).map(([selector, style]) => [selector, style.color]),
+    ['plain text', token('app-text')[1]],
+  ]
+
+  it('dark numbers meet AA on every code surface', () => {
+    for (const surface of darkCodeSurfaces) {
+      expect(contrast(dark['.agda-number'].color, surface)).toBeGreaterThanOrEqual(4.5)
+    }
+  })
+
+  it('dark hole and problem fills keep text as legible as on the editor (up to AA)', () => {
+    const editor = token('quiet-neutral-fill')[1]
+    const failures = []
+    for (const [overlay, style] of Object.entries(dark)) {
+      if (!style.backgroundColor || style.color) continue
+      for (const [selector, color] of darkText) {
+        const ratio = contrast(color, style.backgroundColor)
+        const floor = Math.min(4.5, contrast(color, editor))
+        if (ratio < floor - 0.01) failures.push(`${selector} ${color} on ${overlay} ${style.backgroundColor}: ${ratio.toFixed(2)} < ${floor.toFixed(2)}`)
+      }
+    }
+    expect(failures).toEqual([])
   })
 })
 
