@@ -9,6 +9,7 @@ import {
   computeCellWrapperOffsets,
   cellOffsetAtPos,
   cellsFromParsedBlocks,
+  normalizeLineEndings,
 } from './literate-cells'
 
 describe('createMarkdownCell / createCodeCell', () => {
@@ -209,5 +210,19 @@ describe('cellsFromParsedBlocks', () => {
     const cells = cellsFromParsedBlocks(text, blocks)
     expect(cells).toHaveLength(1)
     expect(cells[0].type).toBe('markdown')
+  })
+})
+
+describe('normalizeLineEndings', () => {
+  it('turns CRLF and lone CR into LF', () => {
+    expect(normalizeLineEndings('a\r\nb\rc\n')).toBe('a\nb\nc\n')
+  })
+
+  it('lets a CRLF file import like the same file with LF', () => {
+    const lf = '# Title\n\n```agda\nfoo : Set\n```\n\nDone.\n'
+    const crlf = normalizeLineEndings(lf.replace(/\n/g, '\r\n'))
+    const cells = cellsFromParsedBlocks(crlf, parseLiterateBlocks(crlf))
+    expect(cells.map(c => c.text)).toEqual(cellsFromParsedBlocks(lf, parseLiterateBlocks(lf)).map(c => c.text))
+    expect(cells[1].text).toBe('foo : Set')
   })
 })

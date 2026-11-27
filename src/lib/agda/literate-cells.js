@@ -151,6 +151,17 @@ export function cellOffsetAtPos(offsets, pos) {
 }
 
 /**
+ * Convert CRLF and lone CR line endings to LF. Cell texts must match what
+ * their CodeMirror views hold (CodeMirror normalises line breaks), and the
+ * fence handling below expects `\n`; a file saved with CRLF otherwise kept
+ * its closing fences inside the cells and failed to load.
+ * @param {string} text
+ */
+export function normalizeLineEndings(text) {
+  return text.replace(/\r\n?/g, '\n')
+}
+
+/**
  * Import support: turns a parsed `.lagda.md` (via `parseLiterateBlocks`
  * from literate-blocks.js) into a cell array, stripping each code block's
  * own fence wrapper down to plain content (a cell's text never includes

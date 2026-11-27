@@ -38,6 +38,7 @@ import {
   computeCellWrapperOffsets,
   cellOffsetAtPos,
   cellsFromParsedBlocks,
+  normalizeLineEndings,
 } from '$lib/agda/literate-cells'
 import {
   fromCellSync,
@@ -181,7 +182,8 @@ const LS_WORKSPACE_SPLIT_KEY = `agda-playground-${initialConfig.storageNamespace
 
 /** @param {string} source @returns {import('$lib/agda/literate-cells').LiterateCell[]} */
 function cellsFromSource(source) {
-  return cellsFromParsedBlocks(source, parseLiterateBlocks(source))
+  const text = normalizeLineEndings(source)
+  return cellsFromParsedBlocks(text, parseLiterateBlocks(text))
 }
 
 let width = $state(0)
