@@ -19,6 +19,7 @@ import { truncateToBlock, type LiterateBlock } from './agda/literate-blocks'
 import { createPerformanceTrace, formatDurationMs, formatPerformanceEntry } from './performance'
 import type { DriveProxyStats, PerformanceEntry, WASMLoadingProgress } from './worker/types'
 import { BrowserWasiShimRuntimeBackend } from './runtime/browser-wasi-shim'
+import DOMPurify from 'dompurify'
 import {
   deployProfiles, resolveProfileLibraries,
   type DriveHandle, type RuntimeBackend, type DeployProfile,
@@ -36,6 +37,8 @@ function makeLspClient(rootUri: string = '/') {
   return new LSPClient({
     timeout: 10000,
     rootUri,
+    // Markdown from the server is rendered with `marked`, which keeps raw HTML.
+    sanitizeHTML: html => DOMPurify.sanitize(html),
     extensions: [
       ...lspExtsWithoutHover,
       hoverTooltips(),

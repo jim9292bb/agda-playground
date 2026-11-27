@@ -200,7 +200,21 @@ function renderTooltipContent(
 ) {
   if (Array.isArray(value)) return value.map(m => renderCode(plugin, m)).join("<br>")
   if (typeof value == "string" || typeof value == "object" && "language" in value) return renderCode(plugin, value)
+  const block = value.kind == "markdown" ? singleCodeBlock(value.value) : null
+  if (block) {
+    const cls = block.language ? ` class="language-${escHTML(block.language).replace(/"/g, "&quot;")}"` : ""
+    return `<pre><code${cls}>${renderCode(plugin, block)}</code></pre>`
+  }
   return plugin.docToHTML(value)
+}
+
+// ALS hovers are one fenced code block (`mkMarkdownCodeBlock`), whose body is
+// Agda's pretty-printed type and is not fence-escaped: a line of the type can
+// itself be ```. Take everything between the opening line and the final fence
+// as literal text instead of letting Markdown re-parse it.
+export function singleCodeBlock(markdown: string): {language: string, value: string} | null {
+  const match = /^\s*```([^`\n]*)\n([\s\S]*)\n```[ \t]*\n?\s*$/.exec(markdown)
+  return match ? {language: match[1].trim(), value: match[2]} : null
 }
 
 function renderCode(plugin: LSPPluginPriv, code: lsp.MarkedString) {

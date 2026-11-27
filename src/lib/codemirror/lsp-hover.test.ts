@@ -1,7 +1,7 @@
 /// <reference types="vitest/globals" />
 
 import { Text } from '@codemirror/state'
-import { fromPosition, escHTML } from './lsp-hover'
+import { fromPosition, escHTML, singleCodeBlock } from './lsp-hover'
 
 describe('fromPosition', () => {
   it('converts a 0-based LSP {line, character} position to a document offset', () => {
@@ -33,5 +33,23 @@ describe('escHTML', () => {
     // escHTML only escapes raw "&", so "&amp;" becomes "&amp;amp;" -- this
     // documents that escHTML is not idempotent, not a claim it should be.
     expect(escHTML('&amp;')).toBe('&amp;amp;')
+  })
+})
+
+describe('singleCodeBlock', () => {
+  it('reads the ALS hover block (mkMarkdownCodeBlock) as literal text', () => {
+    expect(singleCodeBlock('\n```agda-language-server\nℕ → ℕ\n```\n'))
+      .toEqual({ language: 'agda-language-server', value: 'ℕ → ℕ' })
+  })
+
+  it('keeps a body line that is itself a fence, and any HTML in it, as text', () => {
+    const body = 'F a\n```\nb <img src=x onerror=alert(1)>'
+    expect(singleCodeBlock('\n```agda-language-server\n' + body + '\n```\n'))
+      .toEqual({ language: 'agda-language-server', value: body })
+  })
+
+  it('returns null for Markdown that is not one code block', () => {
+    expect(singleCodeBlock('Some *text*')).toBeNull()
+    expect(singleCodeBlock('intro\n```\ncode\n```\n')).toBeNull()
   })
 })
