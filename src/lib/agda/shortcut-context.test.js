@@ -35,7 +35,7 @@ describe('getAgdaShortcutContext', () => {
     // doc is now 'foo = {!   !}'; put the cursor inside the hole
     state = withCursorAt(state, 9)
 
-    const ctx = getAgdaShortcutContext(fakeView(state), '/source.agda', [], '2.8.0')
+    const ctx = getAgdaShortcutContext(fakeView(state), '/source.agda', '2.8.0')
     expect(ctx.goal).toMatchObject({ id: 0 })
     // parseGoalText only strips one padding space per side (see goal-state.js);
     // a freshly-expanded empty hole now has 3 spaces (`{!   !}`, matching
@@ -52,22 +52,23 @@ describe('getAgdaShortcutContext', () => {
     state = state.update(buildGoalTransaction(state, [ip])).state
     state = state.update({ selection: EditorSelection.range(9, 9) }).state
 
-    const ctx = getAgdaShortcutContext(fakeView(state), '/source.agda', [], '2.8.0')
+    const ctx = getAgdaShortcutContext(fakeView(state), '/source.agda', '2.8.0')
     expect(ctx.goal).toMatchObject({ id: 0 })
     // see the residual-space note in the previous test
     expect(ctx.input).toBe(' ')
   })
 
-  it('falls back to a textual hole via goalInfos when no goal is tracked', () => {
+  it('ignores a `{! !}` that is only text, not a tracked goal', () => {
+    // e.g. restored by undo after a Give, pasted, or inside a comment
     const state = withCursorAt(baseState('foo = {! bar !}'), 10)
-    const ctx = getAgdaShortcutContext(fakeView(state), '/source.agda', [{ id: 42 }], '2.8.0')
-    expect(ctx.goal).toMatchObject({ id: 42 })
-    expect(ctx.input).toBe('bar')
+    const ctx = getAgdaShortcutContext(fakeView(state), '/source.agda', '2.8.0')
+    expect(ctx.goal).toBeNull()
+    expect(ctx.range).toBe(noAgdaRange)
   })
 
   it('returns a null goal and noAgdaRange when nothing matches', () => {
     const state = withCursorAt(baseState('foo = bar'), 4)
-    const ctx = getAgdaShortcutContext(fakeView(state), '/source.agda', [], '2.8.0')
+    const ctx = getAgdaShortcutContext(fakeView(state), '/source.agda', '2.8.0')
     expect(ctx.goal).toBeNull()
     expect(ctx.input).toBe('')
     expect(ctx.range).toBe(noAgdaRange)
@@ -75,7 +76,7 @@ describe('getAgdaShortcutContext', () => {
 
   it('never takes input from a selection', () => {
     const state = baseState('foo = bar').update({ selection: EditorSelection.range(0, 3) }).state
-    const ctx = getAgdaShortcutContext(fakeView(state), '/source.agda', [], '2.8.0')
+    const ctx = getAgdaShortcutContext(fakeView(state), '/source.agda', '2.8.0')
     expect(ctx.goal).toBeNull()
     expect(ctx.input).toBe('')
   })

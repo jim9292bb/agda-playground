@@ -3,15 +3,23 @@
 import { EditorState, EditorSelection } from '@codemirror/state'
 import { offsetTracking } from '$lib/codemirror/offsets'
 import { agdaGoalState } from './goal-state'
+import { buildGoalTransaction } from './goals'
 import { runAgdaCommand, runAgdaShortcut, runAgdaShortcutWithInputPrompt } from './run-shortcut'
 
 /** @param {string} doc @param {number} cursor */
 function fakeView(doc, cursor) {
-  const state = EditorState.create({
+  let state = EditorState.create({
     doc,
     selection: EditorSelection.cursor(cursor),
     extensions: [offsetTracking(), agdaGoalState],
   })
+  // Register the document's `{! !}` as goal 0, as a Load would.
+  const from = doc.indexOf('{!')
+  const to = doc.indexOf('!}') + 2
+  if (from >= 0) {
+    const ip = { id: 0, range: [{ start: { pos: from + 1, line: 1, col: from + 1 }, end: { pos: to + 1, line: 1, col: to + 1 } }] }
+    state = state.update(buildGoalTransaction(state, [ip])).state
+  }
   // run-shortcut only reads `view.state` (via getAgdaShortcutContext).
   return /** @type {import('@codemirror/view').EditorView} */ (/** @type {unknown} */ ({ state }))
 }
@@ -44,7 +52,6 @@ function makeEnv({ active = true, interaction = async () => {} } = {}) {
       label: 'Thing',
       view: fakeView('f = {! x !}', 6),
       agdaController,
-      goalInfos: [{ id: 0 }],
       /** @param {string} msg */
       appendLog: msg => events.push(`log:${msg.trim()}`),
       hooks,

@@ -21,7 +21,7 @@ import { AgdaController, deployProfiles, resolveProfileLibraries } from '$lib/co
 import { myCodeMirrorTheme } from '$lib/codemirror/theme'
 import { agdaInputMethod } from '$lib/codemirror/agda-input'
 import { agdaSupport } from '$lib/agda'
-import { getAgdaDocumentVersion, getAgdaGoals, mergeGoalInfos } from '$lib/agda/goal-state'
+import { getAgdaDocumentVersion, getAgdaGoals } from '$lib/agda/goal-state'
 import { getGoalAtPosition, getGoalRangeById } from '$lib/agda/goals'
 import {
   runAgdaShortcut as runAgdaShortcutShared,
@@ -46,7 +46,7 @@ import { dispatchAgdaShortcut, MAX_PREFIX_COUNT } from '$lib/agda/shortcut-actio
 import { ShortcutOverridesState } from '$lib/agda/shortcut-overrides-state.svelte'
 import { CommandInputState } from '$lib/agda/command-input-state.svelte'
 
-import { clearGoals, clearRunningInfo, emitRunningInfo, removeGoalInfo, setGoalInfo } from '$lib/agda/effects'
+import { clearGoals, clearRunningInfo, emitRunningInfo } from '$lib/agda/effects'
 import { triggerPrefetch } from '$lib/agda/prefetch'
 
 const driveLockSab = new SharedArrayBuffer(4)
@@ -197,7 +197,7 @@ const basicTheme = EditorView.theme({
  */
 function runAgdaShortcut(label, view, command, hooks) {
   runAgdaShortcutShared({
-    label, view, agdaController, goalInfos,
+    label, view, agdaController,
     appendLog: msg => textboxContent += msg,
     hooks,
     command,
@@ -212,7 +212,7 @@ function runAgdaShortcut(label, view, command, hooks) {
  */
 function runAgdaShortcutWithInputPrompt(label, view, command, hooks) {
   runAgdaShortcutWithInputPromptShared({
-    label, view, agdaController, goalInfos,
+    label, view, agdaController,
     appendLog: msg => textboxContent += msg,
     hooks,
     command,
@@ -507,10 +507,6 @@ function codeMirror(el) {
           } else if (e.is(clearRunningInfo)) {
             // Highlighting commands may clear Agda's running-info buffer after
             // loading succeeds; keep the visible load log until the next Load.
-          } else if (e.is(setGoalInfo)) {
-            goalInfos = mergeGoalInfos(goalInfos, e.value)
-          } else if (e.is(removeGoalInfo)) {
-            goalInfos = goalInfos.filter(goal => goal.id !== e.value)
           }
         }
         return true
@@ -546,7 +542,6 @@ function codeMirror(el) {
 }
 
 function clearScratchpadInteractionState() {
-  goalInfos = []
   panelGoalInfos = []
   agdaDiagnostics = []
   activeGoalId = null
@@ -667,7 +662,6 @@ function focusGoal(goalId) {
 
 async function loadAgdaFile() {
   textboxContent = `Loading ${agdaController.currentFilePath}...\n`
-  goalInfos = []
   panelGoalInfos = []
   agdaDiagnostics = []
   if (agdaController.alsRouter) {
@@ -707,7 +701,6 @@ function syncAgdaDiagnostics() {
 
 let textboxContent = $state('')
 let selectedExampleId = $state('cubical-prelude')
-let goalInfos = $state(/** @type {{id: number | string, range?: string, type?: string, context?: string}[]} */([]))
 let panelGoalInfos = $state(/** @type {{id: number | string, range?: string, type?: string, context?: string}[]} */([]))
 let agdaDiagnostics = $state(/** @type {import('$lib/agda/diagnostics').AgdaDiagnostic[]} */([]))
 let activeGoalId = $state(/** @type {number | string | null} */(null))

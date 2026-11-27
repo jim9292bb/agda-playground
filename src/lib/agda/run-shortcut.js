@@ -62,7 +62,6 @@ export async function runAgdaCommand({ label, agdaController, appendLog, hooks =
  *   label: string,
  *   view: EditorView,
  *   agdaController: AgdaController,
- *   goalInfos: GoalInfo[],
  *   appendLog: (text: string) => void,
  *   hooks?: AgdaShortcutHooks,
  *   presync?: (view: EditorView) => Promise<void>,
@@ -70,7 +69,7 @@ export async function runAgdaCommand({ label, agdaController, appendLog, hooks =
  * }} opts
  */
 export async function runAgdaShortcut(opts) {
-  const { label, view, agdaController, goalInfos, appendLog, hooks, presync, command } = opts
+  const { label, view, agdaController, appendLog, hooks, presync, command } = opts
   if (agdaController.alsWorkerStatus !== 'active') {
     appendLog(`${label} failed: Agda is not active.\n`)
     return
@@ -80,7 +79,7 @@ export async function runAgdaShortcut(opts) {
     label, agdaController, appendLog, hooks,
     build: async () => {
       await (presync ? presync(view) : agdaController.syncSourceFileToDrive())
-      const context = getAgdaShortcutContext(view, agdaController.currentFilePath, goalInfos, agdaController.receivedNumericAgdaVersion)
+      const context = getAgdaShortcutContext(view, agdaController.currentFilePath, agdaController.receivedNumericAgdaVersion)
       return command(context)
     },
   })
@@ -91,7 +90,6 @@ export async function runAgdaShortcut(opts) {
  *   label: string,
  *   view: EditorView,
  *   agdaController: AgdaController,
- *   goalInfos: GoalInfo[],
  *   appendLog: (text: string) => void,
  *   hooks?: AgdaShortcutHooks,
  *   presync?: (view: EditorView) => Promise<void>,
@@ -106,7 +104,7 @@ export async function runAgdaShortcut(opts) {
  * }} opts
  */
 export async function runAgdaShortcutWithInputPrompt(opts) {
-  const { label, view, agdaController, goalInfos, appendLog, hooks = {}, presync, command, onNeedsInput } = opts
+  const { label, view, agdaController, appendLog, hooks = {}, presync, command, onNeedsInput } = opts
   if (agdaController.alsWorkerStatus !== 'active') {
     appendLog(`${label} failed: Agda is not active.\n`)
     return
@@ -116,7 +114,7 @@ export async function runAgdaShortcutWithInputPrompt(opts) {
   let context
   try {
     await (presync ? presync(view) : agdaController.syncSourceFileToDrive())
-    context = getAgdaShortcutContext(view, agdaController.currentFilePath, goalInfos, agdaController.receivedNumericAgdaVersion)
+    context = getAgdaShortcutContext(view, agdaController.currentFilePath, agdaController.receivedNumericAgdaVersion)
   } catch (err) {
     hooks.onFailure?.()
     appendLog(`${label} failed: ${errorMessage(err)}\n`)

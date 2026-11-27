@@ -22,7 +22,7 @@ import { myCodeMirrorTheme, autoColorScheme } from '$lib/codemirror/theme'
 import { agdaInputMethod } from '$lib/codemirror/agda-input'
 import { agdaSupport } from '$lib/agda'
 import { agdaDarkScheme, agdaLightScheme } from '$lib/agda/color-scheme'
-import { agdaGoalState, getAgdaDocumentVersion, getAgdaGoals, mergeGoalInfos } from '$lib/agda/goal-state'
+import { agdaGoalState, getAgdaDocumentVersion, getAgdaGoals } from '$lib/agda/goal-state'
 import { highlightState } from '$lib/agda/highlight'
 import { getGoalAtPosition, getGoalRangeById } from '$lib/agda/goals'
 import {
@@ -71,7 +71,7 @@ import { dispatchAgdaShortcut, MAX_PREFIX_COUNT } from '$lib/agda/shortcut-actio
 import { ShortcutOverridesState } from '$lib/agda/shortcut-overrides-state.svelte'
 import { CommandInputState } from '$lib/agda/command-input-state.svelte'
 
-import { clearGoals, clearRunningInfo, emitRunningInfo, removeGoalInfo, setGoalInfo } from '$lib/agda/effects'
+import { clearGoals, clearRunningInfo, emitRunningInfo } from '$lib/agda/effects'
 import { triggerPrefetch } from '$lib/agda/prefetch'
 import MarkdownIt from 'markdown-it'
 import texmath from 'markdown-it-texmath'
@@ -275,10 +275,6 @@ const hiddenView = new EditorView({
           } else if (e.is(clearRunningInfo)) {
             // Highlighting commands may clear Agda's running-info buffer after
             // loading succeeds; keep the visible load log until the next Load.
-          } else if (e.is(setGoalInfo)) {
-            goalInfos = mergeGoalInfos(goalInfos, e.value)
-          } else if (e.is(removeGoalInfo)) {
-            goalInfos = goalInfos.filter(goal => goal.id !== e.value)
           }
         }
         return true
@@ -376,7 +372,7 @@ async function literatePresync() {
  */
 function runAgdaShortcut(label, command, hooks) {
   runAgdaShortcutShared({
-    label, view: hiddenView, agdaController, goalInfos,
+    label, view: hiddenView, agdaController,
     appendLog: msg => textboxContent += msg,
     hooks,
     presync: literatePresync,
@@ -391,7 +387,7 @@ function runAgdaShortcut(label, command, hooks) {
  */
 function runAgdaShortcutWithInputPrompt(label, command, hooks) {
   runAgdaShortcutWithInputPromptShared({
-    label, view: hiddenView, agdaController, goalInfos,
+    label, view: hiddenView, agdaController,
     appendLog: msg => textboxContent += msg,
     hooks,
     presync: literatePresync,
@@ -929,7 +925,6 @@ function exitMarkdownEditMode() {
 }
 
 function clearScratchpadInteractionState() {
-  goalInfos = []
   panelGoalInfos = []
   agdaDiagnostics = []
   activeGoalId = null
@@ -1038,7 +1033,6 @@ function sendAbort() {
  */
 async function performLoad(blockIndex) {
   textboxContent = `Loading ${agdaController.currentFilePath}...\n`
-  goalInfos = []
   panelGoalInfos = []
   agdaDiagnostics = []
   if (agdaController.alsRouter) {
@@ -1086,7 +1080,6 @@ function syncAgdaDiagnostics() {
 }
 
 let textboxContent = $state('')
-let goalInfos = $state(/** @type {{id: number | string, range?: string, type?: string, context?: string}[]} */([]))
 let panelGoalInfos = $state(/** @type {{id: number | string, range?: string, type?: string, context?: string}[]} */([]))
 let agdaDiagnostics = $state(/** @type {import('$lib/agda/diagnostics').AgdaDiagnostic[]} */([]))
 let activeGoalId = $state(/** @type {number | string | null} */(null))
