@@ -4,7 +4,7 @@ import { EditorState } from '@codemirror/state'
 import { offsetTracking } from '$lib/codemirror/offsets'
 import { agdaGoalState, getAgdaGoals } from './goal-state'
 import { buildGoalTransaction } from './goals'
-import { replaceGoal, removeGoalBoundary, replaceGoalClause, setGoalContent, expandStandaloneQuestionMarks } from './editor-mutations'
+import { replaceGoal, removeGoalBoundary, replaceGoalClause, setGoalContent, expandStandaloneQuestionMarks, indentContinuationLines } from './editor-mutations'
 
 // A fake EditorView: `dispatch` reduces into `.state` just like the real
 // thing, and `.dom` is a plain dispatchEvent-capturing stub -- none of
@@ -207,5 +207,33 @@ describe('question marks inside names', () => {
     const view = makeView('not? b = {! b !}')
     replaceGoalClause(view, { from: 9, to: 16 }, ['not? true = ?', 'not? false = ?'])
     expect(view.state.doc.toString()).toBe('not? true = {!   !}\nnot? false = {!   !}')
+  })
+})
+
+describe('multi-line Give results', () => {
+  it('indents continuation lines to the goal column', () => {
+    expect(indentContinuationLines('a\nb\n  c', '    ')).toBe('a\n    b\n      c')
+  })
+
+  it('Give keeps a wrapped result inside the clause', () => {
+    const view = makeView('  r = {! !}', { id: 0, hole: '{! !}' })
+    replaceGoal(view, 0, 'f (g x)\n(h y)', undefined)
+    expect(view.state.doc.toString()).toBe('  r = f (g x)\n      (h y)')
+  })
+})
+
+describe('Case split replaces the rest of the clause line', () => {
+  it('drops the other goals Agda reprints in the new clauses', () => {
+    const doc = 'f x y = {! x !} , {!   !}'
+    const view = makeView(doc)
+    replaceGoalClause(view, { from: 8, to: 15 }, ['f z y = ? , ?', 'f (s x) y = ? , ?'])
+    expect(view.state.doc.toString()).toBe('f z y = {!   !} , {!   !}\nf (s x) y = {!   !} , {!   !}')
+  })
+
+  it('keeps a trailing comment and the following lines', () => {
+    const doc = 'f x = {! x !} + z -- note\ng = z'
+    const view = makeView(doc)
+    replaceGoalClause(view, { from: 6, to: 13 }, ['f z = ?', 'f (s x) = ?'])
+    expect(view.state.doc.toString()).toBe('f z = {!   !}\nf (s x) = {!   !} -- note\ng = z')
   })
 })

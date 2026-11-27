@@ -122,8 +122,31 @@ export function replaceGoal(editorView, interactionPoint, replacement, fallbackG
   const range = resolveGoalRange(editorView, interactionPoint, fallbackGoal)
   if (!range) return false
 
-  replaceRangeAndRemoveGoal(editorView, range, interactionPoint, convertBareGoalMarkers(editorView, replacement))
+  const indented = indentContinuationLines(replacement, goalColumnPrefix(editorView.state.doc, range.from))
+  replaceRangeAndRemoveGoal(editorView, range, interactionPoint, convertBareGoalMarkers(editorView, indented))
   return true
+}
+
+/**
+ * Whitespace reaching the goal's column: the line's text before the goal
+ * with everything but tabs turned into spaces.
+ * @param {import('@codemirror/state').Text} doc
+ * @param {number} pos
+ */
+function goalColumnPrefix(doc, pos) {
+  const line = doc.lineAt(pos)
+  return doc.sliceString(line.from, pos).replace(/[^\t]/g, ' ')
+}
+
+/**
+ * Agda pretty-prints long Give/Refine results over several lines, relative to
+ * column 0. Indent each line after the first to the goal's column so the
+ * result stays inside the clause, as Emacs's `agda2-replace-goal` does.
+ * @param {string} text
+ * @param {string} prefix
+ */
+export function indentContinuationLines(text, prefix) {
+  return text.replace(/\n/g, '\n' + prefix)
 }
 
 /**
@@ -181,7 +204,22 @@ function functionClauseEdit(editorView, goal, clauses) {
   const replacement = indentation + clauses
     .map(expandStandaloneQuestionMarks)
     .join('\n' + indentation)
-  return { range: { from: startLine.from, to: goal.to }, replacement }
+  return { range: { from: startLine.from, to: reprintedClauseEnd(doc, goal.to) }, replacement }
+}
+
+/**
+ * Agda's MakeCase clauses reprint the whole clause, so everything after the
+ * goal on its line is replaced too (other goals, `, ?`, `+ z`), as Emacs's
+ * `agda2-make-case-action` deletes to the end of the line. A trailing line
+ * comment or `where` is kept, as agda-mode-vscode's `endOfReprintedCode` does.
+ * @param {import('@codemirror/state').Text} doc
+ * @param {number} goalTo
+ */
+function reprintedClauseEnd(doc, goalTo) {
+  const line = doc.lineAt(goalTo)
+  const rest = doc.sliceString(goalTo, line.to)
+  const kept = /\s*(?:--|\bwhere\b)/.exec(rest)
+  return kept ? goalTo + kept.index : line.to
 }
 
 /**
