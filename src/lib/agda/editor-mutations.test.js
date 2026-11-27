@@ -4,7 +4,7 @@ import { EditorState } from '@codemirror/state'
 import { offsetTracking } from '$lib/codemirror/offsets'
 import { agdaGoalState, getAgdaGoals } from './goal-state'
 import { buildGoalTransaction } from './goals'
-import { replaceGoal, removeGoalBoundary, replaceGoalClause, setGoalContent } from './editor-mutations'
+import { replaceGoal, removeGoalBoundary, replaceGoalClause, setGoalContent, expandStandaloneQuestionMarks } from './editor-mutations'
 
 // A fake EditorView: `dispatch` reduces into `.state` just like the real
 // thing, and `.dom` is a plain dispatchEvent-capturing stub -- none of
@@ -178,5 +178,34 @@ describe('replaceGoalClause', () => {
     replaceGoalClause(view, goal, ['zero → ?'], 'ExtendedLambda')
 
     expect(view.state.doc.toString()).toBe('foo : N -> N\nfoo n = λ { zero → {!   !} }')
+  })
+})
+
+describe('expandStandaloneQuestionMarks', () => {
+  it('expands a `?` that stands alone as a token', () => {
+    expect(expandStandaloneQuestionMarks('suc ?')).toBe('suc {!   !}')
+    expect(expandStandaloneQuestionMarks('?')).toBe('{!   !}')
+    expect(expandStandaloneQuestionMarks('f (?) {?}')).toBe('f ({!   !}) {{!   !}}')
+  })
+
+  it('leaves a `?` that is part of a name', () => {
+    expect(expandStandaloneQuestionMarks('is? b')).toBe('is? b')
+    expect(expandStandaloneQuestionMarks('m ≤? n')).toBe('m ≤? n')
+    expect(expandStandaloneQuestionMarks('_?_ ?a a?b')).toBe('_?_ ?a a?b')
+  })
+})
+
+describe('question marks inside names', () => {
+  it('Give keeps `is?` and fires no reload when there is no new hole', () => {
+    const view = makeView('f b = {! is? b !}', { id: 0, hole: '{! is? b !}' })
+    replaceGoal(view, 0, 'is? b', undefined)
+    expect(view.state.doc.toString()).toBe('f b = is? b')
+    expect(view.dispatchedEvents).toHaveLength(0)
+  })
+
+  it('Case split keeps `not?` in the clauses', () => {
+    const view = makeView('not? b = {! b !}')
+    replaceGoalClause(view, { from: 9, to: 16 }, ['not? true = ?', 'not? false = ?'])
+    expect(view.state.doc.toString()).toBe('not? true = {!   !}\nnot? false = {!   !}')
   })
 })

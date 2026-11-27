@@ -63,12 +63,38 @@ function goalContent(goalText) {
  * @returns {string}
  */
 function convertBareGoalMarkers(editorView, text) {
-  if (!text.includes('?')) return text
+  const expanded = expandStandaloneQuestionMarks(text)
+  if (expanded === text) return text
   editorView.dom.dispatchEvent(new CustomEvent('agda-reload-needed', {
     bubbles: true,
     detail: { reason: 'give-with-new-goal' },
   }))
-  return text.replace(/\?/g, '{!   !}')
+  return expanded
+}
+
+// Characters that may sit next to a `?` hole token; a `?` next to anything
+// else is part of a name such as `is?` or `_≤?_`. agda-mode-vscode's set
+// (Goals.res parseGoalPositionsFromRefine) minus `_`, because `_` is a name
+// character in Agda and `_?_` is a valid operator name.
+const HOLE_DELIMITERS = new Set([' ', '\t', '\n', '\r', '(', ')', '{', '}', ';', '.', '\\', '"', '@'])
+
+/**
+ * Replace each standalone `?` (a hole) with `{!   !}`, leaving `?` inside
+ * identifiers untouched.
+ * @param {string} text
+ * @returns {string}
+ */
+export function expandStandaloneQuestionMarks(text) {
+  if (!text.includes('?')) return text
+  let out = ''
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    const standalone = ch === '?'
+      && (i === 0 || HOLE_DELIMITERS.has(text[i - 1]))
+      && (i === text.length - 1 || HOLE_DELIMITERS.has(text[i + 1]))
+    out += standalone ? '{!   !}' : ch
+  }
+  return out
 }
 
 /**
@@ -153,7 +179,7 @@ function functionClauseEdit(editorView, goal, clauses) {
   const linePrefix = doc.sliceString(startLine.from, goal.from)
   const indentation = linePrefix.match(/^\s*/)?.[0] ?? ''
   const replacement = indentation + clauses
-    .map(clause => clause.replace(/\?/g, '{!   !}'))
+    .map(expandStandaloneQuestionMarks)
     .join('\n' + indentation)
   return { range: { from: startLine.from, to: goal.to }, replacement }
 }
@@ -222,7 +248,7 @@ function extendedLambdaClauseEdit(editorView, goal, clauses) {
     ? '\n' + ' '.repeat(Math.max(0, indentWidth))
     : '\n' + ' '.repeat(Math.max(0, indentWidth - 2)) + '; '
   const replacement = clauses
-    .map(clause => clause.replace(/\?/g, '{!   !}'))
+    .map(expandStandaloneQuestionMarks)
     .join(separator)
   return { range: { from: caseStart, to: goal.to }, replacement }
 }
