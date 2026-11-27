@@ -178,7 +178,13 @@ export class ALSMessageRouter {
             this.setStatus('ready')
             // TODO: signal end so that the controller can process last cmds
           } else {
-            this.handleRequest(tag, /** @type {any} */(pp.params).contents)
+            // A handler that throws must not stop the rest of the batch:
+            // ResponseEnd (above) is what marks the command finished.
+            try {
+              this.handleRequest(tag, /** @type {any} */(pp.params).contents)
+            } catch (error) {
+              console.error(`failed to handle Agda response ${tag}:`, error)
+            }
           }
         }
       } else {

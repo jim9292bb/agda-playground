@@ -49,6 +49,22 @@ describe('buildGoalTransaction', () => {
     })
   })
 
+  it('ignores a range past the end of the document (stale after a Give) instead of throwing', () => {
+    const state = makeState('f = x\ng = {! !}')
+    const ip = { id: 1, range: ipRange(2, 20, 25) }
+    expect(() => buildGoalTransaction(state, [ip])).not.toThrow()
+    expect(buildGoalTransaction(state, [ip])).toEqual({})
+  })
+
+  it('ignores a range that no longer covers a hole', () => {
+    // Agda's old position for the hole now lands on other text.
+    const state = makeState('f = is? b\ng = {! !}')
+    const ip = { id: 1, range: ipRange(1, 5, 8) }
+    const newState = state.update(buildGoalTransaction(state, [ip])).state
+    expect(newState.doc.toString()).toBe('f = is? b\ng = {! !}')
+    expect(getAgdaGoals(newState)).toEqual([])
+  })
+
   it('leaves an already-expanded hole in place without inserting text', () => {
     const state = makeState('foo = {! !}')
     const ip = { id: 1, range: ipRange(1, 7, 12) }

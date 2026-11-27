@@ -67,6 +67,33 @@ function buildDecorationsFromGoalState(state) {
 }
 
 /**
+ * Map an interaction point's range onto the document, or null when it does
+ * not cover a hole there. Agda's ranges refer to the file it last loaded:
+ * after a Give, Refine or Case split edits the buffer, the InteractionPoints
+ * that follow carry positions for the old text, out of range or on other
+ * characters. Like agda-mode-vscode and Emacs, keep the goals already tracked
+ * (mapped through the edit) instead of trusting those positions; the reload
+ * that follows a Give with new holes registers the new ones.
+ * @param {EditorState} state
+ * @param {Agda._InteractionPoint} ip
+ * @returns {{from: number, to: number} | null}
+ */
+function holeRangeInDocument(state, ip) {
+  const first = ip.range?.[0]
+  if (!first) return null
+  let from, to
+  try {
+    [from, to] = mapUtf8Range(state, first.start.pos - 1, first.end.pos - 1)
+  } catch {
+    return null
+  }
+  if (from >= to) return null
+  const text = state.doc.sliceString(from, to)
+  const isHole = text === '?' || (text.startsWith('{!') && text.endsWith('!}'))
+  return isHole ? { from, to } : null
+}
+
+/**
  * @param {EditorState} state
  * @param {Agda._InteractionPoint[]} ips
  * @returns {TransactionSpec} */
@@ -75,11 +102,9 @@ export function buildGoalTransaction(state, ips) {
   const arr = []
 
   for (const ip of ips) {
-    const { start, end } = ip.range[0]
-    const [from, to] = mapUtf8Range(state, start.pos - 1, end.pos - 1)
-    if (from >= to) continue
-
-    arr.push(makeGoalMark(ip.id).range(from, to))
+    const range = holeRangeInDocument(state, ip)
+    if (!range) continue
+    arr.push(makeGoalMark(ip.id).range(range.from, range.to))
   }
 
   if (arr.length == 0) return {}
