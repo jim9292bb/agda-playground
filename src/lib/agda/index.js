@@ -1,5 +1,6 @@
 import { autoColorScheme } from '$lib/codemirror/theme'
 import { offsetTracking } from '$lib/codemirror/offsets'
+import { pinnedPositions } from '$lib/codemirror/pinned-positions'
 
 import { agdaHighlight } from './highlight'
 import { agdaDarkScheme, agdaLightScheme } from './color-scheme'
@@ -26,5 +27,6 @@ export function agdaSupport(options) {
     }),
     agdaHighlight(),
     agdaGoals(),
+    pinnedPositions,
   ]
 }

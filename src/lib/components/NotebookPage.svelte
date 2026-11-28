@@ -450,12 +450,14 @@ function insertCellAfterActive(/** @type {import('$lib/agda/literate-cells').Lit
   // of the document, splitting the closing fence's own newline).
   const wrapperOffsets = computeCellWrapperOffsets(cells)
   const globalInsertAt = wrapperOffsets[insertAt]?.from ?? hiddenView.state.doc.length
+  // `cells` first, then hiddenView: the dispatch re-projects goals and
+  // highlighting from `cells` synchronously (CLAUDE.md, dispatch-ordering
+  // invariant), and the old array shifted every later cell's decorations.
+  cells.splice(insertAt, 0, newCell)
   hiddenView.dispatch({
     changes: { from: globalInsertAt, to: globalInsertAt, insert: assembleDocument([newCell]) },
     annotations: fromCellSync.of(true),
   })
-
-  cells.splice(insertAt, 0, newCell)
   activeCellId = newCell.id
   if (enterEditMode && newCell.type === 'markdown') editingMarkdownCellId = newCell.id
   void tick().then(() => cellViews.get(newCell.id)?.focus())
@@ -482,15 +484,15 @@ function deleteCell(cellId) {
 
   const wrapperOffsets = computeCellWrapperOffsets(cells)
   const entry = wrapperOffsets[idx]
+  // `cells` first, then hiddenView (see insertCellAfterActive).
+  const [removed] = cells.splice(idx, 1)
+  cellViews.delete(removed.id)
   if (entry) {
     hiddenView.dispatch({
       changes: { from: entry.from, to: entry.to, insert: '' },
       annotations: fromCellSync.of(true),
     })
   }
-
-  const [removed] = cells.splice(idx, 1)
-  cellViews.delete(removed.id)
   if (editingMarkdownCellId === removed.id) editingMarkdownCellId = null
   if (activeCellId === removed.id) {
     const nextIdx = Math.min(idx, cells.length - 1)
@@ -800,6 +802,22 @@ $effect(() => {
 })
 
 /**
+ * Puts hiddenView's selection where this cell's caret is.
+ * @param {string} cellId
+ * @param {{anchor: number, head: number}} sel the cell's own selection
+ */
+function syncCellSelectionToHidden(cellId, sel) {
+  const idx = cells.findIndex(c => c.id === cellId)
+  if (idx < 0) return
+  const entry = computeCellContentOffsets(cells)[idx]
+  if (!entry) return
+  hiddenView.dispatch({
+    selection: { anchor: entry.from + sel.anchor, head: entry.from + sel.head },
+    annotations: fromCellSync.of(true),
+  })
+}
+
+/**
  * Extension list shared by every cell's own visible EditorView -- fires the
  * bidirectional sync with hiddenView (see literate-cell-sync.js) on every
  * local doc/selection change, and tracks which cell is "active" (drives
@@ -810,8 +828,13 @@ $effect(() => {
 function cellSyncExtensions(cellId, cellType) {
   return [
     EditorView.domEventHandlers({
-      focus() {
+      // Focus alone (Tab, "+ Code", deleting the active cell) starts no
+      // selection transaction, so copy this cell's caret into hiddenView
+      // here too: goal commands resolve their goal from hiddenView's
+      // selection, and would otherwise act on the previous cell's goal.
+      focus(_event, view) {
         activeCellId = cellId
+        syncCellSelectionToHidden(cellId, view.state.selection.main)
       },
     }),
     EditorView.updateListener.of(update => {
@@ -838,17 +861,7 @@ function cellSyncExtensions(cellId, cellType) {
         }
       }
 
-      if (update.selectionSet) {
-        const idx = cells.findIndex(c => c.id === cellId)
-        if (idx < 0) return
-        const offsets = computeCellContentOffsets(cells)
-        const entry = offsets[idx]
-        const sel = update.state.selection.main
-        hiddenView.dispatch({
-          selection: { anchor: entry.from + sel.anchor, head: entry.from + sel.head },
-          annotations: fromCellSync.of(true),
-        })
-      }
+      if (update.selectionSet) syncCellSelectionToHidden(cellId, update.state.selection.main)
     }),
     // Agda command shortcuts only make sense while a code cell is focused --
     // a markdown cell (even mid-edit) is prose, not something Load/Give/

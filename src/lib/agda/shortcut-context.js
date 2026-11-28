@@ -25,19 +25,20 @@ import { goalContentToAgdaRange, noAgdaRange } from './ranges'
  * @param {string} [agdaVersion] the running ALS's numeric Agda version
  *   (e.g. "2.7.0.1") — determines the Interval wire format; see
  *   formatAgdaRange in ranges.js.
+ * @param {number} [pos] where the command was issued, if not the caret
  * @returns {AgdaShortcutContext}
  */
-export function getAgdaShortcutContext(view, currentFilePath, agdaVersion) {
-  const selection = view.state.selection.main
+export function getAgdaShortcutContext(view, currentFilePath, agdaVersion, pos = view.state.selection.main.head) {
   const docLength = view.state.doc.length
-  const previousPos = Math.max(0, selection.head - 1)
-  const nextPos = Math.min(docLength, selection.head + 1)
+  const head = Math.max(0, Math.min(pos, docLength))
+  const previousPos = Math.max(0, head - 1)
+  const nextPos = Math.min(docLength, head + 1)
   // Only goals in goal state count. A `{! !}` that is merely text (restored
   // by undo, pasted, or in a comment) is not an interaction point, and
   // pairing it with some goal id sent the command to a different goal.
   // agda-mode-vscode and Emacs likewise act only on goals they track.
   const goal =
-    getGoalAtPosition(view.state, selection.head) ??
+    getGoalAtPosition(view.state, head) ??
     getGoalAtPosition(view.state, previousPos) ??
     getGoalAtPosition(view.state, nextPos)
 

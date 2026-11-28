@@ -1,4 +1,5 @@
 import { getAgdaShortcutContext } from './shortcut-context'
+import { pinnedPositions, pinPosition, unpinPosition } from '$lib/codemirror/pinned-positions'
 
 /** @import { EditorView } from '@codemirror/view' */
 /** @import { AgdaController } from '$lib/controller.svelte' */
@@ -21,6 +22,32 @@ import { getAgdaShortcutContext } from './shortcut-context'
  * @prop {() => void} [onFailure]
  *   Called when building or running the interaction throws.
  */
+
+/**
+ * Runs `presync` (a notebook's prefix re-load), then resolves the command's
+ * goal where the caret was when the command was issued, not where it is by
+ * then: a click in another cell during the re-load must not redirect it.
+ * @param {EditorView} view
+ * @param {AgdaController} agdaController
+ * @param {((view: EditorView) => Promise<void>) | undefined} presync
+ * @returns {Promise<AgdaShortcutContext>}
+ */
+async function syncAndGetContext(view, agdaController, presync) {
+  const contextAt = (/** @type {number | undefined} */ pos) =>
+    getAgdaShortcutContext(view, agdaController.currentFilePath, agdaController.receivedNumericAgdaVersion, pos)
+  if (!presync) {
+    await agdaController.syncSourceFileToDrive()
+    return contextAt(undefined)
+  }
+  const key = Symbol('agda-command')
+  view.dispatch({ effects: pinPosition.of({ key, pos: view.state.selection.main.head }) })
+  try {
+    await presync(view)
+    return contextAt(view.state.field(pinnedPositions, false)?.get(key))
+  } finally {
+    view.dispatch({ effects: unpinPosition.of(key) })
+  }
+}
 
 /** @param {unknown} err */
 function errorMessage(err) {
@@ -77,11 +104,7 @@ export async function runAgdaShortcut(opts) {
 
   await runAgdaCommand({
     label, agdaController, appendLog, hooks,
-    build: async () => {
-      await (presync ? presync(view) : agdaController.syncSourceFileToDrive())
-      const context = getAgdaShortcutContext(view, agdaController.currentFilePath, agdaController.receivedNumericAgdaVersion)
-      return command(context)
-    },
+    build: async () => command(await syncAndGetContext(view, agdaController, presync)),
   })
 }
 
@@ -113,8 +136,7 @@ export async function runAgdaShortcutWithInputPrompt(opts) {
   /** @type {AgdaShortcutContext} */
   let context
   try {
-    await (presync ? presync(view) : agdaController.syncSourceFileToDrive())
-    context = getAgdaShortcutContext(view, agdaController.currentFilePath, agdaController.receivedNumericAgdaVersion)
+    context = await syncAndGetContext(view, agdaController, presync)
   } catch (err) {
     hooks.onFailure?.()
     appendLog(`${label} failed: ${errorMessage(err)}\n`)
