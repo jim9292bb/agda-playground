@@ -1,5 +1,6 @@
 <script>
 import { onMount } from 'svelte'
+import { afterNavigate, replaceState } from '$app/navigation'
 import PlfaChapterPicker from '$lib/components/PlfaChapterPicker.svelte'
 import NotebookPage from '$lib/components/NotebookPage.svelte'
 import { deployProfiles } from '$lib/controller.svelte'
@@ -39,21 +40,71 @@ let selectedChapterId = $state(/** @type {string | null} */(null))
 /** @type {NotebookPage | undefined} */
 let notebook = $state()
 
+// Each chapter keeps its own saved copy (NotebookPage.openScopedSource), so
+// a student's exercise answers survive switching chapters, reloading, and
+// opening a ?chapter= link again. The last chapter is remembered for a plain
+// /plfa visit, and the URL follows the open chapter.
+const LS_LAST_CHAPTER_KEY = 'agda-playground-plfa.last-chapter.v1'
+
+let routerReady = false
+
+/** Put the open chapter in the URL (?chapter=), once SvelteKit's router can
+ *  take a replaceState: the first chapter is picked during mount, before it. */
+function syncChapterUrl() {
+  if (!routerReady) return
+  const url = new URL(window.location.href)
+  if (selectedChapterId) url.searchParams.set('chapter', selectedChapterId)
+  else url.searchParams.delete('chapter')
+  if (url.href !== window.location.href) replaceState(url, {})
+}
+
+afterNavigate(() => {
+  routerReady = true
+  syncChapterUrl()
+})
+
+/** @param {string | null} id */
+function rememberChapter(id) {
+  try {
+    if (id) localStorage.setItem(LS_LAST_CHAPTER_KEY, id)
+    else localStorage.removeItem(LS_LAST_CHAPTER_KEY)
+  } catch {
+    // storage blocked: the chapter just isn't remembered
+  }
+  syncChapterUrl()
+}
+
 /** @param {PlfaChapter} chapter */
 function selectPlfaChapter(chapter) {
   selectedChapterId = chapter.id
-  notebook?.loadSource(chapter.source, 'Chapter')
+  notebook?.openScopedSource(chapter.id, chapter.source)
+  rememberChapter(chapter.id)
+}
+
+/** @param {PlfaChapter} chapter */
+function resetPlfaChapter(chapter) {
+  if (!window.confirm(`Replace your work in "${chapter.title}" with the original chapter? This cannot be undone.`)) return
+  selectedChapterId = chapter.id
+  notebook?.openScopedSource(chapter.id, chapter.source, { what: 'Original chapter', fresh: true })
+  rememberChapter(chapter.id)
 }
 
 // Deep-link support: ?chapter=<id> (e.g. ?chapter=Naturals) opens straight
 // into that chapter, mirroring plfa.github.io's own per-chapter URLs so a
 // link from the official site or course material can point directly at the
-// interactive version. An unknown/missing id is silently ignored, leaving
-// the default welcome content. Children mount before their parent, so
-// `notebook` is already bound by the time this runs.
+// interactive version. Without one, the last chapter opened here reopens.
+// An unknown id is ignored, leaving the default welcome content. Children
+// mount before their parent, so `notebook` is already bound by the time
+// this runs.
 onMount(() => {
-  const chapterId = new URL(window.location.href).searchParams.get('chapter')
-  if (!chapterId) return
+  let chapterId = new URL(window.location.href).searchParams.get('chapter')
+  if (!chapterId) {
+    try {
+      chapterId = localStorage.getItem(LS_LAST_CHAPTER_KEY)
+    } catch {
+      chapterId = null
+    }
+  }
   const chapter = plfaChapters.find(c => c.id === chapterId)
   if (chapter) selectPlfaChapter(chapter)
 })
@@ -67,8 +118,8 @@ onMount(() => {
   sourceFileName="source-plfa.lagda.md"
   initialProfileLabel={plfaProfile?.label}
   {defaultSource}
-  onSourceReplaced={() => { selectedChapterId = null }}>
+  onSourceReplaced={() => { selectedChapterId = null; rememberChapter(null) }}>
   {#snippet picker()}
-    <PlfaChapterPicker chapters={plfaChapters} {selectedChapterId} onSelect={selectPlfaChapter} />
+    <PlfaChapterPicker chapters={plfaChapters} {selectedChapterId} onSelect={selectPlfaChapter} onReset={resetPlfaChapter} />
   {/snippet}
 </NotebookPage>

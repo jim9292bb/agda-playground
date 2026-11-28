@@ -152,8 +152,13 @@ export class AgdaController {
    *  Equals the plain LS_DOC_KEY when sourceFileName is unset, matching
    *  today's behavior exactly. */
   get docStorageKey(): string {
-    return this.config.sourceFileName ? `${LS_DOC_KEY}:${this.config.sourceFileName}` : LS_DOC_KEY
+    const base = this.config.sourceFileName ? `${LS_DOC_KEY}:${this.config.sourceFileName}` : LS_DOC_KEY
+    return this.docStorageScope ? `${base}:chapter:${this.docStorageScope}` : base
   }
+
+  /** Which saved document of this route is open: null for the route's own
+   *  buffer, or a PLFA chapter id, each chapter keeping its own saved copy. */
+  docStorageScope = $state<string | null>(null)
 
   /** The browser-saved copy of the buffer under docStorageKey. */
   readonly docStorage = new DocStorage({ getKey: () => this.docStorageKey })

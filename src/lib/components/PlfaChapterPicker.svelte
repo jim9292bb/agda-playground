@@ -5,8 +5,11 @@
  * chapters: PlfaChapter[],
  * selectedChapterId: string | null,
  * onSelect: (chapter: PlfaChapter) => void,
+ * onReset?: (chapter: PlfaChapter) => void,
  * }} */
-let { chapters, selectedChapterId, onSelect } = $props()
+let { chapters, selectedChapterId, onSelect, onReset } = $props()
+
+const selectedChapter = $derived(chapters.find(c => c.id === selectedChapterId))
 
 let menuOpen = $state(false)
 
@@ -36,6 +39,15 @@ const groups = $derived(
   </button>
   {#if menuOpen}
     <div class="header-examples-menu" role="menu">
+      {#if selectedChapter && onReset}
+        <button
+          type="button"
+          class="header-examples-item"
+          role="menuitem"
+          onclick={() => { menuOpen = false; onReset(selectedChapter) }}>
+          Reset “{selectedChapter.title}” to the original
+        </button>
+      {/if}
       {#each groups as group (group.part)}
         <div class="header-examples-group-label">{group.label}</div>
         {#each group.chapters as chapter (chapter.id)}

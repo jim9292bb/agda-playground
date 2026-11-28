@@ -25,10 +25,20 @@ plfa_open_app() {
   wait_for_app_ready .literate-cell
   # /plfa uses its own localStorage namespace (AgdaController's
   # sourceFileName: 'source-plfa.lagda.md') so it doesn't share state with
-  # the default route or /literate.
-  reset_storage_and_reload .literate-cell \
-    'agda-playground-plfa.shortcut-overrides.v1' \
-    'agda-web-ide-beta:doc:source-plfa.lagda.md'
+  # the default route or /literate. Each chapter is saved under its own
+  # ':chapter:<id>' key and the last chapter is reopened on a plain visit,
+  # so clear all of them and open APP_URL again (a reload would keep the
+  # ?chapter= the page just put in the URL).
+  ab eval "(() => {
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith('agda-web-ide-beta:doc:source-plfa.lagda.md')) localStorage.removeItem(key)
+    }
+    localStorage.removeItem('agda-playground-plfa.shortcut-overrides.v1')
+    localStorage.removeItem('agda-playground-plfa.last-chapter.v1')
+    return true
+  })()" >/dev/null
+  ab open "$APP_URL" >/dev/null
+  wait_for_app_ready .literate-cell
 }
 
 # Opens the "Chapters" dropdown and clicks the entry whose label *starts

@@ -989,6 +989,21 @@ export function loadSource(source, what = 'Example') {
   replaceScratchpadSource(source, what)
 }
 
+/**
+ * Opens one of several saved documents (a PLFA chapter): saves the current
+ * one, then shows the copy saved under `scope`, or `source` when there is
+ * none or `fresh` is set.
+ * @param {string} scope
+ * @param {string} source
+ * @param {{ what?: string, fresh?: boolean }} [options]
+ */
+export function openScopedSource(scope, source, { what = 'Chapter', fresh = false } = {}) {
+  agdaController.docStorage.flush()
+  agdaController.docStorageScope = scope
+  const saved = agdaController.docStorage.load(source)
+  replaceScratchpadSource(fresh ? source : saved, what)
+}
+
 function openSettingsPanel() {
   shortcutOverrideState.beginEditing()
   settingsPanelVisible = true
@@ -1018,6 +1033,9 @@ function openAgdaFile(event) {
   const reader = new FileReader()
   reader.onload = () => {
     const text = /** @type {string} */ (reader.result)
+    // An opened file goes to the route's own slot, never over a chapter's.
+    agdaController.docStorage.flush()
+    agdaController.docStorageScope = null
     replaceScratchpadSource(text, 'File')
     onSourceReplaced?.()
   }
