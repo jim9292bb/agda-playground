@@ -591,6 +591,16 @@ function syncGoalPanel(state) {
  */
 let autoFetchingGoalTypes = $state(false)
 
+// Goals whose background type fetch already ran for a document version:
+// one attempt each. A goal Agda never reached (`h = {!!} {!!}`) answers
+// NoActionForInteractionPoint and never gets a type, and retrying it looped
+// forever (Emacs and agda-mode-vscode don't fetch these at all).
+// A plain Set on purpose: no effect needs to re-run when it changes.
+/** @type {Set<string>} */
+const attemptedGoalTypeFetches = new Set()
+/** @param {number} documentVersion @param {number | string} goalId */
+const goalTypeFetchKey = (documentVersion, goalId) => `${documentVersion}:${goalId}`
+
 async function autoFetchGoalTypes(/** @type {number} */ documentVersion) {
   if (autoFetchingGoalTypes) return
   autoFetchingGoalTypes = true
@@ -604,10 +614,18 @@ async function autoFetchGoalTypes(/** @type {number} */ documentVersion) {
       // a user command is waiting: let it go first
       if (agdaController.commandsInFlight > 0) break
       if (panelGoalInfos.find(g => g.id === goalId)?.type !== undefined) continue
-      await agdaController.runAgdaInteraction(
-        goalTypeContextCommand('Simplified', { id: goalId }),
-        { suppressDisplayInfo: true },
-      )
+      const key = goalTypeFetchKey(documentVersion, goalId)
+      if (attemptedGoalTypeFetches.has(key)) continue
+      attemptedGoalTypeFetches.add(key)
+      try {
+        await agdaController.runAgdaInteraction(
+          goalTypeContextCommand('Simplified', { id: goalId }),
+          { suppressDisplayInfo: true },
+        )
+      } catch (err) {
+        // A convenience fetch: its failure is nobody's command.
+        console.warn(`Goal type fetch for ?${goalId} failed`, err)
+      }
     }
   } finally {
     autoFetchingGoalTypes = false
@@ -1228,10 +1246,10 @@ $effect(() => {
 
 $effect(() => {
   if (autoFetchingGoalTypes) return
-  if (panelGoalInfos.every(g => g.type !== undefined)) return
   if (agdaController.alsWorkerStatus !== 'active') return
   if (agdaController.iotcmStatus !== 'ready' || agdaController.commandsInFlight > 0) return
   const documentVersion = getAgdaDocumentVersion(hiddenView.state)
+  if (panelGoalInfos.every(g => g.type !== undefined || attemptedGoalTypeFetches.has(goalTypeFetchKey(documentVersion, g.id)))) return
   untrack(() => {
     void autoFetchGoalTypes(documentVersion)
   })
