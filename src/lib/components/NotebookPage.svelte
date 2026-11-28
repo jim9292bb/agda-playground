@@ -206,7 +206,7 @@ let isMobile = $derived(width < 540)
 // registry of each cell's own mounted EditorView, populated/cleared by
 // each cell's own mount/destroy attachment below.
 
-let cells = $state(cellsFromSource(localStorage.getItem(agdaController.docStorageKey) ?? initialConfig.defaultSource))
+let cells = $state(cellsFromSource(agdaController.docStorage.load(initialConfig.defaultSource)))
 /** @type {string | null} */
 let activeCellId = $state(null)
 // Plain (not SvelteMap) intentionally -- a live registry of mounted
@@ -221,6 +221,8 @@ const cellViews = new Map()
 /** @param {import('@codemirror/view').ViewUpdate} update */
 function hiddenViewUpdateListener(update) {
   const isSyncEcho = update.transactions.some(tr => tr.annotation(fromCellSync))
+  // Every edit, from a cell or from Agda, lands in the hidden document.
+  if (update.docChanged) agdaController.docStorage.schedule(() => update.view.state.doc.toString())
 
   if (update.docChanged && !isSyncEcho) {
     const preOffsets = computeCellContentOffsets(cells)
@@ -285,6 +287,7 @@ const hiddenView = new EditorView({
   }),
 })
 agdaController.connectEditorView(hiddenView)
+agdaController.docStorage.markSaved(hiddenView.state.doc.toString())
 agdaController.onJumpToError = position => focusGlobalPosition(position)
 
 const reloadAfterAgdaEdit = () => {
@@ -298,8 +301,12 @@ const reloadAfterAgdaEdit = () => {
   })()
 }
 hiddenView.dom.addEventListener('agda-reload-needed', reloadAfterAgdaEdit)
+const saveBeforeHide = () => agdaController.docStorage.flush()
+window.addEventListener('pagehide', saveBeforeHide)
 
 onDestroy(() => {
+  window.removeEventListener('pagehide', saveBeforeHide)
+  saveBeforeHide()
   agdaController.terminateALSWASM()
   hiddenView.dom.removeEventListener('agda-reload-needed', reloadAfterAgdaEdit)
   hiddenView.destroy()
@@ -956,7 +963,7 @@ function replaceScratchpadSource(source, what) {
     selection: { anchor: 0 },
     annotations: fromCellSync.of(true),
   })
-  localStorage.setItem(agdaController.docStorageKey, source)
+  agdaController.docStorage.save(hiddenView.state.doc.toString())
   clearScratchpadInteractionState()
   textboxContent = `${what} loaded into editor. Click Load to type-check it.\n`
 }

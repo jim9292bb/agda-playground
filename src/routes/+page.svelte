@@ -472,7 +472,7 @@ const agdaChordKeymap = EditorView.domEventHandlers({
 /** @type {import('svelte/attachments').Attachment} */
 function codeMirror(el) {
   const ev = new EditorView({
-    doc: localStorage.getItem(agdaController.docStorageKey) ?? defaultSource,
+    doc: agdaController.docStorage.load(defaultSource),
     parent: el,
     extensions: [
       basicSetup,
@@ -489,6 +489,7 @@ function codeMirror(el) {
       // after the Agda keymaps so any future Agda Tab binding would win.
       keymap.of([indentWithTab]),
       EditorView.updateListener.of(update => {
+        if (update.docChanged) agdaController.docStorage.schedule(() => update.view.state.doc.toString())
         const goalEffects = update.transactions.some(tr => tr.effects.length > 0)
         if (update.selectionSet || update.docChanged || goalEffects) {
           syncGoalPanel(update.view)
@@ -530,11 +531,15 @@ function codeMirror(el) {
       }
     })()
   }
+  const saveBeforeHide = () => agdaController.docStorage.flush()
   window.addEventListener('keydown', captureAgdaChord, { capture: true })
+  window.addEventListener('pagehide', saveBeforeHide)
   ev.dom.addEventListener('agda-reload-needed', reloadAfterAgdaEdit)
 
   return () => {
     window.removeEventListener('keydown', captureAgdaChord, { capture: true })
+    window.removeEventListener('pagehide', saveBeforeHide)
+    saveBeforeHide()
     ev.dom.removeEventListener('agda-reload-needed', reloadAfterAgdaEdit)
     clearChordProgress()
     ev.destroy()
@@ -561,7 +566,7 @@ function replaceScratchpadSource(source) {
     changes: { from: 0, to: view.state.doc.length, insert: source },
     selection: { anchor: 0 },
   })
-  localStorage.setItem(agdaController.docStorageKey, source)
+  agdaController.docStorage.save(source)
   clearScratchpadInteractionState()
   textboxContent = 'Example loaded into editor. Click Load to type-check it.\n'
   view.focus()

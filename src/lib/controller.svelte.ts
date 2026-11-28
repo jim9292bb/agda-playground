@@ -20,6 +20,7 @@ import { createPerformanceTrace, formatDurationMs, formatPerformanceEntry } from
 import type { DriveProxyStats, PerformanceEntry, WASMLoadingProgress } from './worker/types'
 import { BrowserWasiShimRuntimeBackend } from './runtime/browser-wasi-shim'
 import DOMPurify from 'dompurify'
+import { DocStorage } from './doc-storage'
 import {
   deployProfiles, resolveProfileLibraries,
   type DriveHandle, type RuntimeBackend, type DeployProfile,
@@ -153,6 +154,9 @@ export class AgdaController {
   get docStorageKey(): string {
     return this.config.sourceFileName ? `${LS_DOC_KEY}:${this.config.sourceFileName}` : LS_DOC_KEY
   }
+
+  /** The browser-saved copy of the buffer under docStorageKey. */
+  readonly docStorage = new DocStorage({ getKey: () => this.docStorageKey })
 
   appendQueryResult(label: string, content: string) {
     this.queryResults = [{ id: this._nextQueryId++, label, content }, ...this.queryResults]
@@ -428,7 +432,7 @@ export class AgdaController {
 
   async syncSourceFileToDrive() {
     const doc = this.editorView!.state.doc.toString()
-    localStorage.setItem(this.docStorageKey, doc)
+    this.docStorage.save(doc)
     await this._syncStringToDrive(doc)
   }
 
@@ -439,7 +443,7 @@ export class AgdaController {
    * of the real, untruncated document.
    */
   private async _syncTruncatedStringToDrive(truncated: string) {
-    localStorage.setItem(this.docStorageKey, this.editorView!.state.doc.toString())
+    this.docStorage.save(this.editorView!.state.doc.toString())
     await this._syncStringToDrive(truncated)
   }
 
