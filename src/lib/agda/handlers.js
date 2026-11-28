@@ -25,6 +25,9 @@ import { formatConstraints } from './constraints'
  * @prop {{id: number, from: number, to: number, text: string} | undefined} [pendingGiveGoal]
  * @prop {{id: number, expression: string}[] | undefined} [pendingSolutions]
  * @prop {boolean} runDiscarded
+ * @prop {boolean} [replaceGoals] set for a Load: its InteractionPoints are
+ *   every goal, and replace the tracked ones (agda-mode-vscode
+ *   Goals.resetGoalIndicesOnLoad) instead of being merged in
  * @prop {(label: string, content: string) => void} appendQueryResult
  * @prop {string} currentFilePath
  * @prop {((position: number) => void) | undefined} [onJumpToError] overrides
@@ -317,7 +320,7 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       })
 
       editorView.dispatch({
-        ...buildLegacyGoalTransaction(editorView.state, holes, ids),
+        ...buildLegacyGoalTransaction(editorView.state, holes, ids, { replace: controller.replaceGoals }),
       })
     },
     ResponseJSONRaw(/** @type {Agda._Resp} */contents) {
@@ -438,7 +441,7 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
     },
     InteractionPoints({ interactionPoints }) {
       if (!shouldAcceptEditorResponse('InteractionPoints')) return
-      const transaction = buildGoalTransaction(editorView.state, interactionPoints)
+      const transaction = buildGoalTransaction(editorView.state, interactionPoints, { replace: controller.replaceGoals })
       editorView.dispatch({
         ...transaction,
       })

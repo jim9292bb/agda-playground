@@ -44,6 +44,8 @@ export type AgdaCommandOptions = {
   pendingGiveGoal?: PendingGoal,
   /** The goal a MakeCase response replaces. */
   pendingCaseSplitGoal?: PendingGoal,
+  /** A Load: its InteractionPoints replace the tracked goals. */
+  replaceGoals?: boolean,
 }
 
 /** What one command's responses reported, read before the next one runs. */
@@ -586,7 +588,7 @@ export class AgdaController {
       const result = await this.runAgdaCommand({
         tag: 'CmdReq',
         contents: `IOTCM ${encodedFilePath} NonInteractive Direct (Cmd_load ${encodedFilePath} ${JSON.stringify(loadArgs)})`,
-      })
+      }, { replaceGoals: true })
       throwIfAgdaFailed(result, this.currentFilePath)
       }, { file: this.currentFilePath })
     } finally {
@@ -625,9 +627,11 @@ export class AgdaController {
    * callers can resolve the target goal from the live EditorView exactly as
    * they would after a full load — no separate offset translation needed.
    */
-  async syncTruncatedSourceFileToDrive(view: EditorView, blocks: LiterateBlock[], blockIndex: number) {
+  /** `force`: an explicit Load always re-checks, as Emacs's agda2-load
+   *  always sends Cmd_load; the cache only spares a goal command's presync. */
+  async syncTruncatedSourceFileToDrive(view: EditorView, blocks: LiterateBlock[], blockIndex: number, { force = false } = {}) {
     const key = `${getAgdaDocumentVersion(view.state)}:${blockIndex}`
-    if (key === this._lastLoadedBlockKey) return
+    if (!force && key === this._lastLoadedBlockKey) return
 
     const truncated = truncateToBlock(view.state.doc.toString(), blocks, blockIndex)
     await this._syncTruncatedStringToDrive(truncated)
@@ -646,6 +650,8 @@ export class AgdaController {
   private abandonCommands() {
     this.commandGeneration++
     this.cancelRunningCommand?.()
+    // A new worker has loaded nothing, whatever the last prefix was.
+    this._lastLoadedBlockKey = null
   }
 
   /** Bumped when the document is replaced wholesale: runs issued for the
@@ -707,6 +713,7 @@ export class AgdaController {
     router.pendingCaseSplitGoal = options.pendingCaseSplitGoal
     router.suppressAgdaInternalErrors = options.suppressAgdaInternalErrors ?? false
     router.suppressDisplayInfo = options.suppressDisplayInfo ?? false
+    router.replaceGoals = options.replaceGoals ?? false
     router.runDiscarded = false
     const cancelled = new Promise<never>((_, reject) => {
       this.cancelRunningCommand = () => reject(new Error(AGDA_RESTARTED_MESSAGE))
@@ -734,6 +741,7 @@ export class AgdaController {
       router.pendingGiveGoal = undefined
       router.pendingCaseSplitGoal = undefined
       router.runDiscarded = false
+      router.replaceGoals = false
     }
   }
 

@@ -1,7 +1,7 @@
 import { EditorState, ChangeSet } from '@codemirror/state'
 import { Decoration, EditorView } from '@codemirror/view'
 import { mapUtf8Range } from '$lib/codemirror/offsets'
-import { addGoals, addGoalsAfterChanges, setGoalInfo } from './effects'
+import { addGoals, addGoalsAfterChanges, setGoalInfo, setGoals, setGoalsAfterChanges } from './effects'
 import {
   agdaGoalState,
   getAgdaGoalAtPosition,
@@ -96,8 +96,11 @@ function holeRangeInDocument(state, ip) {
 /**
  * @param {EditorState} state
  * @param {Agda._InteractionPoint[]} ips
+ * @param {{replace?: boolean}} [options] replace: these are all the goals
+ *   (the InteractionPoints of a Load), so goals not among them are dropped;
+ *   otherwise they are merged into the tracked ones.
  * @returns {TransactionSpec} */
-export function buildGoalTransaction(state, ips) {
+export function buildGoalTransaction(state, ips, { replace = false } = {}) {
   /** @type {Range<Decoration>[]} */
   const arr = []
 
@@ -107,14 +110,14 @@ export function buildGoalTransaction(state, ips) {
     arr.push(makeGoalMark(ip.id).range(range.from, range.to))
   }
 
-  if (arr.length == 0) return {}
+  if (arr.length == 0) return replace ? { effects: [setGoals.of([])] } : {}
 
   const { changes, goals } = expandGoalRanges(state, arr)
 
   return {
     changes,
     effects: [
-      addGoalsAfterChanges.of(goals),
+      (replace ? setGoalsAfterChanges : addGoalsAfterChanges).of(goals),
       setGoalInfo.of(ips.map(summarizeInteractionPoint)),
     ],
   }
@@ -127,9 +130,10 @@ export function buildGoalTransaction(state, ips) {
  * @param {EditorState} state
  * @param {import('@codemirror/state').RangeSet<Decoration>} holes
  * @param {number[]} ids
+ * @param {{replace?: boolean}} [options] as for buildGoalTransaction
  * @returns {TransactionSpec}
  */
-export function buildLegacyGoalTransaction(state, holes, ids) {
+export function buildLegacyGoalTransaction(state, holes, ids, { replace = false } = {}) {
   /** @type {Range<Decoration>[]} */
   const decos = []
 
@@ -144,7 +148,7 @@ export function buildLegacyGoalTransaction(state, holes, ids) {
 
   return {
     effects: [
-      addGoals.of(decos),
+      (replace ? setGoals : addGoals).of(decos),
       setGoalInfo.of(summarizeLegacyInteractionPoints(decos, ids, state)),
     ],
   }

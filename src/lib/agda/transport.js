@@ -57,6 +57,9 @@ export class ALSMessageRouter {
      *  rest of that command's responses describe text that is gone.
      *  @type {boolean} */
     this.runDiscarded = false
+    /** The running command is a Load: see handlers.js's Controller.
+     *  @type {boolean} */
+    this.replaceGoals = false
     /** @type {(label: string, content: string) => void} */
     this.appendQueryResult = (_label, _content) => {}
     /**

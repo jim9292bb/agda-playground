@@ -1117,7 +1117,7 @@ async function performLoad(blockIndex) {
     // See literatePresync's comment: cells-array-based offsets, not
     // parseLiterateBlocks against the assembled text.
     const blocks = computeCellWrapperOffsets(cells)
-    await agdaController.syncTruncatedSourceFileToDrive(hiddenView, blocks, blockIndex)
+    await agdaController.syncTruncatedSourceFileToDrive(hiddenView, blocks, blockIndex, { force: true })
     syncAgdaDiagnostics()
     textboxContent += 'Load finished.\n'
   } catch (err) {

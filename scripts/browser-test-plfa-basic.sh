@@ -56,15 +56,6 @@ ab wait 5000 >/dev/null
 assert_cell_contains "$last_index" "testGiveGoal = zero" "Give fills the goal with zero"
 assert_log_contains "Give finished." "Give finishes"
 
-# Give renumbers the remaining goal (?1 -> ?0) as part of its own follow-up
-# recheck; re-Load explicitly before acting on it rather than trusting the
-# client's tracked goal id to have already caught up to that renumbering by
-# the time the next command dispatches (confirmed empirically: skipping
-# this reload here intermittently sends Case split a stale interaction
-# point id, which Agda rejects with "no such interaction point").
-press_agda_chord_in_cell "$last_index" "l" "KeyL"
-wait_for_log_contains "Load finished." 60000
-
 # Case split: split testCaseSplit's hole on its bound variable "n".
 cursor_in_cell_goal "$last_index" 0
 press_agda_chord_in_cell "$last_index" "c" "KeyC"
