@@ -32,6 +32,9 @@ export { deployProfiles, resolveProfileLibraries }
 /** Why a command fails when the Agda worker stops or restarts under it. */
 export const AGDA_RESTARTED_MESSAGE = 'Agda was restarted before the command finished.'
 
+/** Why a command fails when its document is replaced wholesale under it. */
+export const DOCUMENT_REPLACED_MESSAGE = 'the document was replaced before the command finished.'
+
 type PendingGoal = { id: number, from: number, to: number, text: string }
 
 export type AgdaCommandOptions = {
@@ -45,12 +48,17 @@ export type AgdaCommandOptions = {
 
 /** What one command's responses reported, read before the next one runs. */
 export type AgdaCommandResult = {
+  /** The document was replaced while it ran: its responses were ignored. */
+  discarded: boolean,
   internalError: string | null,
   error: string | null,
   solutions: { id: number, expression: string }[] | undefined,
 }
 
 function throwIfAgdaFailed(result: AgdaCommandResult, filePath: string) {
+  if (result.discarded) {
+    throw new Error(DOCUMENT_REPLACED_MESSAGE)
+  }
   if (result.internalError) {
     throw new Error(`ALS failed to process ${filePath}: ${result.internalError}`)
   }
@@ -640,6 +648,20 @@ export class AgdaController {
     this.cancelRunningCommand?.()
   }
 
+  /** Bumped when the document is replaced wholesale: runs issued for the
+   *  old one fail instead of acting on the new one. */
+  private documentEpoch = 0
+
+  /**
+   * Call before replacing the whole document (another example, chapter,
+   * file, or another tab's version): the running command's remaining
+   * responses are ignored and queued ones are not sent.
+   */
+  discardCommandsForReplacedDocument() {
+    this.documentEpoch++
+    if (this.alsRouter && this.commandsInFlight > 0) this.alsRouter.runDiscarded = true
+  }
+
   /**
    * Sends one IOTCM request and waits for its ResponseEnd. Requests run one
    * at a time in the order they were made (agda-mode-vscode queues them
@@ -653,8 +675,9 @@ export class AgdaController {
     options: AgdaCommandOptions = {},
   ): Promise<AgdaCommandResult> {
     const generation = this.commandGeneration
+    const epoch = this.documentEpoch
     this.commandsInFlight++
-    const run = this.commandChain.then(() => this.executeAgdaCommand(params, options, generation))
+    const run = this.commandChain.then(() => this.executeAgdaCommand(params, options, generation, epoch))
     const settled = run.finally(() => { this.commandsInFlight-- })
     this.commandChain = settled.catch(() => {})
     return settled
@@ -664,6 +687,7 @@ export class AgdaController {
     params: { tag: 'CmdReq', contents: string },
     options: AgdaCommandOptions,
     generation: number,
+    epoch: number,
   ): Promise<AgdaCommandResult> {
     const router = this.alsRouter
     if (!router) {
@@ -671,6 +695,9 @@ export class AgdaController {
     }
     if (generation !== this.commandGeneration || this.alsWorkerStatus !== 'active') {
       throw new Error(AGDA_RESTARTED_MESSAGE)
+    }
+    if (epoch !== this.documentEpoch) {
+      throw new Error(DOCUMENT_REPLACED_MESSAGE)
     }
 
     router.lastAgdaInternalError = null
@@ -680,7 +707,7 @@ export class AgdaController {
     router.pendingCaseSplitGoal = options.pendingCaseSplitGoal
     router.suppressAgdaInternalErrors = options.suppressAgdaInternalErrors ?? false
     router.suppressDisplayInfo = options.suppressDisplayInfo ?? false
-    router.beginCommandDocumentVersion(getAgdaDocumentVersion(this.editorView!.state))
+    router.runDiscarded = false
     const cancelled = new Promise<never>((_, reject) => {
       this.cancelRunningCommand = () => reject(new Error(AGDA_RESTARTED_MESSAGE))
     })
@@ -694,6 +721,7 @@ export class AgdaController {
       }
       if (generation !== this.commandGeneration) throw new Error(AGDA_RESTARTED_MESSAGE)
       return {
+        discarded: router.runDiscarded,
         internalError: router.lastAgdaInternalError,
         error: router.lastAgdaError,
         solutions: router.pendingSolutions,
@@ -705,7 +733,7 @@ export class AgdaController {
       router.pendingSolutions = undefined
       router.pendingGiveGoal = undefined
       router.pendingCaseSplitGoal = undefined
-      router.clearCommandDocumentVersion()
+      router.runDiscarded = false
     }
   }
 

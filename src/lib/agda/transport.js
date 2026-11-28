@@ -52,8 +52,11 @@ export class ALSMessageRouter {
      *  response), for the controller to give once the command is done.
      *  @type {{id: number, expression: string}[] | undefined} */
     this.pendingSolutions = undefined
-    /** @type {number | null} */
-    this.activeDocumentVersion = null
+    /** Set when the document a running command was sent for is replaced
+     *  wholesale (another example, chapter, file or tab's version): the
+     *  rest of that command's responses describe text that is gone.
+     *  @type {boolean} */
+    this.runDiscarded = false
     /** @type {(label: string, content: string) => void} */
     this.appendQueryResult = (_label, _content) => {}
     /**
@@ -79,26 +82,6 @@ export class ALSMessageRouter {
       subscribe: this.cmSubscribe.bind(this),
       unsubscribe: this.cmUnsubscribe.bind(this),
     }
-  }
-
-  /** @param {number} documentVersion */
-  beginCommandDocumentVersion(documentVersion) {
-    this.activeDocumentVersion = documentVersion
-  }
-
-  clearCommandDocumentVersion() {
-    this.activeDocumentVersion = null
-  }
-
-  /** @param {number} documentVersion */
-  acceptsDocumentVersion(documentVersion) {
-    return this.activeDocumentVersion == null ||
-      this.activeDocumentVersion === documentVersion
-  }
-
-  /** @param {number} documentVersion */
-  acceptDocumentVersion(documentVersion) {
-    this.activeDocumentVersion = documentVersion
   }
 
   /** @type {Transport['send']} */

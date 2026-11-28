@@ -39,13 +39,7 @@ function makeController() {
     lastJumpToError: /** @type {any} */ (null),
     pendingCaseSplitGoal: /** @type {any} */ (undefined),
     pendingGiveGoal: /** @type {any} */ (undefined),
-    activeDocumentVersion: /** @type {number | null} */ (null),
-    acceptsDocumentVersion(/** @type {number} */ v) {
-      return this.activeDocumentVersion == null || this.activeDocumentVersion === v
-    },
-    acceptDocumentVersion(/** @type {number} */ v) {
-      this.activeDocumentVersion = v
-    },
+    runDiscarded: false,
     /** @type {{label: string, content: string}[]} */
     queryResults: [],
     appendQueryResult(/** @type {string} */ label, /** @type {string} */ content) {
@@ -285,9 +279,9 @@ describe('ResponseJSONRaw > DisplayInfo', () => {
     expect(setGoalInfoSpec).toBeDefined()
   })
 
-  it('discards everything (no controller mutation, no dispatch) when the response is stale', () => {
+  it('discards everything (no controller mutation, no dispatch) when the document was replaced', () => {
     const { view, controller, handlers } = makeSetup('')
-    controller.activeDocumentVersion = 999 // current doc version is 0, so this response is now stale
+    controller.runDiscarded = true
     handlers.ResponseJSONRaw?.(/** @type {any} */ ({
       kind: 'DisplayInfo',
       info: { kind: 'Error', error: { message: 'stale error' } },
@@ -514,12 +508,11 @@ describe('ResponseJSONRaw > ClearHighlighting', () => {
   // both collapse into the same ClearHighlighting response and always do a
   // full reset (Response.res, State__Response.res) -- match that.
   it.each(['TokenBased', 'NotOnlyTokenBased'])(
-    'dispatches clearHighlight and accepts the current document version for %s',
+    'dispatches clearHighlight for %s',
     tokenBased => {
-      const { view, controller, handlers } = makeSetup('')
+      const { view, handlers } = makeSetup('')
       handlers.ResponseJSONRaw?.(/** @type {any} */ ({ kind: 'ClearHighlighting', tokenBased }))
       expect(view.dispatchLog).toHaveLength(1)
-      expect(controller.activeDocumentVersion).toBe(0)
     }
   )
 })

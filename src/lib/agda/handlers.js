@@ -2,7 +2,7 @@ import { clearHighlight, clearRunningInfo, emitRunningInfo, setGoalInfo } from '
 import { alsHighlightingInfosDirectSchema, alsInteractionPointsSchema } from './schema'
 import { buildHighlightEffects, highlightState } from './highlight'
 import { buildGoalTransaction, buildLegacyGoalTransaction } from './goals'
-import { getAgdaDocumentVersion } from './goal-state'
+import { getAgdaGoalById, goalToLegacyRange } from './goal-state'
 import { removeGoalBoundary, replaceGoal, replaceGoalClause } from './editor-mutations'
 import { focusAgdaUtf8Position, parseAgdaDiagnostic } from './diagnostics'
 import { formatConstraints } from './constraints'
@@ -24,9 +24,7 @@ import { formatConstraints } from './constraints'
  * @prop {{id: number, from: number, to: number, text: string} | undefined} [pendingCaseSplitGoal]
  * @prop {{id: number, from: number, to: number, text: string} | undefined} [pendingGiveGoal]
  * @prop {{id: number, expression: string}[] | undefined} [pendingSolutions]
- * @prop {number | null} activeDocumentVersion
- * @prop {(documentVersion: number) => boolean} acceptsDocumentVersion
- * @prop {(documentVersion: number) => void} acceptDocumentVersion
+ * @prop {boolean} runDiscarded
  * @prop {(label: string, content: string) => void} appendQueryResult
  * @prop {string} currentFilePath
  * @prop {((position: number) => void) | undefined} [onJumpToError] overrides
@@ -61,20 +59,19 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
     }
   }
 
-  /** @param {string} responseKind */
+  /**
+   * Edits made while a command runs no longer drop its responses: Agda's
+   * positions are relative to the text last synced to it, and offsets.js
+   * maps them through every edit since (offsetTable's `uncommitted`), as
+   * goals move with the text -- the way Emacs and agda-mode-vscode keep
+   * applying responses while the user types. Only a document replaced
+   * wholesale (runDiscarded) has nothing left to apply them to.
+   * @param {string} responseKind
+   */
   function shouldAcceptEditorResponse(responseKind) {
-    const documentVersion = getAgdaDocumentVersion(editorView.state)
-    if (controller.acceptsDocumentVersion(documentVersion)) return true
-
-    console.warn(`Ignored stale Agda ${responseKind} response`, {
-      activeDocumentVersion: controller.activeDocumentVersion,
-      currentDocumentVersion: documentVersion,
-    })
+    if (!controller.runDiscarded) return true
+    console.warn(`Ignored Agda ${responseKind} response: the document was replaced while the command ran`)
     return false
-  }
-
-  function acceptCurrentDocumentVersion() {
-    controller.acceptDocumentVersion(getAgdaDocumentVersion(editorView.state))
   }
 
   /** Prefixes with the goal's own id, matching upstream's `"?N : type"` /
@@ -322,7 +319,6 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       editorView.dispatch({
         ...buildLegacyGoalTransaction(editorView.state, holes, ids),
       })
-      acceptCurrentDocumentVersion()
     },
     ResponseJSONRaw(/** @type {Agda._Resp} */contents) {
       const handler = rawJsonHandlers[contents.kind]
@@ -357,7 +353,6 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
               ...(info.invisibleGoals ?? []),
             ].map(summarizeGoal)),
           })
-          acceptCurrentDocumentVersion()
         }
       } else if (info.kind === 'GoalSpecific') {
         if (!stale) {
@@ -369,7 +364,6 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
               ...goalInfo,
             }]),
           })
-          acceptCurrentDocumentVersion()
         }
       }
       const message = formatDisplayInfo(info)
@@ -426,7 +420,6 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       editorView.dispatch({
         effects: clearHighlight.of(false),
       })
-      acceptCurrentDocumentVersion()
     },
     HighlightingInfo({ direct, info }) {
       if (!shouldAcceptEditorResponse('HighlightingInfo')) return
@@ -442,7 +435,6 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       editorView.dispatch({
         effects: buildHighlightEffects(editorView.state, info.payload)
       })
-      acceptCurrentDocumentVersion()
     },
     InteractionPoints({ interactionPoints }) {
       if (!shouldAcceptEditorResponse('InteractionPoints')) return
@@ -450,7 +442,6 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       editorView.dispatch({
         ...transaction,
       })
-      acceptCurrentDocumentVersion()
     },
     GiveAction({ interactionPoint, giveResult }) {
       if (!shouldAcceptEditorResponse('GiveAction')) {
@@ -471,7 +462,6 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       }
       if (!replaced) emitMessage(`Could not find goal ${interactionPointId} in the editor.`)
       controller.pendingGiveGoal = undefined
-      acceptCurrentDocumentVersion()
     },
     /** Solve constraints' answer: which goals Agda's constraints already
      *  determine. Only recorded here -- the controller gives each one once
@@ -491,14 +481,17 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       const renderedClauses = clauses.map(String)
       if (!renderedClauses.length) return
 
-      const goal = controller.pendingCaseSplitGoal
+      // The goal as it is now (it moves with edits made while Agda worked),
+      // falling back to where it was when the command was issued.
+      const pending = controller.pendingCaseSplitGoal
       controller.pendingCaseSplitGoal = undefined
+      const live = pending ? getAgdaGoalById(editorView.state, pending.id) : undefined
+      const goal = live ? goalToLegacyRange(live) : pending
       if (goal) {
         replaceGoalClause(editorView, goal, renderedClauses, variant)
       } else {
         emitMessage(renderedClauses.join('\n'))
       }
-      acceptCurrentDocumentVersion()
     }
   }
 

@@ -53,35 +53,6 @@ describe('ALSMessageRouter construction', () => {
   })
 })
 
-describe('document version gating', () => {
-  it('accepts any version when none is active', () => {
-    const { router } = makeRouter()
-    expect(router.acceptsDocumentVersion(1)).toBe(true)
-    expect(router.acceptsDocumentVersion(999)).toBe(true)
-  })
-
-  it('only accepts the version that was begun', () => {
-    const { router } = makeRouter()
-    router.beginCommandDocumentVersion(5)
-    expect(router.acceptsDocumentVersion(5)).toBe(true)
-    expect(router.acceptsDocumentVersion(6)).toBe(false)
-  })
-
-  it('clearing the active version reopens acceptance to any version', () => {
-    const { router } = makeRouter()
-    router.beginCommandDocumentVersion(5)
-    router.clearCommandDocumentVersion()
-    expect(router.acceptsDocumentVersion(6)).toBe(true)
-  })
-
-  it('acceptDocumentVersion sets the active version directly', () => {
-    const { router } = makeRouter()
-    router.acceptDocumentVersion(7)
-    expect(router.acceptsDocumentVersion(7)).toBe(true)
-    expect(router.acceptsDocumentVersion(8)).toBe(false)
-  })
-})
-
 describe('setStatus', () => {
   it('invokes the status callback on a real transition', () => {
     const { router, statuses } = makeRouter()

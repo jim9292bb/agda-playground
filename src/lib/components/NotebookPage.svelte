@@ -964,6 +964,7 @@ function clearScratchpadInteractionState() {
  * @param {string} what what was loaded, for the log ("Example", "Chapter", "File")
  */
 function replaceScratchpadSource(source, what) {
+  agdaController.discardCommandsForReplacedDocument()
   for (const view of cellViews.values()) view.destroy()
   cellViews.clear()
   editingMarkdownCellId = null

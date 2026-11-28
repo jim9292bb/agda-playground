@@ -577,6 +577,7 @@ function clearScratchpadInteractionState() {
 function replaceScratchpadSource(source, message = 'Example loaded into editor. Click Load to type-check it.\n') {
   const view = agdaController.editorView
   if (!view) return
+  agdaController.discardCommandsForReplacedDocument()
   view.dispatch({
     changes: { from: 0, to: view.state.doc.length, insert: source },
     selection: { anchor: 0 },
