@@ -29,6 +29,36 @@ import {
 export type { DriveHandle, DeployProfile }
 export { deployProfiles, resolveProfileLibraries }
 
+/** Why a command fails when the Agda worker stops or restarts under it. */
+export const AGDA_RESTARTED_MESSAGE = 'Agda was restarted before the command finished.'
+
+type PendingGoal = { id: number, from: number, to: number, text: string }
+
+export type AgdaCommandOptions = {
+  suppressAgdaInternalErrors?: boolean,
+  suppressDisplayInfo?: boolean,
+  /** The goal a GiveAction response falls back to. */
+  pendingGiveGoal?: PendingGoal,
+  /** The goal a MakeCase response replaces. */
+  pendingCaseSplitGoal?: PendingGoal,
+}
+
+/** What one command's responses reported, read before the next one runs. */
+export type AgdaCommandResult = {
+  internalError: string | null,
+  error: string | null,
+  solutions: { id: number, expression: string }[] | undefined,
+}
+
+function throwIfAgdaFailed(result: AgdaCommandResult, filePath: string) {
+  if (result.internalError) {
+    throw new Error(`ALS failed to process ${filePath}: ${result.internalError}`)
+  }
+  if (result.error) {
+    throw new Error(result.error)
+  }
+}
+
 const LS_DOC_KEY = 'agda-web-ide-beta:doc'
 const loadArgs: string[] = []
 
@@ -409,6 +439,7 @@ export class AgdaController {
       throw new Error('cannot stop if the status is not active')
     }
     this.alsWorkerStatus = 'deactivating'
+    this.abandonCommands()
     await this.lspClient!.request('shutdown', null)
     this.lspClient!.notification('exit', null)
     await this.runningWASM
@@ -419,6 +450,7 @@ export class AgdaController {
 
   terminateALSWASM() {
     console.log('attempting to terminate the worker')
+    this.abandonCommands()
     this._backend?.terminate()
     this.wasmLoadingProgress = null
     this.wasmLibraryFetchProgress = null
@@ -486,25 +518,27 @@ export class AgdaController {
     })
   }
 
-  async runAgdaInteraction(interaction: string, options: { suppressAgdaInternalErrors?: boolean, suppressDisplayInfo?: boolean } = {}) {
+  async runAgdaInteraction(interaction: string, options: AgdaCommandOptions = {}) {
     const encodedFilePath = JSON.stringify(this.currentFilePath)
-
-    this.alsRouter!.lastAgdaInternalError = null
-    this.alsRouter!.lastAgdaError = null
-    this.alsRouter!.pendingSolutions = undefined
-    await this.runAgdaCommand({
+    // The goal a Give/Case split was built for, staged on the router by
+    // shortcut-actions.js just before this call: it belongs to this run, so
+    // take it now rather than when the run reaches the front of the queue.
+    const router = this.alsRouter
+    const runOptions: AgdaCommandOptions = {
+      pendingGiveGoal: router?.pendingGiveGoal,
+      pendingCaseSplitGoal: router?.pendingCaseSplitGoal,
+      ...options,
+    }
+    if (router) {
+      router.pendingGiveGoal = undefined
+      router.pendingCaseSplitGoal = undefined
+    }
+    const result = await this.runAgdaCommand({
       tag: 'CmdReq',
       contents: `IOTCM ${encodedFilePath} NonInteractive Direct ${interaction}`,
-    }, options)
-    if (this.alsRouter!.lastAgdaInternalError) {
-      throw new Error(`ALS failed to process ${this.currentFilePath}: ${this.alsRouter!.lastAgdaInternalError}`)
-    }
-    if (this.alsRouter!.lastAgdaError) {
-      throw new Error(this.alsRouter!.lastAgdaError)
-    }
-    const solutions = this.alsRouter!.pendingSolutions
-    this.alsRouter!.pendingSolutions = undefined
-    if (solutions) await this.giveSolutions(solutions)
+    }, runOptions)
+    throwIfAgdaFailed(result, this.currentFilePath)
+    if (result.solutions) await this.giveSolutions(result.solutions)
   }
 
   /**
@@ -522,13 +556,7 @@ export class AgdaController {
       const goal = getAgdaGoalById(view.state, id)
       if (!goal) continue
       const range = goalContentToAgdaRange(view.state, this.currentFilePath, goal, this.receivedNumericAgdaVersion)
-      this.alsRouter!.pendingGiveGoal = goalToLegacyRange(goal)
-      try {
-        await this.runAgdaInteraction(giveCommand(goal, range, expression))
-      } catch (err) {
-        this.alsRouter!.pendingGiveGoal = undefined
-        throw err
-      }
+      await this.runAgdaInteraction(giveCommand(goal, range, expression), { pendingGiveGoal: goalToLegacyRange(goal) })
       solved++
     }
     const message = solved === 0 ? 'No solutions found.' : `${solved} goal${solved === 1 ? '' : 's'} solved.`
@@ -547,18 +575,11 @@ export class AgdaController {
     await this.resetDriveProxyStats()
     try {
       await this.measurePerformance('Agda Cmd_load', async () => {
-      this.alsRouter!.lastAgdaInternalError = null
-      this.alsRouter!.lastAgdaError = null
-      await this.runAgdaCommand({
+      const result = await this.runAgdaCommand({
         tag: 'CmdReq',
         contents: `IOTCM ${encodedFilePath} NonInteractive Direct (Cmd_load ${encodedFilePath} ${JSON.stringify(loadArgs)})`,
       })
-      if (this.alsRouter!.lastAgdaInternalError) {
-        throw new Error(`ALS failed to process ${this.currentFilePath}: ${this.alsRouter!.lastAgdaInternalError}`)
-      }
-      if (this.alsRouter!.lastAgdaError) {
-        throw new Error(this.alsRouter!.lastAgdaError)
-      }
+      throwIfAgdaFailed(result, this.currentFilePath)
       }, { file: this.currentFilePath })
     } finally {
       await this.appendDriveProxyStats('Drive proxy after Cmd_load')
@@ -606,27 +627,86 @@ export class AgdaController {
     this._lastLoadedBlockKey = key
   }
 
-  async runAgdaCommand(
+  /** Commands waiting for, or holding, the one Agda session. */
+  commandsInFlight = $state(0)
+  private commandChain: Promise<unknown> = Promise.resolve()
+  /** Bumped when the worker is stopped or replaced: runs from before fail. */
+  private commandGeneration = 0
+  /** Fails the running command at once (its request may never answer). */
+  private cancelRunningCommand: (() => void) | undefined
+
+  private abandonCommands() {
+    this.commandGeneration++
+    this.cancelRunningCommand?.()
+  }
+
+  /**
+   * Sends one IOTCM request and waits for its ResponseEnd. Requests run one
+   * at a time in the order they were made (agda-mode-vscode queues them
+   * too, Connection__Scheduler): Agda's responses carry no request id, so
+   * two in flight at once would share each other's results and errors.
+   * The per-command router state is set up when the run starts and read
+   * back before the next one can begin.
+   */
+  runAgdaCommand(
     params: { tag: 'CmdReq', contents: string },
-    options: { suppressAgdaInternalErrors?: boolean, suppressDisplayInfo?: boolean } = {},
-  ) {
-    if (!this.alsRouter) {
+    options: AgdaCommandOptions = {},
+  ): Promise<AgdaCommandResult> {
+    const generation = this.commandGeneration
+    this.commandsInFlight++
+    const run = this.commandChain.then(() => this.executeAgdaCommand(params, options, generation))
+    const settled = run.finally(() => { this.commandsInFlight-- })
+    this.commandChain = settled.catch(() => {})
+    return settled
+  }
+
+  private async executeAgdaCommand(
+    params: { tag: 'CmdReq', contents: string },
+    options: AgdaCommandOptions,
+    generation: number,
+  ): Promise<AgdaCommandResult> {
+    const router = this.alsRouter
+    if (!router) {
       throw new Error('ALS router not ready')
     }
+    if (generation !== this.commandGeneration || this.alsWorkerStatus !== 'active') {
+      throw new Error(AGDA_RESTARTED_MESSAGE)
+    }
 
-    this.alsRouter.suppressAgdaInternalErrors = options.suppressAgdaInternalErrors ?? false
-    this.alsRouter.suppressDisplayInfo = options.suppressDisplayInfo ?? false
-    this.alsRouter.beginCommandDocumentVersion(getAgdaDocumentVersion(this.editorView!.state))
+    router.lastAgdaInternalError = null
+    router.lastAgdaError = null
+    router.pendingSolutions = undefined
+    router.pendingGiveGoal = options.pendingGiveGoal
+    router.pendingCaseSplitGoal = options.pendingCaseSplitGoal
+    router.suppressAgdaInternalErrors = options.suppressAgdaInternalErrors ?? false
+    router.suppressDisplayInfo = options.suppressDisplayInfo ?? false
+    router.beginCommandDocumentVersion(getAgdaDocumentVersion(this.editorView!.state))
+    const cancelled = new Promise<never>((_, reject) => {
+      this.cancelRunningCommand = () => reject(new Error(AGDA_RESTARTED_MESSAGE))
+    })
+    cancelled.catch(() => {})
     try {
-      await this.lspClient!.request('agda', params)
+      await Promise.race([this.lspClient!.request('agda', params), cancelled])
 
       while (this.iotcmStatus !== 'ready') {
+        if (generation !== this.commandGeneration) throw new Error(AGDA_RESTARTED_MESSAGE)
         await new Promise(r => setTimeout(r, 50))
       }
+      if (generation !== this.commandGeneration) throw new Error(AGDA_RESTARTED_MESSAGE)
+      return {
+        internalError: router.lastAgdaInternalError,
+        error: router.lastAgdaError,
+        solutions: router.pendingSolutions,
+      }
     } finally {
-      this.alsRouter.suppressAgdaInternalErrors = false
-      this.alsRouter.suppressDisplayInfo = false
-      this.alsRouter.clearCommandDocumentVersion()
+      this.cancelRunningCommand = undefined
+      router.suppressAgdaInternalErrors = false
+      router.suppressDisplayInfo = false
+      router.pendingSolutions = undefined
+      router.pendingGiveGoal = undefined
+      router.pendingCaseSplitGoal = undefined
+      router.clearCommandDocumentVersion()
     }
   }
+
 }

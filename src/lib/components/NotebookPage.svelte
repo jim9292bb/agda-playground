@@ -601,6 +601,8 @@ async function autoFetchGoalTypes(/** @type {number} */ documentVersion) {
     for (const goalId of goalIds) {
       if (getAgdaDocumentVersion(hiddenView.state) !== documentVersion) break
       if (agdaController.alsWorkerStatus !== 'active') break
+      // a user command is waiting: let it go first
+      if (agdaController.commandsInFlight > 0) break
       if (panelGoalInfos.find(g => g.id === goalId)?.type !== undefined) continue
       await agdaController.runAgdaInteraction(
         goalTypeContextCommand('Simplified', { id: goalId }),
@@ -1211,7 +1213,8 @@ $effect(() => {
     !goal ||
     goal.context !== undefined ||
     agdaController.alsWorkerStatus !== 'active' ||
-    agdaController.iotcmStatus !== 'ready'
+    agdaController.iotcmStatus !== 'ready' ||
+    agdaController.commandsInFlight > 0
   ) {
     return
   }
@@ -1226,7 +1229,7 @@ $effect(() => {
   if (autoFetchingGoalTypes) return
   if (panelGoalInfos.every(g => g.type !== undefined)) return
   if (agdaController.alsWorkerStatus !== 'active') return
-  if (agdaController.iotcmStatus !== 'ready') return
+  if (agdaController.iotcmStatus !== 'ready' || agdaController.commandsInFlight > 0) return
   const documentVersion = getAgdaDocumentVersion(hiddenView.state)
   untrack(() => {
     void autoFetchGoalTypes(documentVersion)

@@ -312,6 +312,8 @@ async function autoFetchGoalTypes(/** @type {number} */ documentVersion) {
       const view = agdaController.editorView
       if (!view || getAgdaDocumentVersion(view.state) !== documentVersion) break
       if (agdaController.alsWorkerStatus !== 'active') break
+      // a user command is waiting: let it go first
+      if (agdaController.commandsInFlight > 0) break
       if (panelGoalInfos.find(g => g.id === goalId)?.type !== undefined) continue
       await agdaController.runAgdaInteraction(
         goalTypeContextCommand('Simplified', { id: goalId }),
@@ -817,7 +819,8 @@ $effect(() => {
     !goal ||
     goal.context !== undefined ||
     agdaController.alsWorkerStatus !== 'active' ||
-    agdaController.iotcmStatus !== 'ready'
+    agdaController.iotcmStatus !== 'ready' ||
+    agdaController.commandsInFlight > 0
   ) {
     return
   }
@@ -832,7 +835,7 @@ $effect(() => {
   if (autoFetchingGoalTypes) return
   if (panelGoalInfos.every(g => g.type !== undefined)) return
   if (agdaController.alsWorkerStatus !== 'active') return
-  if (agdaController.iotcmStatus !== 'ready') return
+  if (agdaController.iotcmStatus !== 'ready' || agdaController.commandsInFlight > 0) return
   const view = agdaController.editorView
   if (!view) return
   const documentVersion = getAgdaDocumentVersion(view.state)
