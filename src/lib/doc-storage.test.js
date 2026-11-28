@@ -67,4 +67,33 @@ describe('DocStorage', () => {
     expect(docs.load('default')).toBe('default')
     expect(() => docs.save('x')).not.toThrow()
   })
+
+  it('reports another tab\'s save of the current key, but not its own or other keys', () => {
+    const target = new EventTarget()
+    const win = /** @type {Window} */ (/** @type {unknown} */ (target))
+    const docs = new DocStorage({ getKey: () => 'k', storage: memoryStorage() })
+    docs.save('mine')
+    /** @type {string[]} */
+    const seen = []
+    const stop = docs.watch(text => seen.push(text), win)
+    const fire = (/** @type {string | null} */ key, /** @type {string | null} */ newValue) =>
+      target.dispatchEvent(Object.assign(new Event('storage'), { key, newValue }))
+    fire('k', 'mine')
+    fire('other', 'x')
+    fire('k', null)
+    fire('k', 'theirs')
+    stop()
+    fire('k', 'later')
+    expect(seen).toEqual(['theirs'])
+  })
+
+  it('adopt drops a pending save and marks the text as saved', () => {
+    const storage = memoryStorage()
+    const docs = new DocStorage({ getKey: () => 'k', storage, delayMs: 100 })
+    docs.schedule(() => 'stale')
+    docs.adopt('theirs')
+    vi.advanceTimersByTime(100)
+    expect(storage.getItem('k')).toBeNull()
+    expect(docs.isDirty('theirs')).toBe(false)
+  })
 })

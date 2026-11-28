@@ -7,6 +7,14 @@
  * All reads and writes of the buffer's localStorage entry go through here,
  * which also lets it tell its own saves apart from another tab's.
  */
+/** Log text when another tab's newer save replaced this tab's buffer. */
+export const OTHER_TAB_ADOPTED_MESSAGE =
+  'Loaded the version saved in another tab. Click Load to type-check it.\n'
+
+/** Log text when another tab saved while this tab had unsaved edits. */
+export const OTHER_TAB_CONFLICT_MESSAGE =
+  'Another tab saved a different version of this document. Your edits here will replace it; reload this page to use the other version instead.\n'
+
 export class DocStorage {
   /** @type {ReturnType<typeof setTimeout> | undefined} */
   #timer = undefined
@@ -97,6 +105,34 @@ export class DocStorage {
   /** @param {string} text */
   isDirty(text) {
     return text !== this.lastSaved
+  }
+
+  /**
+   * Call `onExternalChange(text)` when another tab saves different text
+   * under the current key (the `storage` event fires only in other tabs).
+   * @param {(text: string) => void} onExternalChange
+   * @param {Window} [win]
+   * @returns {() => void} stops watching
+   */
+  watch(onExternalChange, win = window) {
+    /** @param {StorageEvent} event */
+    const listener = event => {
+      if (event.key !== this.getKey() || event.newValue == null) return
+      if (event.newValue === this.lastSaved) return
+      onExternalChange(event.newValue)
+    }
+    win.addEventListener('storage', listener)
+    return () => win.removeEventListener('storage', listener)
+  }
+
+  /**
+   * Take `text`, saved by another tab, as this tab's saved state: drops a
+   * pending save of the older buffer without writing anything.
+   * @param {string} text
+   */
+  adopt(text) {
+    this.#cancel()
+    this.lastSaved = text
   }
 
   #cancel() {

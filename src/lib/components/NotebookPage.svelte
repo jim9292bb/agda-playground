@@ -23,6 +23,7 @@ import { agdaInputMethod } from '$lib/codemirror/agda-input'
 import { agdaSupport } from '$lib/agda'
 import { agdaDarkScheme, agdaLightScheme } from '$lib/agda/color-scheme'
 import { agdaGoalState, getAgdaDocumentVersion, getAgdaGoals } from '$lib/agda/goal-state'
+import { OTHER_TAB_CONFLICT_MESSAGE } from '$lib/doc-storage'
 import { highlightState } from '$lib/agda/highlight'
 import { getGoalAtPosition, getGoalRangeById } from '$lib/agda/goals'
 import {
@@ -303,9 +304,18 @@ const reloadAfterAgdaEdit = () => {
 hiddenView.dom.addEventListener('agda-reload-needed', reloadAfterAgdaEdit)
 const saveBeforeHide = () => agdaController.docStorage.flush()
 window.addEventListener('pagehide', saveBeforeHide)
+const stopWatchingOtherTabs = agdaController.docStorage.watch(text => {
+  if (agdaController.docStorage.isDirty(hiddenView.state.doc.toString())) {
+    textboxContent += OTHER_TAB_CONFLICT_MESSAGE
+    return
+  }
+  agdaController.docStorage.adopt(text)
+  replaceScratchpadSource(text, 'Version saved in another tab')
+})
 
 onDestroy(() => {
   window.removeEventListener('pagehide', saveBeforeHide)
+  stopWatchingOtherTabs()
   saveBeforeHide()
   agdaController.terminateALSWASM()
   hiddenView.dom.removeEventListener('agda-reload-needed', reloadAfterAgdaEdit)

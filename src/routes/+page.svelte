@@ -22,6 +22,7 @@ import { myCodeMirrorTheme } from '$lib/codemirror/theme'
 import { agdaInputMethod } from '$lib/codemirror/agda-input'
 import { agdaSupport } from '$lib/agda'
 import { getAgdaDocumentVersion, getAgdaGoals } from '$lib/agda/goal-state'
+import { OTHER_TAB_ADOPTED_MESSAGE, OTHER_TAB_CONFLICT_MESSAGE } from '$lib/doc-storage'
 import { getGoalAtPosition, getGoalRangeById } from '$lib/agda/goals'
 import {
   runAgdaShortcut as runAgdaShortcutShared,
@@ -532,6 +533,14 @@ function codeMirror(el) {
     })()
   }
   const saveBeforeHide = () => agdaController.docStorage.flush()
+  const stopWatchingOtherTabs = agdaController.docStorage.watch(text => {
+    if (agdaController.docStorage.isDirty(ev.state.doc.toString())) {
+      textboxContent += OTHER_TAB_CONFLICT_MESSAGE
+      return
+    }
+    agdaController.docStorage.adopt(text)
+    replaceScratchpadSource(text, OTHER_TAB_ADOPTED_MESSAGE)
+  })
   window.addEventListener('keydown', captureAgdaChord, { capture: true })
   window.addEventListener('pagehide', saveBeforeHide)
   ev.dom.addEventListener('agda-reload-needed', reloadAfterAgdaEdit)
@@ -539,6 +548,7 @@ function codeMirror(el) {
   return () => {
     window.removeEventListener('keydown', captureAgdaChord, { capture: true })
     window.removeEventListener('pagehide', saveBeforeHide)
+    stopWatchingOtherTabs()
     saveBeforeHide()
     ev.dom.removeEventListener('agda-reload-needed', reloadAfterAgdaEdit)
     clearChordProgress()
@@ -558,8 +568,11 @@ function clearScratchpadInteractionState() {
   agdaController.editorView?.dispatch({ effects: clearGoals.of() })
 }
 
-/** @param {string} source */
-function replaceScratchpadSource(source) {
+/**
+ * @param {string} source
+ * @param {string} [message] log text, defaults to the example-loaded one
+ */
+function replaceScratchpadSource(source, message = 'Example loaded into editor. Click Load to type-check it.\n') {
   const view = agdaController.editorView
   if (!view) return
   view.dispatch({
@@ -568,7 +581,7 @@ function replaceScratchpadSource(source) {
   })
   agdaController.docStorage.save(source)
   clearScratchpadInteractionState()
-  textboxContent = 'Example loaded into editor. Click Load to type-check it.\n'
+  textboxContent = message
   view.focus()
 }
 
